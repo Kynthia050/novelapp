@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ novel.title }} — Myshelf</title>
+  <style>
+    :root{
+  --bg:#1f1f21; --panel:#232326; --text:#f3f3f3; --muted:#c7c7cc; --accent:#e7e7ea;
+  --card:#2a2a2d; --radius:16px; --shadow:0 4px 12px rgba(0,0,0,.35);
+  --chip:#2f2f33; --chip-on:#3a3a40; --brand:#fff;
+  --star:#ffd76a;  
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family: "Georgia", serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
+      line-height:1.6;
+    }
+    .site{max-width:1200px;margin-inline:auto;padding-inline:clamp(16px, 4vw, 28px);}
+    header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg, rgba(31,31,33,.98), rgba(31,31,33,.95));backdrop-filter: blur(6px);border-bottom:1px solid rgba(255,255,255,.06);}
+    .navbar{display:flex;align-items:center;gap:16px;padding:14px 0}
+    .brand{letter-spacing:.25em;font-weight:700}
+    .brand, .brand span{font-size:clamp(16px, 2.6vw, 28px)}
+    .brand img{height:clamp(40px, 5vw, 72px);width:auto;object-fit:contain}
+
+    .nav-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
+    .search{position:relative;min-width:min(40vw, 280px)}
+    .search input{width:100%;padding:8px 32px 8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:#111214;color:var(--text);outline:none;}
+    .search button{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer}
+    .icon-btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:#111214;color:var(--muted);display:grid;place-items:center;cursor:pointer;font-size:18px}
+
+    section{padding:28px 0}
+    h1{font-size:clamp(24px, 3vw, 36px);letter-spacing:.15em;margin:0 0 16px 0;font-weight:700}
+    h2{font-size:clamp(18px, 2vw, 24px);letter-spacing:.15em;margin:0 0 16px 0;font-weight:700}
+
+    .novel-header{display:grid;grid-template-columns: 300px 1fr;gap:32px;margin-bottom:16px}
+    .cover-image{width:100%;aspect-ratio:6/6;object-fit:cover;border-radius:var(--radius);box-shadow:var(--shadow)}
+    .novel-info h1{margin-top:0}
+    .novel-meta{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+    .meta-item{background:var(--chip);padding:8px 16px;border-radius:999px;font-size:14px}
+    .novel-description{color:var(--muted);line-height:1.7;margin:16px 0}
+
+    /* --------- RATING SECTION ใต้รูปปก ---------- */
+       .novel-left{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    
+
+    .rating-row-top{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:12px;
+      font-size:14px;
+    }
+    .rating-title{
+      font-weight:600;
+      letter-spacing:.06em;
+    }
+    .rating-summary{
+      text-align:right;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .rating-summary-score{
+      font-weight:600;
+      color:var(--accent);
+      margin-left:4px;
+    }
+    .rating-summary-count{
+      display:block;
+    }
+
+    .rating-row-stars{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:2px;
+    }
+
+    .star-rating{
+      display:inline-flex;
+      gap:4px;
+      font-size:22px;
+      direction:rtl; /* ทำให้ input:checked ~ label เติมดาวไปทางซ้าย */
+    }
+    .star-rating input{
+      display:none;
+    }
+    .star-rating label{
+      cursor:pointer;
+      color:rgba(255,255,255,.18);
+      text-shadow:0 0 10px rgba(0,0,0,.4);
+      transition:color .15s ease, transform .15s ease;
+    }
+    .star-rating label:hover,
+    .star-rating label:hover ~ label{
+      color:var(--star);
+      transform:translateY(-1px);
+    }
+    .star-rating input:checked ~ label{
+      color:var(--star);
+    }
+
+    .rating-hint{
+      font-size:11px;
+      color:var(--muted);
+      opacity:.85;
+    }
+
+    @media (max-width:768px){
+      .rating-panel{
+        margin-top:8px;
+      }
+      .rating-row-top{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .rating-summary{
+        text-align:left;
+      }
+    }
+
+
+    /* --------- CHAPTER LIST (แบบ All chapters + เส้นคั่น) ---------- */
+
+    .chapters-section{
+      margin-top: 8px;
+    }
+
+    .chapters-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
+
+    .chapters-heading{
+      font-size:clamp(18px, 2vw, 24px);
+      letter-spacing:.15em;
+      margin:0;
+      font-weight:700;
+    }
+
+    .chapters-sort{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:.85rem;
+      color:var(--muted);
+    }
+    .chapters-sort-label{
+      opacity:.8;
+    }
+    .sort-pill{
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      text-decoration:none;
+      color:var(--muted);
+      font-size:.75rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      cursor:pointer;
+      background:transparent;
+      outline:none;
+      transition:background .15s ease,color .15s ease,border-color .15s ease;
+    }
+    .sort-pill:hover{
+      background:rgba(255,255,255,.08);
+    }
+    .sort-pill.active{
+      background:var(--accent);
+      color:#111214;
+      border-color:transparent;
+    }
+
+    .chapters-list{
+      border-top:1px solid rgba(255,255,255,.18);
+    }
+    .chapter-row{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      padding:18px 0;
+      text-decoration:none;
+      color:var(--text);
+      border-bottom:1px solid rgba(255,255,255,.18);
+      transition:background .15s ease;
+    }
+    .chapter-row:hover{
+      background:rgba(255,255,255,.03);
+    }
+    .chapter-main{
+      display:flex;
+      gap:10px;
+      font-size:1rem;
+      letter-spacing:.06em;
+      flex-wrap:wrap;
+      color:var(--text);        /* ให้สีเหมือนเดิม */
+      text-decoration:none;     /* ตัดเส้นใต้ลิงก์ */
+    }
+
+    .chapter-main:visited{
+      color:var(--text);        /* ลิงก์ที่เคยคลิกแล้วก็ให้เป็นสีเดียวกัน */
+    }
+
+    .chapter-main:hover{
+      text-decoration:none;     /* เวลา hover ไม่ต้องมีเส้นใต้เพิ่ม */
+    }
+
+    .chapter-label{
+      opacity:.9;
+    }
+    .chapter-title{
+      font-weight:500;
+    }
+    .chapter-meta{
+      display:flex;
+      gap:16px;
+      font-size:.85rem;
+      color:var(--muted);
+      flex-shrink:0;
+      align-items:center;
+    }
+    .chapter-like{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+    }
+    @media(max-width:600px){
+      .chapter-row{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:4px;
+      }
+      .chapter-meta{
+        font-size:.8rem;
+      }
+    }
+        .chapter-like{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+    }
+
+        .chapter-like-form{
+      margin:0;
+    }
+
+    .chapter-like-btn{
+      border:0;
+      background:transparent;
+      cursor:pointer;
+      padding:0;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      font-size:.85rem;
+      color:var(--muted);
+    }
+
+    .chapter-like-btn .heart-icon{
+      font-size:1rem;
+      transition:transform .15s ease;
+    }
+
+    .chapter-like-btn:hover .heart-icon{
+      transform:translateY(-1px);
+    }
+
+    .chapter-like-btn.liked .heart-icon{
+      color:#ff4b6e; /* หัวใจแดงเมื่อกดแล้ว */
+    }
+
+    
+
+    .back-link{display:inline-flex;align-items:center;gap:8px;color:var(--accent);text-decoration:none;margin-bottom:24px;font-size:14px}
+    .back-link:hover{text-decoration:underline}
+
+    @media (max-width:768px){
+      .novel-header{grid-template-columns:1fr;gap:20px}
+      .cover-image{max-width:300px;margin:0 auto}
+    }
+
+    /* ---------------- COMMENTS UI ---------------- */
+
+    .comments-wrap{
+      margin-top:8px;
+      padding:28px 0 40px;
+      border-top:1px solid rgba(255,255,255,.08);
+      position:relative;
+      overflow:hidden;
+    }
+    .comment-form{
+      margin-bottom:24px;
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:16px 18px 14px;
+      border:1px solid rgba(255,255,255,.06);
+      box-shadow:var(--shadow);
+    }
+    .comment-form textarea{
+      width:100%;
+      min-height:96px;
+      resize:vertical;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:#111214;
+      color:var(--text);
+      padding:10px 12px;
+      font-family:inherit;
+      font-size:14px;
+      outline:none;
+    }
+    .comment-form textarea::placeholder{
+      color:rgba(199,199,204,.8);
+    }
+    .comment-form textarea:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px rgba(255,255,255,.16);
+    }
+    .comment-form-footer{
+      margin-top:8px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+    .char-count{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .comment-submit-btn{
+      border:0;
+      border-radius:999px;
+      padding:8px 18px;
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      background:var(--accent);
+      color:#111214;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      box-shadow:0 6px 18px rgba(0,0,0,.35);
+      transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .comment-submit-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 10px 24px rgba(0,0,0,.45);
+    }
+    .comment-submit-btn:active{
+      transform:translateY(0);
+      box-shadow:0 4px 14px rgba(0,0,0,.3);
+    }
+
+    .comments-header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:6px;
+    }
+    .comments-header-main h2{
+      margin:0;
+    }
+    .comments-controls{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .comments-btn{
+      width:32px;
+      height:32px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:#111214;
+      color:var(--muted);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      font-size:14px;
+      transition:background .15s ease, color .15s ease, transform .15s ease;
+    }
+    .comments-btn:hover{
+      background:var(--accent);
+      color:#000;
+      transform:translateY(-1px);
+    }
+
+    .comments-track{
+      display:flex;
+      gap:20px;
+      overflow-x:auto;
+      scroll-snap-type:x mandatory;
+      padding:12px 4px 4px;
+      -ms-overflow-style:none;
+      scrollbar-width:none;
+    }
+    .comments-track::-webkit-scrollbar{display:none;}
+
+    .comment-card{
+      min-width:min(360px, 100%);
+      scroll-snap-align:center;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:12px;
+      opacity:0;
+      transform:translateY(18px) scale(.98);
+      transition:opacity .6s ease, transform .6s ease;
+    }
+    .comment-card.show{
+      opacity:1;
+      transform:none;
+    }
+    .comment-bubble{
+      position:relative;
+      background:var(--card);
+      border-radius:18px;
+      padding:18px 20px 20px;
+      box-shadow:var(--shadow);
+      border:1px solid rgba(255,255,255,.06);
+      transform-style:preserve-3d;
+      transition:transform .18s ease-out, box-shadow .18s ease-out;
+      width:100%;
+    }
+    .comment-bubble::after{
+      content:"";
+      position:absolute;
+      bottom:-12px;
+      left:50%;
+      transform:translateX(-50%) rotate(45deg);
+      width:22px;
+      height:22px;
+      background:var(--card);
+      box-shadow:0 4px 12px rgba(0,0,0,.4);
+      border-right:1px solid rgba(255,255,255,.06);
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+    .comment-quote{
+      font-size:32px;
+      line-height:1;
+      opacity:.6;
+      margin-bottom:8px;
+    }
+    .comment-text{
+      font-size:14px;
+      color:var(--text);
+      line-height:1.7;
+    }
+    .comment-meta{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding-left:4px;
+      margin-top:6px;
+    }
+    .comment-avatar{
+      position:relative;
+      width:48px;
+      height:48px;
+      border-radius:50%;
+      background:radial-gradient(circle at 30% 30%, #fff, #999);
+      overflow:hidden;
+      flex-shrink:0;
+      box-shadow:0 0 0 2px rgba(0,0,0,.4);
+    }
+    .comment-avatar img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      border-radius:50%;
+      display:block;
+      position:relative;
+      z-index:1;
+    }
+    .comment-avatar::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:radial-gradient(circle at 20% 20%, rgba(255,255,255,.35), transparent 55%);
+      mix-blend-mode:screen;
+      opacity:.9;
+    }
+    .comment-avatar span{
+      position:relative;
+      display:flex;
+      width:100%;
+      height:100%;
+      align-items:center;
+      justify-content:center;
+      font-size:12px;
+      font-weight:600;
+      color:#111;
+    }
+    .comment-author{
+      font-size:14px;
+    }
+    .comment-author-name{
+      font-weight:600;
+    }
+    .comment-author-sub{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:2px;
+    }
+
+    @media (max-width:768px){
+      .comments-header{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .comment-form-footer{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="site navbar">
+      <div class="brand">
+        <a href="/" style="text-decoration:none;color:inherit">
+          <img src="{{ url_for('static', filename='cover/logo.png') }}" alt="MY SHELF" />
+        </a>
+      </div>
+      <div class="nav-actions">
+        <div class="search" role="search">
+          <input type="search" placeholder="Search" aria-label="ค้นหา" />
+          <button aria-label="ค้นหา">⌕</button>
+        </div>
+        <button class="icon-btn" aria-label="งานเขียน">✏️</button>
+        <button class="icon-btn" aria-label="แจ้งเตือน">🔔</button>
+        <button class="icon-btn" aria-label="บันทึก">❤</button>
+        <button class="icon-btn" aria-label="โปรไฟล์">👤</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="site">
+    <a href="/" class="back-link">← กลับไปหน้าแรก</a>
+
+        <!-- Novel Header -->
+    <section class="novel-header">
+      <div class="novel-left">
+        <img class="cover-image"
+             src="{{ novel.cover or url_for('static', filename='cover/placeholder.jpg') }}"
+             alt="{{ novel.title }}" />
+
+        <!-- บล็อคให้คะแนน -->
+        <form id="ratingForm"
+              class="rating-panel"
+              method="post"
+              action="{{ url_for('novel.rate', novels_id=novel.novels_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="rating-row-top">
+            <div class="rating-title">ให้คะแนนเรื่องนี้</div>
+            <div class="rating-summary">
+              {% if novel.rating_count > 0 %}
+                <span>⭐</span>
+                <span class="rating-summary-score">
+                  {{ "%.1f"|format(novel.avg_rating) }}
+                </span>
+                <span class="rating-summary-count">
+                  จาก {{ novel.rating_count }} โหวต
+                </span>
+              {% else %}
+                <span>ยังไม่มีการโหวต</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="rating-row-stars">
+            <div class="star-rating">
+              {# คะแนนที่ user คนนี้เคยให้ (0 = ยังไม่เคยให้) #}
+              {% set ur = novel.user_rating or 0 %}
+              {# เรียงจาก 5 → 1 เพื่อให้ direction:rtl ทำงานถูก #}
+              {% for star in range(5, 0, -1) %}
+                <input
+                  type="radio"
+                  id="rating-{{ star }}"
+                  name="rating"
+                  value="{{ star }}"
+                  {% if ur == star %}checked{% endif %}>
+                <label for="rating-{{ star }}" title="{{ star }} ดาว">★</label>
+              {% endfor %}
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="novel-info">
+        <h1>{{ novel.title }}</h1>
+        
+        <div class="novel-meta">
+          {% if novel.category_name %}
+          <span class="meta-item">{{ novel.category_name }}</span>
+          {% endif %}
+          {% if novel.author_name %}
+          <span class="meta-item">โดย {{ novel.author_name }}</span>
+          {% endif %}
+          <span class="meta-item">{{ novel.total_chapters }} ตอน</span>
+          <span class="meta-item">ผู้อ่าน {{ novel.total_readers }}</span>
+          {% if novel.avg_rating > 0 %}
+          <span class="meta-item">⭐ {{ "%.1f"|format(novel.avg_rating) }} ({{ novel.rating_count }})</span>
+          {% endif %}
+        </div>
+
+        {% if novel.description %}
+        <p class="novel-description">{{ novel.description }}</p>
+        {% endif %}
+
+        <div class="novel-meta">
+          <span class="meta-item">
+            สถานะ: {{ 'จบแล้ว' if novel.status == 'completed' else 'ยังไม่จบ' }}
+          </span>
+          {% if novel.total_favorites > 0 %}
+          <span class="meta-item">❤ {{ novel.total_favorites }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+
+           <!-- Chapters List -->
+    <section class="chapters-section">
+      <div class="chapters-header">
+        <h2 class="chapters-heading">ตอนทั้งหมด</h2>
+
+        <div class="chapters-sort">
+          <button type="button" id="sortAsc" class="sort-pill active">
+            เก่า → ใหม่
+          </button>
+          <button type="button" id="sortDesc" class="sort-pill">
+            ใหม่ → เก่า
+          </button>
+        </div>
+      </div>
+      
+      {% if chapters %}
+      <div class="chapters-list" id="chaptersList">
+        {% for chapter in chapters %}
+        <div class="chapter-row" data-chapter-no="{{ chapter.chapter_no|int }}">
+          <!-- คลิกชื่อ/บรรทัดเพื่อเข้าอ่านตอน -->
+          <a class="chapter-main"
+             href="/reading/read/{{ novel.novels_id }}/{{ chapter.chapter_no }}">
+            <span class="chapter-label">ตอนที่ {{ chapter.chapter_no }}</span>
+            <span class="chapter-title">{{ chapter.title or 'ไม่มีชื่อตอน' }}</span>
+          </a>
+
+          <div class="chapter-meta">
+            <span class="chapter-date">
+              {{ chapter.created_at.strftime('%d/%m/%Y') if chapter.created_at else 'ไม่ระบุ' }}
+            </span>
+
+            <!-- ปุ่มหัวใจ -->
+            <form class="chapter-like-form"
+                  method="post"
+                  action="{{ url_for('novel.toggle_chapter_like',
+                                     novels_id=novel.novels_id,
+                                     chapters_id=chapter.chapters_id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <button type="submit"
+                      class="chapter-like-btn{% if chapter.is_liked %} liked{% endif %}">
+                <span class="heart-icon">❤</span>
+                <span class="like-count">{{ chapter.like_count or 0 }}</span>
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="opacity:.7">ยังไม่มีตอนในนิยายนี้</p>
+      {% endif %}
+    </section>
+
+
+
+    <!-- Comments (form + list) -->
+    <section class="comments-wrap">
+      <form class="comment-form" method="post"
+            action="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <textarea
+          id="commentContent"
+          name="content"
+          maxlength="500"
+          placeholder="พิมพ์ความคิดเห็นของคุณที่นี่..."
+          required></textarea>
+        <div class="comment-form-footer">
+          <span class="char-count" id="commentCharCount">0/500</span>
+          <button type="submit" class="comment-submit-btn">
+            ส่งความคิดเห็น
+          </button>
+        </div>
+      </form>
+
+      <div class="comments-header">
+        <div class="comments-header-main">
+          <h2>ความคิดเห็นผู้อ่าน</h2>
+        </div>
+        <div class="comments-controls">
+          <button type="button" class="comments-btn" id="commentsPrev" aria-label="ความคิดเห็นก่อนหน้า">❮</button>
+          <button type="button" class="comments-btn" id="commentsNext" aria-label="ความคิดเห็นถัดไป">❯</button>
+        </div>
+      </div>
+
+      {% if comments %}
+      <div class="comments-track" id="commentsTrack">
+        {% for c in comments %}
+        <article class="comment-card">
+          <div class="comment-bubble">
+            <div class="comment-quote">“</div>
+            <p class="comment-text">
+              {{ c.content }}
+            </p>
+          </div>
+          <div class="comment-meta">
+            <div class="comment-avatar">
+              {% if c.avatar_url %}
+                <img src="{{ c.avatar_url }}"
+                     alt="{{ c.username or ('ผู้ใช้ #' ~ c.users_id) }}">
+              {% else %}
+                <span>{{ c.username or ('#' ~ c.users_id) }}</span>
+              {% endif %}
+            </div>
+            <div class="comment-author">
+              <div class="comment-author-name">
+                {{ c.username or ('ผู้ใช้ #' ~ c.users_id) }}
+              </div>
+              <div class="comment-author-sub">
+                {% if c.created_at %}
+                  {{ c.created_at.strftime('%d/%m/%Y') }}
+                {% else %}
+                  ไม่ระบุวันที่
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+        <p style="opacity:.7;margin-top:12px;">ยังไม่มีความคิดเห็นในนิยายนี้</p>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <script>
+    // auto submit form ให้คะแนนเมื่อเลือกดาว
+    (function () {
+      const form = document.getElementById('ratingForm');
+      if (!form) return;
+      const inputs = form.querySelectorAll('.star-rating input[type="radio"]');
+      inputs.forEach(input => {
+        input.addEventListener('change', () => {
+          form.submit();
+        });
+      });
+    })();
+    // script สำหรับ carousel + effect เดิม
+    (function(){
+      const track = document.getElementById('commentsTrack');
+      const prevBtn = document.getElementById('commentsPrev');
+      const nextBtn = document.getElementById('commentsNext');
+      const cards = document.querySelectorAll('.comment-card');
+      if (!track) return;
+
+      const io = new IntersectionObserver((entries)=>{
+        entries.forEach(e=>{
+          if(e.isIntersecting){
+            e.target.classList.add('show');
+            io.unobserve(e.target);
+          }
+        });
+      }, {threshold:0.15});
+      cards.forEach(c=>io.observe(c));
+
+      const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
+      document.querySelectorAll('.comment-bubble').forEach(bubble=>{
+        bubble.addEventListener('mousemove', e=>{
+          const r = bubble.getBoundingClientRect();
+          const rx = ((e.clientY - r.top) / r.height - .5) * -6;
+          const ry = ((e.clientX - r.left) / r.width - .5) *  6;
+          bubble.style.transform = `rotateX(${clamp(rx,-6,6)}deg) rotateY(${clamp(ry,-6,6)}deg) translateZ(0)`;
+        });
+        bubble.addEventListener('mouseleave', ()=>{
+          bubble.style.transform = '';
+        });
+      });
+
+      const step = ()=> track.clientWidth * 0.7;
+      if (prevBtn && nextBtn){
+        prevBtn.addEventListener('click', ()=> {
+          track.scrollBy({left:-step(), behavior:'smooth'});
+        });
+        nextBtn.addEventListener('click', ()=> {
+          track.scrollBy({left: step(), behavior:'smooth'});
+        });
+      }
+
+      let timer = null;
+      const startAuto = ()=>{
+        if (timer) return;
+        timer = setInterval(()=> {
+          if (nextBtn) nextBtn.click();
+        }, 5000);
+      };
+      const stopAuto = ()=>{
+        if (!timer) return;
+        clearInterval(timer);
+        timer = null;
+      };
+      startAuto();
+      track.addEventListener('mouseenter', stopAuto);
+      track.addEventListener('mouseleave', startAuto);
+    })();
+
+    // script นับตัวอักษรในกล่องคอมเมนต์ (ไม่เกิน 500)
+    (function(){
+      const textarea = document.getElementById('commentContent');
+      const counter  = document.getElementById('commentCharCount');
+      if (!textarea || !counter) return;
+      const max = parseInt(textarea.getAttribute('maxlength') || '500', 10);
+      const update = () => {
+        const len = textarea.value.length;
+        counter.textContent = `${len}/${max}`;
+      };
+      textarea.addEventListener('input', update);
+      update();
+    })();
+
+    // Sort chapters บนหน้า (ไม่รีเฟรชหน้า)
+    (function(){
+      const list = document.getElementById('chaptersList');
+      const ascBtn = document.getElementById('sortAsc');
+      const descBtn = document.getElementById('sortDesc');
+      if (!list || !ascBtn || !descBtn) return;
+
+      const originalRows = Array.from(list.querySelectorAll('.chapter-row'));
+
+      function sortChapters(direction){
+        const rows = [...originalRows].sort((a,b)=>{
+          const na = parseFloat(a.dataset.chapterNo || '0');
+          const nb = parseFloat(b.dataset.chapterNo || '0');
+          return direction === 'asc' ? na - nb : nb - na;
+        });
+        rows.forEach(row => list.appendChild(row));
+      }
+      function setActive(btn){
+        [ascBtn, descBtn].forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      }
+      ascBtn.addEventListener('click', ()=>{
+        sortChapters('asc');
+        setActive(ascBtn);
+      });
+      descBtn.addEventListener('click', ()=>{
+        sortChapters('desc');
+        setActive(descBtn);
+      });
+      sortChapters('asc');
+      setActive(ascBtn);
+    })();
+
+    // auto submit rating form เมื่อเลือกดาว
+    (function(){
+      const form = document.querySelector('.rating-form');
+      if (!form) return;
+      const inputs = form.querySelectorAll('.rating-input');
+      inputs.forEach(input=>{
+        input.addEventListener('change', ()=>{
+          form.submit();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

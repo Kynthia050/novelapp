@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>
+    {{ (novel_title ~ ' — ตอน ' ~ chapter_no ~ (chapter_title and (': ' ~ chapter_title) or '')) if novel_title else 'Novel Reader - MYSHELF' }}
+  </title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:"Georgia",serif;line-height:1.8;min-height:100vh;display:flex;flex-direction:column;transition:background .3s,color .3s}
+    body.dark-mode{background:#222;color:#eee}
+    body.light-mode{background:#fdfdfd;color:#222}
+
+    main{flex:1;max-width:900px;margin:0 auto;padding:2rem 1rem 6rem}
+    .chapter-header{text-align:center;margin-bottom:2rem}
+    .chapter-title{font-size:2rem;font-weight:400;margin-bottom:.8rem}
+    .chapter-subtitle{font-size:1.1rem;margin-bottom:.25rem;opacity:.85}
+    .author-name{font-size:1rem;opacity:.7}
+
+    .chapter-content{border-radius:6px;padding:2rem;font-size:1.1rem;margin-bottom:2rem;transition:background .3s}
+    body.dark-mode .chapter-content{background:#333}
+    body.light-mode .chapter-content{background:#f1f1f1}
+
+    .content-paragraph{margin-bottom:1.5rem}
+    .content-paragraph:last-child{margin-bottom:0}
+
+    .navigation-controls{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:1.5rem}
+    .nav-arrow{width:45px;height:45px;background:#ddd;border:none;border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .3s}
+    .nav-arrow[disabled]{opacity:.5;cursor:not-allowed}
+    .nav-arrow:hover{background:#bbb}
+    .back-to-cover-btn{background:#ddd;border:none;padding:.6rem 1.5rem;border-radius:20px;font-size:.95rem;cursor:pointer;transition:background .3s}
+    .back-to-cover-btn:hover{background:#bbb}
+
+    .theme-toggle{position:fixed;top:1rem;right:1rem;background:transparent;border:none;font-size:1.5rem;cursor:pointer;transition:transform .3s}
+    .theme-toggle:hover{transform:rotate(20deg)}
+
+    /* Progress pill */
+    .progress-pill{
+      position:fixed;top:1rem;left:1rem;z-index:50;
+      background:rgba(0,0,0,.5);color:#fff;padding:.35rem .7rem;border-radius:999px;
+      font-size:.9rem;backdrop-filter:blur(4px)
+    }
+    body.light-mode .progress-pill{background:rgba(0,0,0,.6)}
+    /* Progress bar at bottom */
+    .progress-bar{
+      position:fixed;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.15)
+    }
+    .progress-bar__fill{height:100%;width:0%}
+    body.dark-mode .progress-bar__fill{background:#69d}
+    body.light-mode .progress-bar__fill{background:#36c}
+
+    @media (max-width:768px){
+      .chapter-title{font-size:1.6rem}
+      .chapter-subtitle{font-size:1rem}
+      .chapter-content{padding:1.5rem;font-size:1rem}
+      .nav-arrow{width:40px;height:40px;font-size:1rem}
+      .back-to-cover-btn{padding:.5rem 1.2rem;font-size:.85rem}
+    }
+  </style>
+</head>
+
+<body class="dark-mode"
+      data-novels-id="{{ novels_id }}"
+      data-chapters-id="{{ chapters_id }}">
+
+  <!-- Theme toggle -->
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
+
+  <!-- Progress pill -->
+  <div class="progress-pill" id="progress-pill">0%</div>
+
+  <main>
+    <!-- Header -->
+    <div class="chapter-header">
+      <h1 class="chapter-title">
+        {{ chapter_title or ('Chapter ' ~ chapter_no) }}
+      </h1>
+
+      {% if novel_title %}
+        <div class="chapter-subtitle">{{ novel_title }}</div>
+      {% endif %}
+
+      <div class="author-name">
+        Writer : {{ author_name or 'Unknown' }}
+        {% if created_at %} • {{ created_at }}{% endif %}
+      </div>
+    </div>
+
+    <!-- Content (ใช้เป็นฐานวัดความคืบหน้า) -->
+    <div class="chapter-content" id="reader-content">
+      {% if html_content %}
+        <!-- แสดง HTML content โดยตรง -->
+        {{ html_content|safe }}
+      {% elif paragraphs and paragraphs|length %}
+        <!-- แสดง plain text paragraphs -->
+        {% for p in paragraphs %}
+          <p class="content-paragraph">{{ p }}</p>
+        {% endfor %}
+      {% else %}
+        <p class="content-paragraph" style="opacity:.7">ยังไม่มีเนื้อหาสำหรับตอนนี้</p>
+      {% endif %}
+      
+      <!-- แสดง like count -->
+      {% if like_count and like_count > 0 %}
+        <div style="margin-top: 2rem; text-align: center; opacity: 0.7;">
+          <span>❤️ {{ like_count }} คนชอบ</span>
+        </div>
+      {% endif %}
+    </div>
+  </main>
+
+  <!-- Navigation -->
+    <div class="navigation-controls">
+    <button class="nav-arrow"
+            {% if not prev_url %}disabled{% endif %}
+            onclick="if(this.hasAttribute('disabled')) return; window.location='{{ prev_url }}'">◀</button>
+
+    <button class="back-to-cover-btn"
+          onclick="window.location='{% if is_preview and writing_url %}{{ writing_url }}{% else %}{{ back_url }}{% endif %}'">
+    {% if is_preview and writing_url %}
+      Back to editor
+    {% else %}
+      Back to cover
+    {% endif %}
+  </button>
+
+    <button class="nav-arrow"
+            {% if not next_url %}disabled{% endif %}
+            onclick="if(this.hasAttribute('disabled')) return; window.location='{{ next_url }}'">▶</button>
+  </div>
+
+
+  <!-- Bottom progress bar -->
+  <div class="progress-bar" aria-hidden="true">
+    <div class="progress-bar__fill" id="progress-fill"></div>
+  </div>
+
+  <script>
+    const toggleBtn = document.getElementById("theme-toggle");
+    const body = document.body;
+    const pill = document.getElementById("progress-pill");
+    const fill = document.getElementById("progress-fill");
+    const content = document.getElementById("reader-content");
+
+    // restore theme from localStorage
+    (function () {
+      const saved = localStorage.getItem("myshelf-theme");
+      if (saved === "light") {
+        body.classList.remove("dark-mode");
+        body.classList.add("light-mode");
+        toggleBtn.textContent = "🌞";
+      }
+    })();
+
+    toggleBtn.addEventListener("click", () => {
+      body.classList.toggle("dark-mode");
+      body.classList.toggle("light-mode");
+      const isLight = body.classList.contains("light-mode");
+      toggleBtn.textContent = isLight ? "🌞" : "🌙";
+      localStorage.setItem("myshelf-theme", isLight ? "light" : "dark");
+    });
+
+    // ===== Reading Progress & Auto Save =====
+    const novelsId = Number(body.dataset.novelsId || 0);
+    const chaptersId = Number(body.dataset.chaptersId || 0);
+
+    // ป้องกันยิงถี่: ส่งเมื่อเพิ่มขึ้น >= 5% และไม่บ่อยกว่า 5 วิ
+    let lastSentPct = 0;
+    let lastSentAt = 0;
+
+    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+
+    function getContentProgressPercent() {
+      if (!content) return 0;
+      const rect = content.getBoundingClientRect();
+      const viewportH = window.innerHeight || document.documentElement.clientHeight;
+
+      // ส่วนที่ "ถูกอ่านแล้ว" = จาก top ของ content ถึงขอบล่าง viewport
+      const contentTopInDoc = window.scrollY + rect.top;
+      const seenBottomInDoc = window.scrollY + viewportH;
+      const seenHeight = seenBottomInDoc - contentTopInDoc;
+
+      const totalHeight = content.scrollHeight; // ความสูงเนื้อหาเต็ม
+      const pct = (seenHeight / totalHeight) * 100;
+      return clamp(Math.floor(pct), 0, 100);
+    }
+
+    function renderProgress(pct){
+      pill.textContent = pct + "%";
+      fill.style.width = pct + "%";
+    }
+
+    async function sendProgress(pct){
+  if (!novelsId || !chaptersId) return;
+
+  const now = Date.now();
+  if (pct < lastSentPct + 5) return;
+  if (now - lastSentAt < 5000) return;
+
+  try{
+    const resp = await fetch("{{ url_for('reading.save_reading_progress') }}", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: new URLSearchParams({
+        novels_id: String(novelsId),
+        chapters_id: String(chaptersId),
+        progress: String(pct)
+      })
+    });
+    if (!resp.ok) {
+      console.debug("progress save skipped:", resp.status);
+    } else {
+      lastSentPct = pct;
+      lastSentAt = now;
+    }
+  }catch(err){
+    console.debug("progress save failed:", err);
+  }
+}
+
+
+    function onScrollOrResize(){
+      const pct = getContentProgressPercent();
+      renderProgress(pct);
+      sendProgress(pct);
+    }
+
+    // initial
+    onScrollOrResize();
+    addEventListener("scroll", onScrollOrResize, { passive: true });
+    addEventListener("resize", onScrollOrResize);
+
+    // กันกรณีเนื้อหาภายในเปลี่ยนขนาดหลังโหลด (ภาพ/ฟอนต์)
+    let rafId = null;
+    function tick(){
+      onScrollOrResize();
+      rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
+    // ยกเลิกเมื่อออกจากหน้า
+    addEventListener("beforeunload", () => { if (rafId) cancelAnimationFrame(rafId); });
+  </script>
+</body>
+</html>

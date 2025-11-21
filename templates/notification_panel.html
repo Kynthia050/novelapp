@@ -1,0 +1,129 @@
+{% set _container_id = container_id|default('notiContainer') %}
+
+<div id="{{ _container_id }}" class="relative bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 overflow-hidden" aria-live="polite">
+  <!-- Header -->
+  <div class="flex items-center justify-between px-4 py-3 border-b">
+    <div class="flex items-center gap-2">
+      <svg class="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M15 17h5l-1.4-1.4A4 4 0 0 1 18 12V9a6 6 0 1 0-12 0v3c0 1.1-.4 2.1-1.1 2.9L3 17h5m6 0v1a3 3 0 1 1-6 0v-1" />
+      </svg>
+      <span class="font-semibold">Notifications</span>
+      <span class="ml-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+        {{ unread_count or 0 }}
+      </span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button id="btnMarkAll" class="p-1.5 rounded-lg hover:bg-slate-100" title="ทำเป็นอ่านแล้วทั้งหมด">
+        <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- รายการแจ้งเตือน -->
+  <ul class="divide-y divide-slate-100 max-h-[70vh] overflow-y-auto">
+    {% if notifications %}
+      {% for n in notifications %}
+        <li class="{{ '' if n.is_read else 'bg-slate-50' }}">
+          <div class="flex items-start gap-3 p-4">
+            <!-- ไอคอนวงกลม -->
+            <div class="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full
+                        {{ 'bg-slate-200 text-slate-700' if not n.is_read else 'bg-slate-100 text-slate-500' }}">
+              {% if n.type == 'new_chapter' %}
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 4a2 2 0 00-2 2v12.5A2.5 2.5 0 016.5 21H19a1 1 0 001-1V6a2 2 0 00-2-2H6zM6.5 19a.5.5 0 01-.5-.5V6h11v12H6.5z"/>
+                </svg>
+              {% elif n.type == 'chapter_updated' %}
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              {% elif n.type == 'comment' %}
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 2H4a2 2 0 00-2 2v14l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
+                </svg>
+              {% elif n.type == 'favorite' %}
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 17.3l6.18 3.73-1.64-7.03L21 9.24l-7.19-.62L12 2 10.19 8.62 3 9.24l4.46 4.76L5.82 21z"/>
+                </svg>
+              {% elif n.type == 'bookshelf_add' %}
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M7 4h10v2H7V4zm0 4h10v2H7V8zm0 4h10v6H7v-6zM5 4h2v14H5V4zm12 0h2v14h-2V4z"/>
+                </svg>
+              {% elif n.type == 'rating' %}
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 14a4 4 0 114-4 4 4 0 01-4 4zm0-6a2 2 0 102 2 2 2 0 00-2-2z"/>
+                </svg>
+              {% else %}
+                <span class="text-lg">🔔</span>
+              {% endif %}
+            </div>
+
+            <!-- เนื้อหา -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <div class="font-semibold text-slate-900">
+                  {{ n.type_label }}
+                  {% if n.novel_title %}
+                    — <span class="font-normal text-slate-700">
+                      {{ n.novel_title }}{% if n.chapter_no %} • ตอน {{ n.chapter_no }}{% endif %}
+                    </span>
+                  {% endif %}
+                </div>
+                <div class="text-xs text-slate-400 whitespace-nowrap">{{ n.created_at_display }}</div>
+              </div>
+
+              <p class="mt-0.5 text-sm text-slate-600 line-clamp-2">{{ n.message }}</p>
+
+              <div class="mt-3 flex items-center gap-2">
+                {% if n.is_read %}
+                  <button data-id="{{ n.notification_id }}" data-read="0"
+                          class="btn-read px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-50">
+                    ทำเป็นยังไม่ได้อ่าน
+                  </button>
+                {% else %}
+                  <button data-id="{{ n.notification_id }}" data-read="1"
+                          class="btn-read px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm hover:bg-black">
+                    ทำเป็นอ่านแล้ว
+                  </button>
+                {% endif %}
+                <button data-id="{{ n.notification_id }}"
+                        class="btn-del px-3 py-1.5 rounded-lg border border-red-300 text-red-600 text-sm hover:bg-red-50">
+                  ลบ
+                </button>
+              </div>
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+    {% else %}
+      <li><div class="p-8 text-center text-slate-500">ไม่มีการแจ้งเตือน</div></li>
+    {% endif %}
+  </ul>
+</div>
+
+<!-- สคริปต์ผูกอีเวนต์ & รีเฟรช partial -->
+<script>
+  // ยูทิลที่กันคลิกซ้ำและโชว์ error สั้น ๆ
+  async function guardedAction(btn, action){
+    if (!btn) return;
+    btn.disabled = true; btn.classList.add('opacity-60');
+    try { await action(); }
+    catch(e){ alert('ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'); }
+    finally { btn.disabled = false; btn.classList.remove('opacity-60'); }
+  }
+
+  // โค้ดเดิมที่ bind ปุ่ม mark/read/delete ให้เปลี่ยนมาใช้ guardedAction
+  (function init(){
+    document.querySelectorAll('[data-action]').forEach(btn=>{
+      btn.addEventListener('click', (ev)=>{
+        const act = btn.dataset.action;
+        guardedAction(btn, async ()=>{
+          await doFetchFor(act, btn.dataset.id);
+        });
+      });
+    });
+  })();
+</script>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Edit Novel — MY SHELF</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg:    '#111214',
+            panel: '#18191b',
+            line:  '#27282c',
+            text:  '#e5e7eb',
+            muted: '#9ca3af',
+            brand: '#d4d4d8' // เทาแทนสีสด
+          },
+          borderRadius: { '2xl': '16px' }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root { --bg:#111214; --panel:#18191b; --line:#27282c; --text:#e5e7eb; --muted:#9ca3af; --radius:16px }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{ margin:0; background: var(--bg); color:var(--text); }
+    .site{max-width:1100px;margin:0 auto;padding:20px}
+    .panel{background:rgba(24,25,27,.96);border:1px solid var(--line);border-radius:var(--radius)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem}
+    .btn-primary{background:#f3f4f6;color:#111827;border:1px solid #d1d5db}
+    .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+    .btn-dark{background:#0f0f10;border:1px solid #2b2c30;color:#e5e7eb}
+    .btn:disabled{opacity:.5;pointer-events:none}
+    .input, .select, .textarea{width:100%;padding:.65rem .8rem;border:1px solid var(--line);border-radius:12px;background:#0f1012;color:var(--text);outline:none}
+    .select{appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23a1a1aa%22 d=%22M6 8L0 0h12z%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right .8rem center;background-size:12px 8px}
+    .chip{display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .6rem;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.03)}
+    .chip button{opacity:.6}
+    .chip button:hover{opacity:1}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none}
+    .modal{position:fixed;inset:0;display:none;place-items:center}
+    .modal.open,.modal-backdrop.open{display:grid}
+
+    /* กล่องอัปโหลดปกแบบสี่เหลี่ยมจัตุรัส (อ้างอิงภาพเรฟ) */
+    .cover-upload{
+      width:min(320px, 90vw);
+      height:min(320px, 90vw);
+      border:2px dashed var(--line);
+      border-radius:16px;
+      background:#0f1012;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:6px; cursor:pointer;
+    }
+    .cover-upload:focus{outline:2px dashed #4b5563; outline-offset:2px}
+    .cover-upload img{
+      width:100%; height:100%;
+      object-fit:cover;
+      border-radius:16px;
+      display:block;
+    }
+    .upload-icon{opacity:.85;font-size:26px}
+    .upload-text{color:var(--text)}
+    .upload-guidelines,.upload-dimensions{color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 backdrop-blur bg-black/40 border-b border-[var(--line)]">
+    {% include 'header.html' %}
+  </header>
+
+  <main class="site">
+    <!-- ฟอร์มหลัก: ปก + ข้อมูลนิยาย -->
+    <form
+      id="novelForm"
+      class="panel p-5 md:p-6 space-y-6"
+      method="post"
+      action="{{ url_for('editnovel.update_novel', novels_id=novel.novels_id) }}"
+      enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- COVER + META -->
+      <div class="grid md:grid-cols-[320px_1fr] gap-5 items-start">
+        <div class="space-y-3">
+          <label class="block text-sm text-[var(--muted)]">รูปปก</label>
+
+          <!-- กล่องอัปโหลด/พรีวิว -->
+          <div id="coverUpload" class="cover-upload" tabindex="0" role="button"
+               aria-label="อัปโหลดรูปปก (รองรับ .jpg .png .webp)">
+            {% if novel.cover_url %}
+              <img src="{{ novel.cover_url }}" alt="ปกนิยาย">
+            {% else %}
+              <div class="upload-icon">⬆️</div>
+              <div class="upload-text">อัปโหลดรูปปก</div>
+              <div class="upload-guidelines">รองรับ .jpg .png .webp</div>
+              <div class="upload-dimensions">(800×800 px)</div>
+            {% endif %}
+          </div>
+
+          <!-- อินพุตไฟล์ (ซ่อน) -->
+          <input id="coverInput" name="cover" type="file" accept=".jpg,.jpeg,.png,.webp" class="hidden" />
+        </div>
+
+        <!-- META -->
+        <div class="grid gap-4">
+          <div>
+            <label class="block text-sm text-[var(--muted)] mb-1">ชื่อเรื่อง</label>
+            <input name="title" required value="{{ novel.title or '' }}" class="input" placeholder="ใส่ชื่อเรื่อง" />
+          </div>
+
+          <div>
+            <label class="block text-sm text-[var(--muted)] mb-1">หมวดหมู่</label>
+            <select name="cate_id" class="select" required>
+              {% for c in categories %}
+                <option value="{{ c.cate_id }}" {{ 'selected' if c.cate_id == novel.cate_id else '' }}>{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm text-[var(--muted)] mb-1">คำอธิบาย</label>
+            <textarea name="description" rows="6" class="textarea" placeholder="สรุปเรื่องย่อ">{{ novel.description or '' }}</textarea>
+          </div>
+
+          <div class="flex gap-3">
+            <button class="btn btn-primary px-5 py-2 rounded-full font-semibold">บันทึกการแก้ไข</button>
+            <a href="{{ url_for('api.delete_novel', novels_id=novel.novels_id) }}" class="btn btn-ghost px-5 py-2 rounded-full">ลบงานเขียนนี้</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAGS -->
+      <section class="panel p-4 md:p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold tracking-wide">แท็กของเรื่องนี้</h2>
+          <div class="text-sm text-[var(--muted)]">เพิ่ม/ลบได้อิสระ</div>
+        </div>
+
+        <div id="tagList" class="flex flex-wrap gap-2 mb-4">
+          {% for t in tags %}
+            <span class="chip" data-tag-id="{{ t.tag_id }}" data-tag-name="{{ t.name }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60"><path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/></svg>
+              <span>{{ t.name }}</span>
+              <button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">×</button>
+            </span>
+          {% endfor %}
+        </div>
+
+        <div class="flex gap-2">
+          <input id="tagInput" class="input" list="allTags" placeholder="พิมพ์ชื่อแท็ก แล้วกด เพิ่ม" />
+          <datalist id="allTags">
+            {% for at in all_tags %}<option value="{{ at.name }}"></option>{% endfor %}
+          </datalist>
+          <button id="addTagBtn" type="button" class="btn btn-dark px-4 rounded-xl">เพิ่มแท็ก</button>
+        </div>
+      </section>
+
+      <!-- CHAPTERS -->
+      <section class="panel p-4 md:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold tracking-wide">ตอนทั้งหมด</h2>
+          <a href="{{ url_for('writing.writing_form', novels_id=novel.novels_id) }}"
+            class="btn btn-dark px-4 py-2 rounded-full">
+            + เพิ่มตอน </a>
+
+        </div>
+
+        {% if chapters and chapters|length %}
+          <ul class="divide-y divide-[var(--line)]" id="chapterList">
+            {% for ch in chapters %}
+              <li class="py-3 flex items-center justify-between">
+                <div>
+                  <div class="font-medium">ตอนที่ {{ ch.chapter_no }} — {{ ch.title }}</div>
+                  <div class="text-sm text-[var(--muted)]">อัปเดต {{ ch.updated_at or ch.created_at }}</div>
+                </div>
+                <div class="flex gap-2">
+                            <a href="{{ url_for('writing.writing_form',
+                              novels_id=novel.novels_id,
+                              chapter_id=ch.chapters_id) }}"
+            class="btn btn-ghost px-3 py-1.5 rounded-lg">
+            แก้ไข
+          </a>
+                            <a href="{{ url_for('api.delete_chapter',
+                              novels_id=novel.novels_id,
+                              chapter_id=ch.chapters_id) }}"
+            class="btn btn-ghost px-3 py-1.5 rounded-lg">
+            ลบ
+          </a>
+
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-[var(--muted)]">ยังไม่มีตอน</div>
+        {% endif %}
+      </section>
+    </form>
+  </main>
+
+
+
+
+  <script>
+  const $  = (s, sc=document) => sc.querySelector(s);
+  const $$ = (s, sc=document) => Array.from(sc.querySelectorAll(s));
+
+  document.addEventListener('DOMContentLoaded', () => {
+    /* แก้บรรทัดนี้ให้ไม่ชนกับตัว parser ของ VS Code */
+    const novelsId = Number('{{ novel.novels_id }}');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    const tagList  = $('#tagList');
+    const tagInput = $('#tagInput');
+    const addTagBtn= $('#addTagBtn');
+
+    const apiBaseNovel   = `/api/novels/${novelsId}`;
+    const apiBaseChapter = `/api/chapters`;
+
+    const routes = {
+      addTag:        `${apiBaseNovel}/tags`,
+      removeTag:     (tagId) => `${apiBaseNovel}/tags/${tagId}`,
+      createChapter: `${apiBaseNovel}/chapters`,
+      getChapter:    (id) => `${apiBaseChapter}/${id}`,
+      updateChapter: (id) => `${apiBaseChapter}/${id}`
+    };
+
+    /* ==== COVER: เปิดไฟล์ + พรีวิว ==== */
+    const coverUpload = document.getElementById('coverUpload');
+    const coverInput  = document.getElementById('coverInput');
+
+    const openPicker = () => coverInput.click();
+    coverUpload.addEventListener('click', openPicker);
+    coverUpload.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+    });
+
+    coverInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (!file.type || !file.type.startsWith('image/')) {
+        alert('กรุณาเลือกไฟล์รูปภาพ'); return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        coverUpload.innerHTML = `<img src="${ev.target.result}" alt="ปกพรีวิว">`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    /* ==== TAGS ==== */
+    addTagBtn?.addEventListener('click', async () => {
+      const name = (tagInput.value || '').trim();
+      if (!name) return;
+      try {
+        const res = await fetch(routes.addTag, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({ name })
+        });
+        if (!res.ok) throw new Error();
+        const tag = await res.json(); // {tag_id, name}
+        tagInput.value = '';
+        appendTagChip(tag.tag_id, tag.name);
+      } catch {
+        alert('เพิ่มแท็กล้มเหลว');
+      }
+    });
+
+    tagList?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action="remove-tag"]');
+      if (!btn) return;
+      const chip = btn.closest('.chip');
+      const tagId = chip?.dataset.tagId;
+      if (!tagId) return;
+      try {
+        const res = await fetch(routes.removeTag(tagId), {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: {
+            'X-CSRFToken': csrfToken
+          }
+        });
+        if (!res.ok) throw new Error();
+        chip.remove();
+      } catch {
+        alert('ลบแท็กล้มเหลว');
+      }
+    });
+
+    function appendTagChip(tagId, name){
+      const span = document.createElement('span');
+      span.className = 'chip';
+      span.dataset.tagId = tagId; span.dataset.tagName = name;
+      span.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60"><path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/></svg>`+
+                      `<span>${name}</span>`+
+                      `<button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">×</button>`;
+      tagList.appendChild(span);
+    }
+
+    
+    });
+  
+  </script>
+
+</body>
+</html>

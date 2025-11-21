@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>เข้าสู่ระบบ</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Noto Sans Thai"', 'ui-sans-serif', 'system-ui'] },
+          colors: { bg: '#1f1f21', card: '#2a2a2d' }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      /* ปรับตรงนี้ได้ตามใจ */
+      --shelf-h: 128px;   /* ความสูงแต่ละชั้น */
+      --plank-h: 14px;    /* ความหนาไม้ */
+      --v-gap: 40px;      /* ระยะห่างระหว่างชั้นแนวตั้ง */
+    }
+
+    /* ---------- Bookshelf with random gaps ---------- */
+    @keyframes panX { 0%,100% { transform: translateX(0) } 50% { transform: translateX(-4%) } }
+    .bookshelf { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+
+    .shelf {
+      --speed: 45s;
+      position:absolute; left:-8%; width:116%;
+      height:var(--shelf-h);
+      animation: panX var(--speed) ease-in-out infinite;
+      border-radius: 6px;
+      filter: contrast(.98) saturate(.92);
+
+      /* ลำดับเลเยอร์: ช่องว่างแบบสุ่ม -> ไฮไลต์สัน -> สันหนังสือ */
+      background-image:
+        /* GAP LAYER 1 */
+        repeating-linear-gradient(90deg, transparent 0 46px, rgba(17,18,20,.96) 46px 48px),
+        /* GAP LAYER 2 */
+        repeating-linear-gradient(90deg, transparent 0 71.5px, rgba(17,18,20,.94) 71.5px 73px),
+        /* GAP LAYER 3 */
+        repeating-linear-gradient(90deg, transparent 0 95px, rgba(17,18,20,.95) 95px 97.5px),
+        /* GAP LAYER 4 */
+        repeating-linear-gradient(90deg, transparent 0 119px, rgba(17,18,20,.92) 119px 121px),
+
+        /* highlight บาง ๆ บนสัน */
+        repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 24px),
+
+        /* สันหนังสือหลายเฉด (กว้างไม่เท่ากัน) */
+        repeating-linear-gradient(90deg,
+          #2a2a2d 0 20px,  #303036 20px 46px,
+          #26262b 46px 64px,#34343a 64px 90px,
+          #2d2d32 90px 114px,#313136 114px 136px);
+
+      /* offset ให้ดูสุ่ม */
+      background-position:
+        12px 0, 33px 0, 7px 0, 41px 0,
+        0 0, 0 0;
+      background-size: auto 100%;
+    }
+
+    /* ไม้รองชั้น */
+    .shelf::after{
+      content:"";
+      position:absolute; left:-2%; right:-2%;
+      bottom:calc(0px - var(--plank-h)/2);     /* ยื่นลงเล็กน้อยเพื่อมีมิติ */
+      height:var(--plank-h);
+      background: linear-gradient(to bottom, #2f2f34, #1a1a1d);
+      box-shadow: 0 -1px 0 rgba(255,255,255,.08) inset, 0 10px 24px rgba(0,0,0,.45);
+      border-radius: 2px;
+    }
+    /* เงาด้านบนชั้น */
+    .shelf::before{
+      content:"";
+      position:absolute; inset:0; top:-10px; height:10px;
+      background: linear-gradient(to bottom, rgba(0,0,0,.45), transparent);
+      border-top-left-radius:6px; border-top-right-radius:6px;
+    }
+
+    /* ความลึก */
+    .shelf.far   { --speed: 60s; opacity:.35; }
+    .shelf.mid   { --speed: 45s; opacity:.50; }
+    .shelf.front { --speed: 35s; opacity:.65; }
+
+    /* ----- ยึดจาก "ขอบล่าง" ให้ชั้นล่างสุดชนขอบ ----- */
+    .b-1 { bottom: 0; }
+    .b-2 { bottom: calc(var(--shelf-h) + var(--v-gap)); }
+    .b-3 { bottom: calc(var(--shelf-h)*2 + var(--v-gap)*2); }
+    .b-4 { bottom: calc(var(--shelf-h)*3 + var(--v-gap)*3); }
+
+    /* ทำให้ชั้นล่างสุดไม่ยื่นเกินขอบ (ไม่โดนตัด) */
+    .shelf.last::after{ bottom: 0; }
+
+    /* หมอกนุ่ม ๆ */
+    .books-mist{
+      position:absolute; inset:0; pointer-events:none;
+      background:
+        radial-gradient(40% 24% at 50% 92%, rgba(255,255,255,.06), transparent 70%),
+        radial-gradient(30% 20% at 8% 18%, rgba(255,255,255,.05), transparent 70%),
+        radial-gradient(28% 18% at 92% 28%, rgba(255,255,255,.05), transparent 70%);
+      mix-blend-mode: screen;
+    }
+
+    .glass-panel{ backdrop-filter: blur(6px); }
+  </style>
+</head>
+<body class="min-h-screen bg-bg text-white font-sans relative overflow-hidden">
+  <!-- ผนังโทนเดิม -->
+  <div class="absolute inset-0 -z-50 bg-gradient-to-b from-black/70 via-bg to-[#151517]"></div>
+
+  <!-- BOOKSHELVES (ยึดจากขอบล่าง) -->
+  <div class="bookshelf -z-40">
+    <div class="shelf far  b-4"></div>
+    <div class="shelf mid  b-3"></div>
+    <div class="shelf front b-2"></div>
+    <div class="shelf mid  b-1 last"></div>   <!-- ชั้นล่างสุด -->
+    <div class="books-mist"></div>
+  </div>
+
+  <!-- แผงต้อนรับ -->
+  <section class="w-full grid place-items-center px-4 pt-10">
+    <div class="max-w-2xl w-full bg-white/5 glass-panel border border-white/10 rounded-3xl shadow-2xl px-6 sm:px-10 py-8 text-center mb-6">
+      <img
+  src="{{ url_for('static', filename='cover/logo.png') }}"
+  alt="myshelf_logo"
+  class="mx-auto w-auto h-10 sm:h-12 md:h-14 lg:h-16"
+/>
+      <h1 class="mt-4 text-3xl sm:text-4xl font-semibold">ยินดีต้อนรับ</h1>
+      <p class="mt-2 text-white/70 text-sm sm:text-base">ชั้นวางหนังสือของคุณพร้อมแล้ว หยิบเล่มโปรดแล้วไปต่อกันเลย!</p>
+    </div>
+  </section>
+
+  <!-- การ์ดล็อกอิน -->
+  <main class="w-full grid place-items-center px-4 pb-10">
+    <div class="w-full max-w-md bg-card/90 glass-panel border border-white/10 rounded-2xl shadow-2xl p-6 sm:p-8">
+      <h2 class="text-center text-sm tracking-[.25em] text-white/70 mb-4">USER LOGIN</h2>
+
+      <form method="post" action="{{ url_for('auth.login', next=request.args.get('next')) }}" class="space-y-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div>
+          <label for="email" class="block text-sm font-medium mb-1">อีเมล</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 grid place-items-center text-white/50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M15.75 7.5a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 19.5a8.25 8.25 0 1115 0v.75H4.5v-.75z"/>
+              </svg>
+            </span>
+            <input id="email" name="email" type="email" required autocomplete="email"
+                   placeholder="you@example.com"
+                   class="w-full rounded-full bg-[#111214] border border-white/10 pl-10 pr-3 py-2.5 text-white placeholder-white/40
+                          focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/30 transition">
+          </div>
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm font-medium mb-1">รหัสผ่าน</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 grid place-items-center text-white/50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M16.5 10.5V9a4.5 4.5 0 10-9 0v1.5m-.75 0h10.5a1.5 1.5 0 011.5 1.5v6.75a1.5 1.5 0 01-1.5 1.5H6.75a1.5 1.5 0 01-1.5-1.5v-6.75a1.5 1.5 0 011.5-1.5z"/>
+              </svg>
+            </span>
+            <input id="password" name="password" type="password" minlength="8" required autocomplete="current-password"
+                   placeholder="อย่างน้อย 8 ตัวอักษร"
+                   class="w-full rounded-full bg-[#111214] border border-white/10 pl-10 pr-10 py-2.5 text-white placeholder-white/40
+                          focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/30 transition">
+            <button type="button" aria-label="Toggle password"
+                    class="absolute inset-y-0 right-0 px-3 text-white/60 hover:text-white"
+                    onclick="const i=document.getElementById('password'); i.type=i.type==='password'?'text':'password'">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M2.25 12s3.75-7.5 9.75-7.5S21.75 12 21.75 12 18 19.5 12 19.5 2.25 12 2.25 12z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-sm text-white/70">
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+            
+          </label>
+          <a href="{{ url_for('auth.forgot_password') }}" class="hover:underline decoration-white/30">ลืมรหัสผ่าน?</a>
+
+        </div>
+
+        <button type="submit"
+                class="w-full mt-1 py-2.5 rounded-full bg-white text-black font-semibold shadow hover:bg-white/90
+                       active:scale-[.99] focus:outline-none focus:ring-2 focus:ring-white/30 transition">
+          เข้าสู่ระบบ
+        </button>
+      </form>
+
+      <p class="mt-4 text-center text-sm text-white/70">
+        ยังไม่มีบัญชี?
+        <a href="{{ url_for('auth.register') }}" class="text-white underline decoration-white/30 hover:decoration-white">
+          สมัครสมาชิก
+        </a>
+      </p>
+    </div>
+  </main>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  <div id="toast-stack" class="fixed top-4 right-4 z-[9999] space-y-3">
+    {% for category, text in messages %}
+      {% set is_success = category == 'success' %}
+      {% set is_error   = category == 'error' %}
+      {% set is_warn    = category == 'warning' %}
+      {% set is_info    = category == 'info' %}
+
+      <div
+        class="toast pointer-events-auto flex w-[22rem] items-start gap-3 rounded-2xl border p-4 shadow-lg backdrop-blur
+               transition-all duration-300 ease-out opacity-0 translate-y-2
+               {% if is_success %} bg-emerald-500/10 border-emerald-400/30 text-emerald-100 {% endif %}
+               {% if is_error   %} bg-rose-500/10    border-rose-400/30    text-rose-100    {% endif %}
+               {% if is_warn    %} bg-amber-500/10   border-amber-400/30   text-amber-100   {% endif %}
+               {% if is_info    %} bg-sky-500/10     border-sky-400/30     text-sky-100     {% endif %}"
+        role="alert"
+      >
+        <!-- ไอคอน -->
+        <div class="mt-0.5">
+          {% if is_success %}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          {% elif is_error %}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M12 22a10 10 0 100-20 10 10 0 000 20z"/>
+            </svg>
+          {% elif is_warn %}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+          {% else %}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 18a9 9 0 110-18 9 9 0 010 18z"/>
+            </svg>
+          {% endif %}
+        </div>
+
+        <!-- ข้อความ -->
+        <div class="flex-1 text-sm leading-5">
+          {{ text }}
+        </div>
+
+        <!-- ปุ่มปิด -->
+        <button type="button" class="close-toast -m-1 rounded-lg p-1/2 opacity-70 transition hover:opacity-100" aria-label="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 8.586l4.95-4.95 1.414 1.414L11.414 10l4.95 4.95-1.414 1.414L10 11.414l-4.95 4.95-1.414-1.414L8.586 10l-4.95-4.95L5.05 3.636 10 8.586z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    // แสดงด้วยแอนิเมชัน + ตั้งเวลาให้หายเอง
+    (function () {
+      const toasts = document.querySelectorAll('#toast-stack .toast');
+      toasts.forEach((t, i) => {
+        // หน่วงนิดหน่อยให้เล่น transition
+        setTimeout(() => {
+          t.classList.remove('opacity-0', 'translate-y-2');
+        }, 20 + i * 60);
+
+        // ปิดเองอัตโนมัติ (4 วินาที + สเต็ปเล็กน้อยเพื่อไม่ชนกัน)
+        const ttl = 4000 + i * 150;
+        const hide = () => {
+          t.classList.add('opacity-0', 'translate-y-2');
+          setTimeout(() => t.remove(), 250);
+        };
+        const timer = setTimeout(hide, ttl);
+
+        // ปุ่มปิด
+        const btn = t.querySelector('.close-toast');
+        btn?.addEventListener('click', () => {
+          clearTimeout(timer);
+          hide();
+        });
+
+        // หยุดจับเวลาเมื่อโฮเวอร์
+        t.addEventListener('mouseenter', () => clearTimeout(timer));
+      });
+    })();
+  </script>
+{% endif %}
+{% endwith %}
+
+</body>
+</html>

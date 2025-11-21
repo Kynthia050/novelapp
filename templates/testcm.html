@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Testimonials — Mono Interactive</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* หางกล่องคำพูด */
+    .bubble-tail::after{
+      content:"";
+      position:absolute;
+      bottom:-12px; left:50%;
+      transform: translateX(-50%) rotate(45deg);
+      width:22px; height:22px; background:#fff;
+      box-shadow: 4px 4px 14px rgba(0,0,0,.08);
+    }
+    /* เอฟเฟกต์ reveal */
+    .reveal{opacity:0; transform:translateY(20px) scale(.98); transition:.6s ease;}
+    .reveal.show{opacity:1; transform:none;}
+    /* เม็ดฟิล์มขาวดำบาง ๆ */
+    .grain{
+      position:absolute; inset:0; pointer-events:none; opacity:.04; mix-blend-mode: multiply;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)"/></svg>');
+      background-size:300px 300px;
+      animation: grain 12s steps(10) infinite;
+    }
+    @keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-10px,10px)}50%{transform:translate(5px,-5px)}75%{transform:translate(10px,5px)}100%{transform:translate(0,0)}}
+  </style>
+</head>
+<body class="bg-zinc-50 text-zinc-900 antialiased">
+  <section class="relative">
+    <div class="grain"></div>
+    <div class="max-w-6xl mx-auto px-6 py-16">
+      <header class="mb-10 text-center">
+        <h2 class="text-2xl md:text-3xl font-semibold tracking-tight">ความคิดเห็น</h2>
+        <p class="text-zinc-500 mt-2">สามารถช่วยสรุปความเห็นจากผู้ใช้ได้นะ!</p>
+      </header>
+
+      <!-- Carousel wrapper -->
+      <div class="relative">
+        <!-- Controls -->
+        <div class="absolute -top-12 right-0 flex gap-2">
+          <button id="prevBtn" class="h-9 w-9 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 grid place-items-center" aria-label="Previous">❮</button>
+          <button id="nextBtn" class="h-9 w-9 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 grid place-items-center" aria-label="Next">❯</button>
+        </div>
+
+        <!-- Track -->
+        <div id="track"
+             class="snap-x snap-mandatory overflow-x-auto no-scrollbar flex gap-8 scroll-smooth pb-2"
+             tabindex="0" aria-label="Testimonials carousel">
+          <!-- Card -->
+          <article class="min-w-[85%] sm:min-w-[60%] md:min-w-[32%] reveal group snap-center">
+            <div class="relative bubble-tail bg-white rounded-2xl shadow-lg p-6 transition-transform duration-200 will-change-transform tilt">
+              <div class="text-4xl font-black text-black/80 mb-2 group-hover:animate-bounce">“</div>
+              <p class="text-sm leading-6 text-zinc-700">
+                ที่ SCG ถ้าเราอยากเรียนรู้หรือมีข้อสงสัยอะไร พี่ ๆ ก็จะแนะนำและให้เราได้ลองลงมือทำจริง
+                มีกิจกรรมสนุก ๆ และโอกาสเข้าดูงานหลายส่วน ทำให้หาเพื่อนต่างมหาวิทยาลัยได้ด้วย
+              </p>
+            </div>
+            <div class="mt-7 flex items-center gap-4 pl-2">
+              <div class="relative">
+                <span class="absolute inset-0 rounded-full ring-2 ring-zinc-900/10 animate-pulse"></span>
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=240&auto=format&fit=crop"
+                     alt="Khemika" class="relative w-16 h-16 rounded-full object-cover grayscale"/>
+              </div>
+              <div class="font-medium">Khemika K.</div>
+            </div>
+          </article>
+
+          <!-- Card -->
+          <article class="min-w-[85%] sm:min-w-[60%] md:min-w-[32%] reveal group snap-center">
+            <div class="relative bubble-tail bg-white rounded-2xl shadow-lg p-6 transition-transform duration-200 will-change-transform tilt">
+              <div class="text-4xl font-black text-black/80 mb-2 group-hover:animate-bounce">“</div>
+              <p class="text-sm leading-6 text-zinc-700">
+                การฝึกงานเหมือนพนักงานในองค์กร ได้เรียนรู้งานเป็นระบบ ทำให้รู้ว่าประสบการณ์ที่ได้
+                สามารถต่อยอดได้ในอนาคต
+              </p>
+            </div>
+            <div class="mt-7 flex items-center gap-4 pl-2">
+              <div class="relative">
+                <span class="absolute inset-0 rounded-full ring-2 ring-zinc-900/10 animate-pulse"></span>
+                <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=240&auto=format&fit=crop"
+                     alt="Thithat" class="relative w-16 h-16 rounded-full object-cover grayscale"/>
+              </div>
+              <div class="font-medium">Thithat S.</div>
+            </div>
+          </article>
+
+          <!-- Card -->
+          <article class="min-w-[85%] sm:min-w-[60%] md:min-w-[32%] reveal group snap-center">
+            <div class="relative bubble-tail bg-white rounded-2xl shadow-lg p-6 transition-transform duration-200 will-change-transform tilt">
+              <div class="text-4xl font-black text-black/80 mb-2 group-hover:animate-bounce">“</div>
+              <p class="text-sm leading-6 text-zinc-700">
+                ได้รับมอบหมายโปรเจกต์ท้าทาย ต้องคิดเชิงวิเคราะห์หลายมิติ ทำให้ประสบการณ์นอกห้องเรียนเพิ่มขึ้นมาก
+              </p>
+            </div>
+            <div class="mt-7 flex items-center gap-4 pl-2">
+              <div class="relative">
+                <span class="absolute inset-0 rounded-full ring-2 ring-zinc-900/10 animate-pulse"></span>
+                <img src="https://images.unsplash.com/photo-1544005316-04ce1f3c86c6?q=80&w=240&auto=format&fit=crop"
+                     alt="Thipparada" class="relative w-16 h-16 rounded-full object-cover grayscale"/>
+              </div>
+              <div class="font-medium">Thipparada B.</div>
+            </div>
+          </article>
+
+           <article class="min-w-[85%] sm:min-w-[60%] md:min-w-[32%] reveal group snap-center">
+            <div class="relative bubble-tail bg-white rounded-2xl shadow-lg p-6 transition-transform duration-200 will-change-transform tilt">
+              <div class="text-4xl font-black text-black/80 mb-2 group-hover:animate-bounce">“</div>
+              <p class="text-sm leading-6 text-zinc-700">
+                ที่ SCG ถ้าเราอยากเรียนรู้หรือมีข้อสงสัยอะไร พี่ ๆ ก็จะแนะนำและให้เราได้ลองลงมือทำจริง
+                มีกิจกรรมสนุก ๆ และโอกาสเข้าดูงานหลายส่วน ทำให้หาเพื่อนต่างมหาวิทยาลัยได้ด้วย
+              </p>
+            </div>
+            <div class="mt-7 flex items-center gap-4 pl-2">
+              <div class="relative">
+                <span class="absolute inset-0 rounded-full ring-2 ring-zinc-900/10 animate-pulse"></span>
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=240&auto=format&fit=crop"
+                     alt="Khemika" class="relative w-16 h-16 rounded-full object-cover grayscale"/>
+              </div>
+              <div class="font-medium">Khemika K.</div>
+            </div>
+          </article>
+
+           <article class="min-w-[85%] sm:min-w-[60%] md:min-w-[32%] reveal group snap-center">
+            <div class="relative bubble-tail bg-white rounded-2xl shadow-lg p-6 transition-transform duration-200 will-change-transform tilt">
+              <div class="text-4xl font-black text-black/80 mb-2 group-hover:animate-bounce">“</div>
+              <p class="text-sm leading-6 text-zinc-700">
+                ที่ SCG ถ้าเราอยากเรียนรู้หรือมีข้อสงสัยอะไร พี่ ๆ ก็จะแนะนำและให้เราได้ลองลงมือทำจริง
+                มีกิจกรรมสนุก ๆ และโอกาสเข้าดูงานหลายส่วน ทำให้หาเพื่อนต่างมหาวิทยาลัยได้ด้วย
+              </p>
+            </div>
+            <div class="mt-7 flex items-center gap-4 pl-2">
+              <div class="relative">
+                <span class="absolute inset-0 rounded-full ring-2 ring-zinc-900/10 animate-pulse"></span>
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=240&auto=format&fit=crop"
+                     alt="Khemika" class="relative w-16 h-16 rounded-full object-cover grayscale"/>
+              </div>
+              <div class="font-medium">Khemika K.</div>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // -------- Scroll reveal --------
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('show'); });
+    }, {threshold: .15});
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // -------- Tilt on hover (subtle 3D) --------
+    const clamp = (n, min, max)=>Math.max(min, Math.min(n, max));
+    document.querySelectorAll('.tilt').forEach(card=>{
+      card.addEventListener('mousemove', (e)=>{
+        const r = card.getBoundingClientRect();
+        const rx = ((e.clientY - r.top) / r.height - .5) * -6;
+        const ry = ((e.clientX - r.left) / r.width - .5) *  6;
+        card.style.transform = `rotateX(${clamp(rx,-6,6)}deg) rotateY(${clamp(ry,-6,6)}deg) translateZ(0)`;
+      });
+      card.addEventListener('mouseleave', ()=> card.style.transform = '');
+    });
+
+    // -------- Carousel controls --------
+    
+    const prev  = document.getElementById('prevBtn');
+    const next  = document.getElementById('nextBtn');
+    const step  = () => track.clientWidth * 0.66;
+
+    prev.onclick = ()=> track.scrollBy({left: -step(), behavior: 'smooth'});
+    next.onclick = ()=> track.scrollBy({left:  step(), behavior: 'smooth'});
+
+    // keyboard
+    track.addEventListener('keydown', (e)=>{
+      if(e.key === 'ArrowRight') next.click();
+      if(e.key === 'ArrowLeft')  prev.click();
+    });
+
+    // autoplay (หยุดเมื่อโฮเวอร์)
+    let timer = setInterval(()=> next.click(), 4000);
+    track.addEventListener('mouseenter', ()=> clearInterval(timer));
+    track.addEventListener('mouseleave', ()=> timer = setInterval(()=> next.click(), 4000));
+
+    // ซ่อนสกอลล์บาร์แบบครอสเบราว์เซอร์
+    document.documentElement.style.setProperty('--_hide', 'none');
+  </script>
+
+  <style>
+    /* ซ่อน scrollbar (เว็บคิท/ไฟร์ฟอกซ์/เอดจ์สมัยใหม่) */
+    .no-scrollbar::-webkit-scrollbar{display:none;}
+    .no-scrollbar{-ms-overflow-style:none; scrollbar-width:none;}
+  </style>
+</body>
+</html>

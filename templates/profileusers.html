@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Profile — MY SHELF</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap');
+
+    :root{
+      --bg:#222; --text:#eee; --muted:#bbb; --panel:rgba(34,34,34,.9);
+      --line:rgba(255,255,255,.12); --soft:#444; --brand:#fff; --accent:#00c4b4;
+      --radius:16px; --shadow:0 10px 24px rgba(0,0,0,.45);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;line-height:1.6;
+      font-family:'Noto Sans Thai',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+      background:var(--bg) url('{{ url_for("static", filename="img/bg-login.jpg") }}') center/cover fixed no-repeat;
+      color:var(--text);
+    }
+
+    /* Header */
+    header{position:sticky;top:0;z-index:30;background:rgba(34,34,34,.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+    .nav{max-width:1200px;margin:0 auto;padding:10px 20px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+    .brand{font-family:Georgia,'Times New Roman',serif;font-size:1.6rem;letter-spacing:.25em;font-weight:700;text-align:center}
+    .nav-ctls{display:flex;gap:10px;justify-content:flex-end}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid var(--soft);background:#111214;color:#eee;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem}
+    .btn:hover{filter:brightness(1.05)}
+    .btn:active{transform:translateY(1px)}
+    .btn.small{padding:8px 12px;border-radius:10px;font-size:.95rem}
+    .btn.primary{background:var(--brand);color:#000;border-color:var(--brand)}
+    .btn.outline{background:transparent}
+
+    /* Layout */
+    .site{max-width:1000px;margin:0 auto;padding:24px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+
+    .grid{display:grid;grid-template-columns:260px 1fr;gap:26px;align-items:start}
+    @media (max-width: 900px){.grid{grid-template-columns:1fr}}
+
+    .avatar-wrap{display:grid;place-items:center;gap:14px}
+    .avatar{width:220px;height:220px;border-radius:50%;background:#d9d9dc;border:1px solid var(--line);object-fit:cover;display:block}
+    .avatar-ctls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+    .form{display:grid;gap:14px}
+    .field{display:grid;gap:8px}
+    .label{color:var(--muted)}
+    .input, .select{width:100%;background:#ddd;color:#111;border:0;border-radius:14px;padding:12px 14px;font-size:1rem}
+    .pwd-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+    .toggle{padding:10px 12px;border-radius:12px;border:1px solid var(--soft);background:#111214;color:#eee;cursor:pointer}
+
+    .gender-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width: 600px){.gender-row{grid-template-columns:1fr}}
+
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+    .muted{color:var(--muted)}
+
+    .hint{font-size:.9rem;color:var(--muted)}
+    .meter{height:8px;border-radius:999px;background:#333;border:1px solid var(--line);overflow:hidden}
+    .bar{height:100%;width:0;background:#ffcc00;transition:width .25s}
+
+    /* Utility */
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <div class="nav-left">
+        <a class="btn outline small" href="/" aria-label="กลับหน้าแรก">← หน้าแรก</a>
+      </div>
+      <div class="brand">MY SHELF</div>
+      <div class="nav-ctls">
+        <!-- Logout as POST to prevent CSRF-able GET logout -->
+        <form id="logoutForm" method="post" action="{{ url_for('auth.logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button class="btn small" type="submit" title="ออกจากระบบ">🚪 ออกจากระบบ</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main class="site">
+    <section class="panel">
+      <h1 style="margin:0 0 14px;font-size:1.6rem">โปรไฟล์ของฉัน</h1>
+
+      <form id="profileForm" class="grid" method="post" action="{{ url_for('profile.profileusers') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <!-- LEFT: Avatar -->
+        <div class="avatar-wrap">
+          <img id="avatarPreview" class="avatar" src="{{ user.avatar_url or url_for('static', filename='profile/default.png') }}" alt="avatar">
+          <div class="avatar-ctls">
+            <label class="btn" for="avatarInput">📷 เปลี่ยนรูปโปรไฟล์</label>
+            <input id="avatarInput" type="file" name="avatar" accept="image/*" hidden>
+            <button class="btn" type="button" id="removeAvatar">ลบรูป</button>
+          </div>
+          <input type="hidden" name="remove_avatar" id="removeFlag" value="">
+          <div class="hint">รองรับ JPG/PNG (สูงสุด 2MB)</div>
+        </div>
+
+        <!-- RIGHT: Editable fields -->
+        <div class="form">
+          <div class="field">
+            <label class="label" for="username">ชื่อผู้ใช้</label>
+            <input id="username" class="input" type="text" name="username" value="{{ user.username }}" placeholder="ชื่อผู้ใช้" autocomplete="username">
+            <div class="hint">ชื่อผู้ใช้ที่แสดงในระบบ</div>
+          </div>
+
+          <div class="field">
+            <label class="label" for="email">อีเมล</label>
+            <input id="email" class="input" type="email" name="email" value="{{ user.email or '' }}" placeholder="your@email.com" autocomplete="email">
+          </div>
+
+          <!-- Gender field -->
+          <div class="field">
+            <label class="label" for="gender">เพศ</label>
+            <div class="gender-row">
+              <select id="gender" class="select" name="gender">
+                <option value="" {{ '' == (user.gender or '') and 'selected' or '' }}>ไม่ระบุ</option>
+                <option value="male" {{ 'male' == (user.gender or '') and 'selected' or '' }}>ชาย</option>
+                <option value="female" {{ 'female' == (user.gender or '') and 'selected' or '' }}>หญิง</option>
+                <option value="LGBTQ+" {{ 'LGBTQ+' == (user.gender or '') and 'selected' or '' }}>LGBTQ+</option>
+              </select>
+              <div class="hint">แก้ไขได้เพียงครั้งเดียวเท่านั้น</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label" for="pwdCurrent">รหัสผ่านปัจจุบัน</label>
+            <div class="pwd-row">
+              <input class="input" type="password" id="pwdCurrent" name="password_current" placeholder="รหัสผ่านเดิม" autocomplete="current-password">
+              <button class="toggle" type="button" data-target="pwdCurrent">แสดง</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label" for="pwdNew">รหัสผ่านใหม่</label>
+            <div class="pwd-row">
+              <input class="input" type="password" id="pwdNew" name="password_new" placeholder="อย่างน้อย 8 ตัวอักษร" autocomplete="new-password">
+              <button class="toggle" type="button" data-target="pwdNew">แสดง</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label" for="pwdConfirm">ยืนยันรหัสผ่านใหม่</label>
+            <div class="pwd-row">
+              <input class="input" type="password" id="pwdConfirm" name="password_confirm" placeholder="พิมพ์ซ้ำรหัสผ่านใหม่" autocomplete="new-password">
+              <button class="toggle" type="button" data-target="pwdConfirm">แสดง</button>
+            </div>
+            <div class="hint" id="matchHint"></div>
+          </div>
+
+          <div class="field">
+            <div class="hint">
+              สร้างเมื่อ: {{ user.created_at or 'ไม่ทราบ' }}<br>
+              อัปเดตล่าสุด: {{ user.updated_at or 'ไม่ทราบ' }}
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" type="submit">บันทึกการเปลี่ยนแปลง</button>
+            <button class="btn" type="submit">ยกเลิก</button>
+          </div>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    // Preview avatar
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const removeBtn = document.getElementById('removeAvatar');
+    const removeFlag = document.getElementById('removeFlag');
+
+    avatarInput.addEventListener('change', (e)=>{
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      if(!file.type.startsWith('image/')) return alert('กรุณาเลือกรูปภาพ');
+      if(file.size > 2*1024*1024) return alert('ไฟล์ใหญ่เกินไป (จำกัด 2MB)');
+      const reader = new FileReader();
+      reader.onload = ev => avatarPreview.src = ev.target.result;
+      reader.readAsDataURL(file);
+      removeFlag.value = ''; // มีไฟล์ใหม่ ไม่ต้องลบ
+    });
+
+    removeBtn.addEventListener('click', ()=>{
+      avatarPreview.src = '{{ url_for("static", filename="profile/default.png") }}';
+      avatarInput.value = '';
+      removeFlag.value = '1'; // แจ้ง backend ให้ลบรูป
+    });
+
+    // Toggle password visibility
+    document.querySelectorAll('.toggle').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id = btn.getAttribute('data-target');
+        const input = document.getElementById(id);
+        if(!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+        btn.textContent = input.type === 'password' ? 'แสดง' : 'ซ่อน';
+      });
+    });
+
+    // Password strength
+    const pwdNew = document.getElementById('pwdNew');
+    const bar = document.getElementById('strengthBar');
+    function strength(s){
+      let score = 0;
+      if(s.length>=8) score+=25;
+      if(/[A-Z]/.test(s)) score+=25;
+      if(/[0-9]/.test(s)) score+=25;
+      if(/[^A-Za-z0-9]/.test(s)) score+=25;
+      return score;
+    }
+    pwdNew.addEventListener('input',()=>{
+      const sc = strength(pwdNew.value);
+      bar.style.width = sc+'%';
+      bar.style.background = sc>75? '#15c975' : sc>50? '#ffcc00' : '#ff7b7b';
+    });
+
+    // Match hint
+    const pwdConfirm = document.getElementById('pwdConfirm');
+    const matchHint = document.getElementById('matchHint');
+    function checkMatch(){
+      const ok = pwdNew.value && pwdNew.value === pwdConfirm.value;
+      matchHint.textContent = ok ? 'รหัสผ่านตรงกัน' : (pwdConfirm.value? 'รหัสผ่านไม่ตรงกัน' : '');
+      matchHint.style.color = ok? '#15c975' : '#ffb3b3';
+      return ok;
+    }
+    pwdNew.addEventListener('input', checkMatch);
+    pwdConfirm.addEventListener('input', checkMatch);
+
+    // Gender: enable/disable other field
+    const gender = document.getElementById('gender');
+    const genderOther = document.getElementById('genderOther');
+    function syncGenderOther(){
+      const isOther = gender.value === 'other';
+      genderOther.disabled = !isOther;
+      if(isOther){
+        genderOther.focus();
+      } else {
+        genderOther.value = '';
+      }
+    }
+    gender.addEventListener('change', syncGenderOther);
+    syncGenderOther();
+
+    // Validate before submit
+    document.getElementById('profileForm').addEventListener('submit',(e)=>{
+      // If password fields provided, ensure they match
+      if(pwdNew.value || pwdConfirm.value){
+        if(!checkMatch()){
+          e.preventDefault();
+          alert('กรุณาตรวจสอบรหัสผ่านใหม่และการยืนยันให้ตรงกัน');
+          return;
+        }
+      }
+      // If other gender selected, require text
+      if(gender.value === 'other' && !genderOther.value.trim()){
+        e.preventDefault();
+        alert('โปรดระบุเพศในช่อง "อื่น ๆ"');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Novel Cards • Backend‑Ready</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#232323;           /* พื้นหลังมืดตาม reference */
+      --card:#2a2a2a;         /* เฉดเทาเข้มสำหรับการ์ด */
+      --muted:#cfcfcf;        /* ข้อความคำบรรยาย */
+      --text:#f5f5f5;         /* ข้อความหลัก */
+      --ink:#ffffff;          /* สีไอคอน/ดาว */
+      --placeholder:#d9d9d9;  /* พื้นที่รูป */
+      --shadow:0 10px 24px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:"Playfair Display", ui-serif, Georgia, serif;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:28px 40px 10px;
+    }
+    header h1{font-weight:900;letter-spacing:.12em;margin:0;text-transform:uppercase}
+    header .hint{font: 500 14px/1.1 Inter, ui-sans-serif;opacity:.7}
+
+    /* ชั้นวางการ์ดแบบแนวนอน (อิงจากภาพตัวอย่าง) */
+    .shelf{
+      display:grid;
+      grid-auto-flow:column;
+      grid-auto-columns:minmax(260px, 1fr);
+      gap:36px;
+      padding:22px 40px 40px;
+      overflow-x:auto;
+      scroll-snap-type:x mandatory;
+      scrollbar-width:thin;
+    }
+    .shelf::-webkit-scrollbar{height:10px}
+    .shelf::-webkit-scrollbar-thumb{background:#444;border-radius:8px}
+
+    .card{scroll-snap-align:start}
+    .card-inner{
+      display:flex;flex-direction:column;
+      gap:12px;
+    }
+    .cover{
+      background:var(--placeholder);
+      border-radius:8px;
+      width:100%;
+      aspect-ratio:1/1; /* เป็นสี่เหลี่ยมจัตุรัสตามภาพ */
+      position:relative; overflow:hidden;
+      box-shadow:var(--shadow);
+    }
+    .cover img{
+      width:100%;height:100%;object-fit:cover;display:block;
+    }
+    .title{
+      margin-top:2px;
+      text-transform:uppercase;
+      letter-spacing:.38em;  /* เว้นตัวอักษรให้ฟีลเดียวกับภาพ */
+      font-weight:900;
+      font-size:20px;
+    }
+    .writer{
+      font: 600 14px/1.2 Inter, ui-sans-serif;
+      opacity:.9;color:var(--text);
+    }
+    .writer span{opacity:.7}
+    .tagline{
+      font-size:15px;line-height:1.55;color:var(--muted);
+      white-space:pre-line; /* รองรับบรรทัดใหม่ */
+    }
+    .rating{display:flex;align-items:center;gap:10px}
+    .stars{display:flex;gap:8px}
+    .star{font-size:20px;line-height:1;color:var(--ink);opacity:.9}
+    .star.dim{opacity:.25}
+    .sr-only{position:absolute;left:-9999px}
+
+    /* สเกลเลตันระหว่างโหลด */
+    .skeleton .cover{background:#3a3a3a;position:relative;overflow:hidden}
+    .skeleton .cover::after{
+      content:"";position:absolute;inset:0;
+      background:linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,0) 90%);
+      transform:translateX(-100%);
+      animation:shimmer 1.4s infinite;
+    }
+    @keyframes shimmer{to{transform:translateX(100%)}}
+    .skeleton .title,.skeleton .writer,.skeleton .tagline{background:#3a3a3a;border-radius:6px}
+    .skeleton .title{height:20px;width:70%;}
+    .skeleton .writer{height:16px;width:50%}
+    .skeleton .tagline{height:34px;width:90%}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Novels</h1>
+    <div class="hint">HTML + CSS + JS • พร้อมต่อ Backend</div>
+  </header>
+
+  <!-- ชั้นวางการ์ด (จะถูกเรนเดอร์ด้วย JS) -->
+  <section class="shelf" id="shelf" aria-live="polite"></section>
+
+  <!-- เทมเพลตการ์ด -->
+  <template id="card-template">
+    <article class="card" role="article" itemtype="https://schema.org/Book" itemscope>
+      <div class="card-inner">
+        <a class="cover" href="#" aria-label="เปิดดูรายละเอียดนิยาย">
+          <img alt="ปกนิยาย" loading="lazy" />
+        </a>
+        <h2 class="title" itemprop="name"></h2>
+        <div class="writer"><span>Writer:</span> <strong itemprop="author"></strong></div>
+        <p class="tagline" itemprop="description"></p>
+        <div class="rating" aria-hidden="false">
+          <span class="sr-only"></span>
+          <div class="stars" aria-hidden="true"></div>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script>
+  // =============================
+  // การตั้งค่าเพื่อเชื่อมต่อ Backend
+  // =============================
+  // 1) REST/GraphQL (ค่าเริ่มต้น) — เปลี่ยน API_BASE ให้ชี้ไปยังเซิร์ฟเวอร์ของคุณ
+  const API_BASE = ""; // ตัวอย่าง "/api" หรือ "https://your-domain.xyz"  
+  const USE_SUPABASE = false; // ถ้าจะใช้ Supabase ให้ตั้งค่าเป็น true และดูบล็อกตัวอย่างด้านล่าง
+
+  // 2) Supabase (ตัวอย่างพร้อมใช้งาน — ให้ปลดคอมเมนต์เมื่อใช้งานจริง)
+  // const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+  // const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
+  // import('https://esm.sh/@supabase/supabase-js@2').then(({ createClient }) => {
+  //   window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // }).catch(()=>{});
+
+  // รูปแบบข้อมูลที่คาดหวังจาก backend
+  // [
+  //   {
+  //     id: "uuid-or-number",
+  //     title: "string",
+  //     writer: "string",
+  //     coverUrl: "https://...",   // ถ้าไม่มีให้ส่ง null/""
+  //     tagline: "string",          // คำโปรย
+  //     rating: 0-5,                 // ตัวเลขทศนิยมได้ (เช่น 4.5)
+  //     detailUrl: "/novels/123"    // (ไม่บังคับ) ลิงก์ไปหน้ารายละเอียด
+  //   }
+  // ]
+
+  // =============================
+  // เรนเดอร์
+  // =============================
+  const $shelf = document.getElementById('shelf');
+  const tpl = document.getElementById('card-template');
+
+  function renderSkeleton(n=6){
+    $shelf.innerHTML = '';
+    for(let i=0;i<n;i++){
+      const $card = tpl.content.firstElementChild.cloneNode(true);
+      $card.classList.add('skeleton');
+      $card.querySelector('.cover img').remove();
+      $card.querySelector('.title').textContent = '';
+      $card.querySelector('.writer strong').textContent = '';
+      $card.querySelector('.tagline').textContent = '';
+      $card.querySelector('.stars').innerHTML = '';
+      $shelf.appendChild($card);
+    }
+  }
+
+  function starSVG(filled){
+    return `<span class="star ${filled?"":"dim"}" aria-hidden="true">★</span>`;
+  }
+
+  function setStars($wrap, rating){
+    $wrap.innerHTML = '';
+    const r = Math.max(0, Math.min(5, Number(rating)||0));
+    for(let i=1;i<=5;i++) $wrap.insertAdjacentHTML('beforeend', starSVG(i<=Math.round(r)));
+  }
+
+  function renderNovels(list){
+    $shelf.innerHTML = '';
+    list.forEach(item=>{
+      const $card = tpl.content.firstElementChild.cloneNode(true);
+      const $img = $card.querySelector('img');
+      const $link = $card.querySelector('.cover');
+
+      if(item.detailUrl) $link.href = item.detailUrl;
+
+      if(item.coverUrl){
+        $img.src = item.coverUrl;
+      }else{
+        // ถ้าไม่มีปก ให้ทำพื้นหลังเทาไว้ตาม reference
+        $img.remove();
+      }
+
+      $card.querySelector('.title').textContent = item.title || 'Untitled';
+      $card.querySelector('.writer strong').textContent = item.writer || 'Unknown';
+      $card.querySelector('.tagline').textContent = (item.tagline || '').trim();
+
+      const $stars = $card.querySelector('.stars');
+      setStars($stars, item.rating);
+      $card.querySelector('.rating .sr-only').textContent = `ให้คะแนน ${item.rating ?? 0} จาก 5 ดาว`;
+
+      $shelf.appendChild($card);
+    });
+  }
+
+  // =============================
+  // ดึงข้อมูล
+  // =============================
+  async function fetchNovels(){
+    // ทางเลือก A: REST/GraphQL
+    if(!USE_SUPABASE){
+      if(!API_BASE){
+        // ไม่มี backend — ใช้ข้อมูลจำลองเพื่อให้เห็นหน้าตา
+        return SAMPLE_DATA;
+      }
+      const res = await fetch(`${API_BASE.replace(/\/$/,'')}/novels`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if(!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+      return await res.json();
+    }
+
+    // ทางเลือก B: Supabase (ตัวอย่าง)
+    // const { data, error } = await window.supabase
+    //   .from('novels')
+    //   .select('id, title, writer, cover_url:coverUrl, tagline, rating, detail_url:detailUrl')
+    //   .order('created_at', { ascending:false })
+    //   .limit(30);
+    // if(error) throw error;
+    // return data.map(row => ({
+    //   id: row.id,
+    //   title: row.title,
+    //   writer: row.writer,
+    //   coverUrl: row.cover_url,
+    //   tagline: row.tagline,
+    //   rating: row.rating,
+    //   detailUrl: row.detail_url
+    // }));
+  }
+
+  // ข้อมูลจำลองสำหรับ dev/testing
+  const SAMPLE_DATA = [
+    {id:1,title:'LA LA LA',writer:'Jeff Satur',coverUrl:'',tagline:'When the rain gone,\nwe bloom',rating:5,detailUrl:'#'},
+    {id:2,title:'LA LA LA',writer:'Jeff Satur',coverUrl:'',tagline:'When the rain gone,\nwe bloom',rating:5,detailUrl:'#'},
+    {id:3,title:'LA LA LA',writer:'Jeff Satur',coverUrl:'',tagline:'When the rain gone,\nwe bloom',rating:5,detailUrl:'#'},
+    {id:4,title:'LA LA LA',writer:'Jeff Satur',coverUrl:'',tagline:'When the rain gone,\nwe bloom',rating:5,detailUrl:'#'},
+    {id:5,title:'LA LA LA',writer:'Jeff Satur',coverUrl:'',tagline:'When the rain gone,\nwe bloom',rating:5,detailUrl:'#'},
+    {id:6,title:'LA LA LA',writer:'Jeff Satur',coverUrl:'',tagline:'When the rain gone,\nwe bloom',rating:5,detailUrl:'#'},
+  ];
+
+  (async()=>{
+    renderSkeleton(6);
+    try{
+      const novels = await fetchNovels();
+      renderNovels(novels);
+    }catch(err){
+      console.error(err);
+      renderNovels(SAMPLE_DATA);
+    }
+  })();
+  </script>
+</body>
+</html>

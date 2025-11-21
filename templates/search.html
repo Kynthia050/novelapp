@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ค้นหา "{{ q }}" — Myshelf</title>
+  <style>
+    :root{
+      --bg:#1f1f21; --panel:#232326; --text:#f3f3f3; --muted:#c7c7cc;
+      --card:#2a2a2d; --radius:16px; --shadow:0 4px 12px rgba(0,0,0,.35);
+      --line:rgba(255,255,255,.08); --star:#ffe402;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:"Georgia", serif, -apple-system, BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;
+    }
+    .page{
+      min-height:100vh;
+      padding:24px 20px 40px;
+      max-width:1200px;
+      margin:0 auto;
+    }
+    .search-header{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:20px;
+    }
+    .search-title{
+      font-size:20px;
+      font-weight:700;
+    }
+    .search-sub{
+      font-size:13px;
+      color:var(--muted);
+      margin-top:4px;
+    }
+    .results-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+      gap:16px;
+    }
+    .novel-card{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      border:1px solid rgba(255,255,255,.04);
+    }
+    .novel-cover-wrap{
+      position:relative;
+      padding-top:140%;
+      overflow:hidden;
+    }
+    .novel-cover-wrap img{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+    .novel-body{
+      padding:12px 14px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .novel-title{
+      font-size:15px;
+      font-weight:700;
+      line-height:1.4;
+    }
+    .novel-meta{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .novel-desc{
+      font-size:13px;
+      color:var(--muted);
+      max-height:3.2em;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .novel-footer{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      font-size:12px;
+      margin-top:6px;
+      color:var(--muted);
+      gap:8px;
+    }
+    .rating{
+      display:flex;
+      align-items:center;
+      gap:4px;
+    }
+    .rating-star{
+      color:var(--star);
+      font-size:13px;
+    }
+    .empty-state{
+      margin-top:40px;
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+    }
+    a.novel-link{
+      color:inherit;
+      text-decoration:none;
+    }
+    a.novel-link:hover .novel-title{
+      text-decoration:underline;
+    }
+
+    /* reuse header-search style ถ้ายังไม่ใส่ใน base */
+    .header-search{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 14px;
+      border-radius:999px;
+      background:#111;
+      border:1px solid rgba(255,255,255,.08);
+      max-width:320px;
+    }
+    .header-search input{
+      flex:1;
+      background:transparent;
+      border:none;
+      outline:none;
+      color:#e5e5e5;
+      font-size:14px;
+      font-family:"Georgia", serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
+    }
+    .header-search input::placeholder{
+      color:rgba(255,255,255,.4);
+    }
+    .header-search-icon{
+      border:none;
+      background:transparent;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:rgba(255,255,255,.5);
+      cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="search-header">
+      <div>
+        <div class="search-title">
+          {% if q %}
+            ผลการค้นหา "{{ q }}"
+          {% else %}
+            ค้นหานิยาย
+          {% endif %}
+        </div>
+        {% if q %}
+          <div class="search-sub">
+            พบ {{ results|length }} เรื่องที่ตรงกับคำค้นของคุณ
+          </div>
+        {% else %}
+          <div class="search-sub">
+            พิมพ์ชื่อเรื่อง ชื่อผู้แต่ง หรือคีย์เวิร์ดที่ต้องการค้นหา
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- ช่องค้นหาซ้ำที่หัวหน้าเพจ (เชื่อมกับ /search เหมือน header จริง) -->
+      <form class="header-search" action="{{ url_for('search.search_novels') }}" method="get">
+        <button class="header-search-icon" type="submit" aria-label="ค้นหา">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" stroke="currentColor" fill="none" stroke-width="2"/>
+            <line x1="15" y1="15" x2="21" y2="21"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <input type="search" name="q" placeholder="Search" value="{{ q or '' }}" />
+      </form>
+    </header>
+
+    {% if q and results %}
+      <section class="results-grid">
+        {% for novel in results %}
+        <a class="novel-link" href="{{ url_for('novel_detail', novels_id=novel.novels_id) }}">
+          <article class="novel-card">
+            <div class="novel-cover-wrap">
+              <img src="{{ url_for('static', filename='covers/' ~ (novel.cover or 'default.jpg')) }}"
+                   alt="{{ novel.title }}">
+            </div>
+            <div class="novel-body">
+              <div class="novel-title">{{ novel.title }}</div>
+              <div class="novel-meta">
+                โดย {{ novel.author_name }}
+                {% if novel.category_name %} · {{ novel.category_name }}{% endif %}
+              </div>
+              <div class="novel-desc">{{ novel.description }}</div>
+              <div class="novel-footer">
+                <div class="rating">
+                  <span class="rating-star">★</span>
+                  <span>
+                    {% if novel.bayesian_avg %}
+                      {{ '%.2f'|format(novel.bayesian_avg|float) }}
+                    {% else %}
+                      ยังไม่มีคะแนน
+                    {% endif %}
+                  </span>
+                </div>
+                {% if novel.votes %}
+                  <div>{{ novel.votes }} โหวต</div>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+        </a>
+        {% endfor %}
+      </section>
+    {% elif q %}
+      <div class="empty-state">
+        ไม่พบนิยายที่ตรงกับ "{{ q }}"<br>
+        ลองเปลี่ยนคำค้น หรือใช้คำสั้น ๆ ดูนะ
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

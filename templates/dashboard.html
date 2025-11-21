@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Myshelf — Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      /* Light neutral theme (white/black/gray) */
+      --bg:#f3f4f6;          /* page background */
+      --bg-2:#eef0f3;        /* subtle section */
+      --panel:#ffffff;       /* card surface */
+      --panel-2:#f9fafb;     /* card inner */
+      --muted:#6b7280;       /* secondary text */
+      --text:#111827;        /* primary text */
+      --accent:#111111;      /* primary action */
+      --accent-2:#2563eb;    /* charts/accent optional */
+      --stroke:rgba(17,24,39,.10); /* borders/lines */
+      --radius:16px; --shadow:0 10px 28px rgba(17,24,39,.08);
+    }
+    *{box-sizing:border-box}
+    body{background:linear-gradient(180deg, var(--bg), var(--bg-2) 40%); color:var(--text); font-family:'Noto Sans Thai',system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;}
+    .card{background:linear-gradient(180deg, var(--panel), var(--panel-2));
+          border:1px solid var(--stroke); border-radius:var(--radius); box-shadow:var(--shadow);}
+    .chip{border:1px solid var(--stroke); background:#f3f4f6; padding:.25rem .6rem; border-radius:999px; font-size:.75rem; color:var(--muted)}
+    .btn{display:inline-flex; align-items:center; gap:.5rem; border:1px solid var(--stroke); border-radius:14px; padding:.6rem .9rem}
+    .btn-primary{background:var(--accent); color:#ffffff; box-shadow:0 8px 20px rgba(0,0,0,.12)}
+    .btn-ghost{background:transparent; color:var(--text)}
+    .grid-auto{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem}
+    .hide{display:none!important}
+    /* Improve select readability */
+    select{background:linear-gradient(180deg,var(--panel),var(--panel-2)); color:var(--text); border:1px solid var(--stroke); border-radius:12px}
+    select:focus{outline:none; box-shadow:0 0 0 2px rgba(17,24,39,.2)}
+    select option{background:#ffffff; color:#111827}
+    select option:checked, select option:hover{background:#f3f4f6; color:#111827}
+    /* Accent separators and headings */
+    h1,h2,h3{letter-spacing:.2px}
+    .accent{color:var(--accent)}
+  </style>
+</head>
+<body>
+  <!-- Layout -->
+  <div class="min-h-screen flex">
+    <!-- Sidebar -->
+    <aside class="w-72 hidden lg:flex flex-col gap-4 p-4 border-r border-[var(--stroke)] bg-[#0d1016]">
+      <div class="flex items-center gap-3 px-2">
+        <div class="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/10">
+          <img src="/static/img/admin-avatar.png" class="w-full h-full object-cover" alt="">
+        </div>
+        <div>
+          <div class="font-semibold">Welcome, <span id="whoami">Admin</span></div>
+          <div class="text-xs text-[var(--muted)]">Myshelf Console</div>
+        </div>
+      </div>
+      <nav class="mt-2 flex-1 text-[15px]">
+        <ul class="space-y-1">
+          <li><a href="#home" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5">🏠 Dashboard</a></li>
+          <li><a href="#novels" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5">📚 จัดการนิยาย</a></li>
+          <li><a href="#users" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5">👥 จัดการผู้ใช้</a></li>
+          <li><a href="#reports" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5">🚩 Report Center</a></li>
+          <li><a href="#profile" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5">⚙️ โปรไฟล์ของฉัน</a></li>
+        </ul>
+      </nav>
+      <div class="px-2">
+        <button class="btn btn-ghost w-full" id="btnLogout">ออกจากระบบ</button>
+      </div>
+      <div class="px-2">
+        <div class="chip">UI based on provided GIF</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-4 md:p-6 lg:p-8 space-y-6">
+      <!-- Topbar -->
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <button class="lg:hidden btn btn-ghost">☰</button>
+          <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+          <span class="chip" id="roleChip">role: admin</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="month" id="monthPicker" class="card px-3 py-2 outline-none bg-transparent" />
+          <button id="btnExport" class="btn btn-primary">ออกรายงาน PDF</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <section id="home" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="card p-4">
+          <div class="text-sm text-[var(--muted)]">ผู้ใช้ทั้งหมด</div>
+          <div class="mt-2 text-3xl font-semibold" id="kpiUsers">—</div>
+          <canvas id="sparkUsers" height="60"></canvas>
+        </div>
+        <div class="card p-4">
+          <div class="text-sm text-[var(--muted)]">นิยายทั้งหมด</div>
+          <div class="mt-2 text-3xl font-semibold" id="kpiNovels">—</div>
+          <canvas id="sparkNovels" height="60"></canvas>
+        </div>
+        <div class="card p-4">
+          <div class="text-sm text-[var(--muted)]">Report ที่เปิดอยู่</div>
+          <div class="mt-2 text-3xl font-semibold" id="kpiReportsOpen">—</div>
+          <div class="mt-1 text-xs text-[var(--muted)]" id="kpiReportBreakdown"></div>
+        </div>
+        <div class="card p-4">
+          <div class="text-sm text-[var(--muted)]">Top ผู้อ่านแอคทีฟ (เดือนนี้)</div>
+          <div class="mt-2 font-medium" id="kpiTopNovel">—</div>
+          <div class="text-xs text-[var(--muted)]">จากประวัติการอ่าน</div>
+        </div>
+      </section>
+
+      <!-- Charts -->
+      <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div class="card p-4 xl:col-span-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold">นิยายต่อหมวด (Categories)</h2>
+          </div>
+          <canvas id="chartByCategory" height="120"></canvas>
+        </div>
+        <div class="card p-4">
+          <h2 class="font-semibold">สถานะ Report</h2>
+          <canvas id="chartReportStatus" height="120"></canvas>
+        </div>
+        <div class="card p-4">
+          <h2 class="font-semibold">ผู้อ่านแอคทีฟรายนิยาย (เดือนนี้)</h2>
+          <canvas id="chartActiveReaders" height="160"></canvas>
+        </div>
+        <div class="card p-4 xl:col-span-2">
+          <h2 class="font-semibold">คะแนนนิยม (Bayesian Avg)</h2>
+          <canvas id="chartBayesian" height="120"></canvas>
+        </div>
+      </section>
+
+      <!-- Manage Novels (admin+superadmin) -->
+      <section id="novels" class="card p-4" data-roles="admin,superadmin">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">จัดการนิยาย</h2>
+          <span class="chip">สิทธิ์: Admin &amp; Superadmin</span>
+        </div>
+        <div class="overflow-x-auto mt-3">
+          <table class="w-full text-sm">
+            <thead class="text-left text-[var(--muted)] border-b border-[var(--stroke)]">
+              <tr>
+                <th class="py-2">ID</th>
+                <th>ชื่อเรื่อง</th>
+                <th>ผู้เขียน</th>
+                <th>หมวด</th>
+                <th>ปรับหมวด</th>
+                <th>สถานะ</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="novelRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Manage Users (admin+superadmin for role=user) -->
+      <section id="users" class="card p-4" data-roles="admin,superadmin">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">จัดการผู้ใช้ (Role = user)</h2>
+          <span class="chip">สิทธิ์: Admin &amp; Superadmin</span>
+        </div>
+        <div class="overflow-x-auto mt-3">
+          <table class="w-full text-sm">
+            <thead class="text-left text-[var(--muted)] border-b border-[var(--stroke)]">
+              <tr>
+                <th class="py-2">ID</th>
+                <th>ชื่อผู้ใช้</th>
+                <th>อีเมล</th>
+                <th>สถานะ</th>
+                <th>เพศ</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="userRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Manage Admins (superadmin only) -->
+      <section id="admins" class="card p-4" data-roles="superadmin">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">จัดการผู้ใช้ (Role = admin)</h2>
+          <span class="chip">สิทธิ์: Superadmin เท่านั้น</span>
+        </div>
+        <div class="overflow-x-auto mt-3">
+          <table class="w-full text-sm">
+            <thead class="text-left text-[var(--muted)] border-b border-[var(--stroke)]">
+              <tr>
+                <th class="py-2">ID</th>
+                <th>ชื่อผู้ใช้</th>
+                <th>อีเมล</th>
+                <th>สถานะ</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Reports Center -->
+      <section id="reports" class="card p-4" data-roles="admin,superadmin">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">Report Center</h2>
+          <span class="chip">สิทธิ์: Admin &amp; Superadmin</span>
+        </div>
+        <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+          <select id="filterStatus" class="card px-3 py-2 bg-transparent">
+            <option value="">ทุกสถานะ</option>
+            <option>รอการตรวจสอบ</option>
+            <option>กำลังตรวจสอบ</option>
+            <option>ตรวจสอบแล้ว</option>
+          </select>
+          <input id="filterKeyword" placeholder="ค้นหาคีย์เวิร์ด / ผู้รายงาน / เป้าหมาย..."
+                 class="card px-3 py-2 bg-transparent"/>
+          <button class="btn btn-ghost" id="btnClearFilter">ล้างตัวกรอง</button>
+        </div>
+
+        <div class="overflow-x-auto mt-3">
+          <table class="w-full text-sm">
+            <thead class="text-left text-[var(--muted)] border-b border-[var(--stroke)]">
+              <tr>
+                <th class="py-2">ID</th>
+                <th>วันที่</th>
+                <th>ผู้รายงาน</th>
+                <th>เป้าหมาย</th>
+                <th>เหตุผล</th>
+                <th>สถานะ</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="reportRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- My Profile (admin & superadmin) -->
+      <section id="profile" class="card p-4" data-roles="admin,superadmin">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">โปรไฟล์ของฉัน</h2>
+          <span class="chip">แก้ไขข้อมูลตนเอง</span>
+        </div>
+        <form class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm text-[var(--muted)]">ชื่อผู้ใช้</label>
+            <input id="pf_username" class="w-full card px-3 py-2 bg-transparent" />
+          </div>
+          <div>
+            <label class="text-sm text-[var(--muted)]">อีเมล</label>
+            <input id="pf_email" type="email" class="w-full card px-3 py-2 bg-transparent" />
+          </div>
+          <div>
+            <label class="text-sm text-[var(--muted)]">เปลี่ยนรหัสผ่าน</label>
+            <input id="pf_password" type="password" class="w-full card px-3 py-2 bg-transparent" placeholder="••••••••" />
+          </div>
+          <div>
+            <label class="text-sm text-[var(--muted)]">รูปโปรไฟล์</label>
+            <input id="pf_pic" type="file" class="w-full card px-3 py-2 bg-transparent" />
+          </div>
+          <div class="md:col-span-2 flex justify-end gap-2">
+            <button class="btn btn-ghost" type="reset">ยกเลิก</button>
+            <button class="btn btn-primary" type="button" id="pf_save">บันทึก</button>
+          </div>
+        </form>
+      </section>
+
+      <footer class="py-6 text-center text-xs text-[var(--muted)]">
+        © Myshelf Admin Console
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // ====== CONFIG / MOCK ======
+    // กำหนด role ที่ล็อกอิน (เปลี่ยนเป็นค่าจริงจาก session/backend)
+    let userRole = "admin"; // "admin" | "superadmin"
+    document.getElementById("whoami").textContent = userRole.toUpperCase();
+    document.getElementById("roleChip").textContent = "role: " + userRole;
+
+    // ข้อมูลตัวอย่าง (ให้ backend เติมจริงตาม schema)
+    const mockData = {
+      siteTotals: { total_users: 3124, total_novels: 867 }, // จาก v_site_totals
+      reportStatusCounts: { "รอการตรวจสอบ": 18, "กำลังตรวจสอบ": 6, "ตรวจสอบแล้ว": 120 },
+      byCategory: [
+        { name: "Fantasy", total: 180 },
+        { name: "Romance", total: 220 },
+        { name: "Mystery", total: 90 },
+        { name: "Sci-Fi", total: 70 },
+        { name: "Drama", total: 110 }
+      ],
+      activeReaders: [ // จาก v_monthly_active_readers_by_novel
+        { title: "ดาวเหนือและเงาจันทร์", readers: 512 },
+        { title: "รักครั้งที่สอง", readers: 410 },
+        { title: "ปริศนาในคฤหาสน์", readers: 265 },
+        { title: "ทะลวงสวรรค์", readers: 233 }
+      ],
+      ratings: [
+        { title: "ดาวเหนือและเงาจันทร์", bayesian: 4.52 },
+        { title: "รักครั้งที่สอง", bayesian: 4.35 },
+        { title: "ปริศนาในคฤหาสน์", bayesian: 4.08 },
+        { title: "ทะลวงสวรรค์", bayesian: 3.92 }
+      ],
+      novels: [
+        { id: 1001, title: "ดาวเหนือและเงาจันทร์", author: "alice", cate: "Fantasy", status: "เผยแพร่" },
+        { id: 1003, title: "รักครั้งที่สอง", author: "carl", cate: "Romance", status: "เผยแพร่" },
+        { id: 1004, title: "ปริศนาในคฤหาสน์", author: "ben", cate: "Mystery", status: "เผยแพร่" }
+      ],
+      categories: ["Fantasy","Romance","Mystery","Sci-Fi","Drama"],
+      usersUserRole: [
+        { id: 101, username: "alice", email: "alice@test.local", status: "บัญชีปกติ", gender:"หญิง" },
+        { id: 102, username: "ben", email: "ben@test.local", status: "บัญชีปกติ", gender:"ชาย" }
+      ],
+      admins: [
+        { id: 3, username: "test0", email: "st21377@phatthara.ac.th", status: "บัญชีปกติ" }
+      ],
+      reports: [
+        { id: 12, created_at: "2025-09-01 10:12", reporter:"alice", target:"novel#1001", reason:"spam / spam_ads", status:"รอการตรวจสอบ" },
+        { id: 13, created_at: "2025-09-02 09:00", reporter:"ben", target:"comment#3401", reason:"abuse", status:"กำลังตรวจสอบ" },
+        { id: 14, created_at: "2025-09-02 15:35", reporter:"carol", target:"user#109", reason:"other", status:"ตรวจสอบแล้ว" }
+      ],
+      me: { username:"admin", email:"admin@example.com" }
+    };
+
+    // ====== Role Gate ======
+    function applyRoleGate(){
+      document.querySelectorAll("[data-roles]").forEach(sec=>{
+        const allow = sec.getAttribute("data-roles").split(",").map(s=>s.trim());
+        if(!allow.includes(userRole)){ sec.classList.add("hide"); }
+      });
+    }
+    applyRoleGate();
+
+    // ====== KPIs ======
+    document.getElementById("kpiUsers").textContent = mockData.siteTotals.total_users.toLocaleString();
+    document.getElementById("kpiNovels").textContent = mockData.siteTotals.total_novels.toLocaleString();
+    const openReports = (mockData.reportStatusCounts["รอการตรวจสอบ"]||0) + (mockData.reportStatusCounts["กำลังตรวจสอบ"]||0);
+    document.getElementById("kpiReportsOpen").textContent = openReports;
+    document.getElementById("kpiReportBreakdown").textContent =
+      `รอ: ${mockData.reportStatusCounts["รอการตรวจสอบ"]||0} • ตรวจอยู่: ${mockData.reportStatusCounts["กำลังตรวจสอบ"]||0} • ปิดแล้ว: ${mockData.reportStatusCounts["ตรวจสอบแล้ว"]||0}`;
+
+    document.getElementById("kpiTopNovel").textContent = mockData.activeReaders[0]?.title || "—";
+
+    // Little spark charts
+    const sparkCfg = (ctx, data)=>new Chart(ctx,{type:"line",data:{labels:data.map((_,i)=>i+1),datasets:[{data,borderWidth:2,tension:.4,pointRadius:0}]},options:{plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
+    sparkCfg(document.getElementById("sparkUsers"), [5,9,7,12,9,14,18]);
+    sparkCfg(document.getElementById("sparkNovels"), [2,3,2,4,6,7,9]);
+
+    // ====== Charts ======
+    new Chart(document.getElementById("chartByCategory"),{
+      type:"bar",
+      data:{
+        labels: mockData.byCategory.map(x=>x.name),
+        datasets:[{label:"จำนวนเรื่อง", data: mockData.byCategory.map(x=>x.total)}]
+      },
+      options:{plugins:{legend:{display:false}}}
+    });
+
+    new Chart(document.getElementById("chartReportStatus"),{
+      type:"doughnut",
+      data:{
+        labels:Object.keys(mockData.reportStatusCounts),
+        datasets:[{data:Object.values(mockData.reportStatusCounts)}]
+      }
+    });
+
+    new Chart(document.getElementById("chartActiveReaders"),{
+      type:"bar",
+      data:{
+        labels:mockData.activeReaders.map(x=>x.title),
+        datasets:[{label:"ผู้อ่านแอคทีฟ (คน)", data:mockData.activeReaders.map(x=>x.readers)}]
+      },
+      options:{indexAxis:"y", plugins:{legend:{display:false}}}
+    });
+
+    new Chart(document.getElementById("chartBayesian"),{
+      type:"line",
+      data:{
+        labels:mockData.ratings.map(x=>x.title),
+        datasets:[{label:"Bayesian Avg", data:mockData.ratings.map(x=>x.bayesian), borderWidth:2, tension:.3}]
+      }
+    });
+
+    // ====== Tables render ======
+    // Novels
+    const novelRows = document.getElementById("novelRows");
+    novelRows.innerHTML = mockData.novels.map(n=>`
+      <tr class="border-b border-[var(--stroke)]">
+        <td class="py-2">${n.id}</td>
+        <td>${n.title}</td>
+        <td>${n.author}</td>
+        <td>${n.cate}</td>
+        <td>
+          <select class="card bg-transparent px-2 py-1">
+            ${mockData.categories.map(c=>`<option ${c===n.cate?'selected':''}>${c}</option>`).join("")}
+          </select>
+        </td>
+        <td>${n.status}</td>
+        <td class="text-right">
+          <button class="btn btn-ghost">แก้ไข</button>
+          <button class="btn btn-ghost">ลบ</button>
+        </td>
+      </tr>
+    `).join("");
+
+    // Users (role=user)
+    const userRows = document.getElementById("userRows");
+    userRows.innerHTML = mockData.usersUserRole.map(u=>`
+      <tr class="border-b border-[var(--stroke)]">
+        <td class="py-2">${u.id}</td>
+        <td>${u.username}</td>
+        <td>${u.email}</td>
+        <td>${u.status}</td>
+        <td>${u.gender}</td>
+        <td class="text-right">
+          <button class="btn btn-ghost">ดู</button>
+          <button class="btn btn-ghost">แก้ไข</button>
+          <button class="btn btn-ghost">ลบ</button>
+        </td>
+      </tr>
+    `).join("");
+
+    // Admins (visible to superadmin only)
+    const adminRows = document.getElementById("adminRows");
+    adminRows.innerHTML = (mockData.admins||[]).map(u=>`
+      <tr class="border-b border-[var(--stroke)]">
+        <td class="py-2">${u.id}</td>
+        <td>${u.username}</td>
+        <td>${u.email}</td>
+        <td>${u.status}</td>
+        <td class="text-right">
+          <button class="btn btn-ghost">ดู</button>
+          <button class="btn btn-ghost">แก้ไข</button>
+          <button class="btn btn-ghost">ลบ</button>
+        </td>
+      </tr>
+    `).join("");
+
+    // Reports
+    const reportRows = document.getElementById("reportRows");
+    function renderReports(){
+      const kw = (document.getElementById("filterKeyword").value||"").toLowerCase();
+      const st = document.getElementById("filterStatus").value;
+      const list = mockData.reports.filter(r=>{
+        const matchKw = [r.id, r.reporter, r.target, r.reason].join(" ").toLowerCase().includes(kw);
+        const matchSt = !st || r.status===st;
+        return matchKw && matchSt;
+      });
+      reportRows.innerHTML = list.map(r=>`
+        <tr class="border-b border-[var(--stroke)]">
+          <td class="py-2">${r.id}</td>
+          <td>${r.created_at}</td>
+          <td>${r.reporter}</td>
+          <td>${r.target}</td>
+          <td>${r.reason}</td>
+          <td>
+            <select class="card px-2 py-1 bg-transparent">
+              <option ${r.status==='รอการตรวจสอบ'?'selected':''}>รอการตรวจสอบ</option>
+              <option ${r.status==='กำลังตรวจสอบ'?'selected':''}>กำลังตรวจสอบ</option>
+              <option ${r.status==='ตรวจสอบแล้ว'?'selected':''}>ตรวจสอบแล้ว</option>
+            </select>
+          </td>
+          <td class="text-right">
+            <button class="btn btn-ghost">รายละเอียด</button>
+            <button class="btn btn-ghost">บันทึก</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+    renderReports();
+    document.getElementById("filterKeyword").addEventListener("input", renderReports);
+    document.getElementById("filterStatus").addEventListener("change", renderReports);
+    document.getElementById("btnClearFilter").addEventListener("click", ()=>{
+      document.getElementById("filterKeyword").value="";
+      document.getElementById("filterStatus").value="";
+      renderReports();
+    });
+
+    // ====== Profile mock fill ======
+    document.getElementById("pf_username").value = mockData.me.username;
+    document.getElementById("pf_email").value = mockData.me.email;
+    document.getElementById("pf_save").addEventListener("click", ()=>{
+      alert("บันทึกโปรไฟล์ (ตัวอย่าง)\nเชื่อมต่อ backend เพื่อ update ในตาราง users");
+    });
+
+    // ====== Logout ======
+    document.getElementById("btnLogout").addEventListener("click", ()=>{
+      alert("ออกจากระบบ (ตัวอย่าง) — แนบเส้นทาง /auth/logout ใน backend");
+      // window.location.href = "/auth/logout";
+    });
+
+    // ====== Export PDF ======
+    document.getElementById("btnExport").addEventListener("click", async ()=>{
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:"pt", format:"a4"});
+      const now = new Date();
+      const month = document.getElementById("monthPicker").value || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      const top = mockData.activeReaders[0];
+      const open = (mockData.reportStatusCounts["รอการตรวจสอบ"]||0) + (mockData.reportStatusCounts["กำลังตรวจสอบ"]||0);
+
+      doc.setFont("Helvetica","bold"); doc.setFontSize(16);
+      doc.text("รายงานสรุปข้อมูลประจำเดือน (Myshelf)", 40, 60);
+      doc.setFont("Helvetica",""); doc.setFontSize(12);
+      doc.text(`เดือนที่รายงาน: ${month}`, 40, 86);
+      doc.text(`ผู้ใช้ทั้งหมดล่าสุด: ${mockData.siteTotals.total_users.toLocaleString()}`, 40, 110);
+      doc.text(`จำนวนนิยายทั้งหมดล่าสุด: ${mockData.siteTotals.total_novels.toLocaleString()}`, 40, 130);
+      doc.text(`สถานะการจัดการรายงาน: เปิดอยู่ ${open} เรื่อง (รอ ${mockData.reportStatusCounts["รอการตรวจสอบ"]||0}, ตรวจอยู่ ${mockData.reportStatusCounts["กำลังตรวจสอบ"]||0}, ปิดแล้ว ${mockData.reportStatusCounts["ตรวจสอบแล้ว"]||0})`, 40, 150);
+      doc.text(`นิยายที่ผู้อ่านอ่านสูงสุด: ${top?top.title:"—"} (${top?top.readers:0} คน)`, 40, 170);
+      doc.line(40, 190, 555, 190);
+      doc.text("ลงชื่อผู้จัดทำรายงาน ....................................................", 40, 220);
+      doc.save(`myshelf-monthly-report-${month}.pdf`);
+    });
+
+    // ====== Demo: superadmin toggle (เปิดบรรทัดนี้เพื่อทดสอบ) ======
+    // userRole = "superadmin"; applyRoleGate(); document.getElementById("roleChip").textContent = "role: "+userRole;
+  </script>
+</body>
+</html>

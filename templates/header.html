@@ -1,0 +1,67 @@
+<header class="sticky top-0 z-50 bg-[rgba(31,31,33,.98)] bg-gradient-to-b from-[rgba(31,31,33,.98)] to-[rgba(31,31,33,.95)] backdrop-blur-sm border-b border-white/10">
+  <div class="mx-auto max-w-[1200px] px-4 md:px-6">
+    <nav class="flex items-center gap-4 py-3.5">
+      <a href="/" class="shrink-0 inline-flex items-center gap-3">
+        <img src="{{ url_for('static', filename='cover/logo.png') }}" alt="MY SHELF" class="h-[48px] md:h-[60px] w-auto object-contain" />
+      </a>
+
+      <div class="ml-auto flex items-center gap-2">
+        <form role="search" class="relative min-w-[220px] sm:min-w-[280px]">
+          <input type="search" placeholder="Search" aria-label="ค้นหา"
+          class="w-full rounded-full bg-[#111214] border border-white/10 pl-10 pr-10 py-2 text-textc placeholder-white/50 outline-none focus:ring-2 focus:ring-white/20 focus:border-white/30 transition" />
+          <span class="absolute inset-y-0 left-0 pl-3 grid place-items-center text-muted">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 1 100-15 7.5 7.5 0 000 15z"/>
+            </svg>
+          </span>
+        </form>
+
+        {% set iconBtn = "w-9 h-9 rounded-full border border-white/10 bg-[#111214] text-muted grid place-items-center hover:border-white/20 hover:text-textc transition" %}
+        <a href="{{ url_for('mywrite') }}"         class="{{ iconBtn }}" aria-label="งานเขียน">✏️</a>
+        <button type="button" id="btnNotifications" class="{{ iconBtn }}" aria-haspopup="dialog" aria-controls="notificationsModal" aria-label="แจ้งเตือน">🔔</button>
+        <a href="{{ url_for('bookshelf') }}"     class="{{ iconBtn }}" aria-label="ชั้นหนังสือ">❤</a>
+        <a href="{{ url_for('profile.profileusers') }}"       class="{{ iconBtn }}" aria-label="โปรไฟล์">👤</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<!-- Notifications Modal -->
+<div id="notificationsModal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="notiTitle">
+  <div id="notiBackdrop" class="absolute inset-0 bg-black/50"></div>
+  <div class="absolute inset-0 flex items-start md:items-center justify-center p-4 md:p-6 overflow-y-auto">
+    <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200" id="notiContainer">
+      <button type="button" class="absolute top-3 right-3 p-2 rounded-lg hover:bg-slate-100" aria-label="ปิด" id="notiClose">✕</button>
+      {% set container_id = 'notiContent' %}
+      {% include 'notification_panel.html' %}
+    </div>
+  </div>
+</div>
+
+<!-- Notifications modal loader -->
+<script>
+  (function(){
+    const btn = document.getElementById('btnNotifications');
+    const modal = document.getElementById('notificationsModal');
+    const content = document.getElementById('notiContent');
+    const btnClose = document.getElementById('notiClose');
+    const backdrop = document.getElementById('notiBackdrop');
+    function openModal(){ modal.classList.remove('hidden'); }
+    function closeModal(){ modal.classList.add('hidden'); }
+    btn && btn.addEventListener('click', async () => {
+      openModal();
+      content.innerHTML = '<div class="p-6 text-center text-slate-500">กำลังโหลด...</div>';
+      try{
+        const res = await fetch('{{ url_for("noti.notifications_page") }}?container_id=notiContent', { headers: { 'X-Requested-With': 'fetch' } });
+        const html = await res.text();
+        const current = document.getElementById('notiContent');
+        if (current) current.outerHTML = html;
+      }catch(e){
+        content.innerHTML = '<div class="p-6 text-center text-red-600">โหลดไม่สำเร็จ</div>';
+      }
+    });
+    btnClose && btnClose.addEventListener('click', closeModal);
+    backdrop && backdrop.addEventListener('click', closeModal);
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeModal(); });
+  })();
+</script>
