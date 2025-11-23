@@ -1,5 +1,5 @@
 # novelcover.py
-from flask import Blueprint, render_template, abort, url_for, request, redirect, session, flash, g
+from flask import Blueprint, render_template, abort, url_for, request, redirect, session, flash, g, jsonify
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection
 import os
@@ -101,6 +101,88 @@ def _current_user_id() -> int | None:
         except Exception:
             uid = None
     return uid
+
+
+def _build_summary_prompt(novel_title: str, base_summary: str | None, comments: list[dict]) -> str:
+    """สร้างข้อความ prompt สำหรับให้ AI สรุปความคิดเห็นของนิยายเรื่องหนึ่ง"""
+    title_part = f"นิยายเรื่อง: {novel_title}\n" if novel_title else ""
+    bullet_lines: list[str] = []
+    for c in comments:
+        text = str(c.get("content") or "").strip()
+        if not text:
+            continue
+        # ตัดความยาวคอมเมนต์แต่ละอันให้ไม่ยาวเกินไป (กัน token บวม)
+        if len(text) > 300:
+            text = text[:300] + "..."
+        bullet_lines.append(f"- {text}")
+    comments_block = "\n".join(bullet_lines) if bullet_lines else "- (ไม่มีคอมเมนต์ใหม่)"
+
+    system_intro = (
+        "คุณคือผู้ช่วยสรุปความคิดเห็นผู้อ่านนิยายออนไลน์ "
+        "ช่วยสรุปเป็นภาษาไทยแบบกระชับ แบ่งเป็นหัวข้อย่อย 3–5 ข้อ "
+        "เน้นโทนความรู้สึกของผู้อ่าน (ชอบอะไร ไม่ชอบอะไร) และข้อเสนอแนะสำคัญ"
+    )
+
+    if base_summary:
+        return (
+            system_intro + "\n\n"
+            + title_part +
+            "สรุปเดิมที่เคยมี:\n"
+            f"{base_summary}\n\n"
+            "คอมเมนต์ใหม่ที่เพิ่งถูกเพิ่มเข้ามา:\n"
+            f"{comments_block}\n\n"
+            "กรุณาสร้างสรุปฉบับอัปเดตที่รวมทั้งสรุปเดิมและคอมเมนต์ใหม่ "
+            "ตอบกลับเฉพาะข้อความสรุปเท่านั้น"
+        )
+    else:
+        return (
+            system_intro + "\n\n"
+            + title_part +
+            "คอมเมนต์ทั้งหมดของผู้อ่าน:\n"
+            f"{comments_block}\n\n"
+            "กรุณาสร้างสรุปความคิดเห็นจากคอมเมนต์เหล่านี้ "
+            "ตอบกลับเฉพาะข้อความสรุปเท่านั้น"
+        )
+
+
+def generate_comment_summary(base_summary, comments, novel_title: str = "") -> str:
+    """
+    ฟังก์ชันห่อสำหรับเรียก AI สรุปความคิดเห็น
+
+    *** ตรงนี้ให้คุณไปเชื่อมต่อ API จริงเอง ***
+    ตัวอย่างเช่น ต่อกับ OpenAI API, Azure OpenAI, หรือโมเดลภายในองค์กร/มหาวิทยาลัย ฯลฯ
+
+    ตอนนี้จะเป็น implementation แบบง่าย ๆ (ยังไม่เรียก AI จริง)
+    คือเอาคอมเมนต์ใหม่มาตัดให้สั้นแล้วต่อกับสรุปเดิม
+    เพื่อให้ flow ฝั่ง backend + DB ทำงานได้ก่อน
+    """
+    # ถ้าไม่มีคอมเมนต์ใหม่เลย แต่มีสรุปเดิมอยู่แล้ว → ส่งสรุปเดิมกลับไป
+    if not comments and base_summary:
+        return base_summary
+
+    # รวมข้อความคอมเมนต์ใหม่เป็น list
+    new_texts: list[str] = []
+    for c in comments:
+        t = str(c.get("content") or "").strip()
+        if not t:
+            continue
+        if len(t) > 200:
+            t = t[:200] + "..."
+        new_texts.append(t)
+
+    if not new_texts and base_summary:
+        return base_summary
+
+    # 🧠 จุดที่ควรไปเรียก AI จริง:
+    # prompt = _build_summary_prompt(novel_title, base_summary, comments)
+    # result = call_your_ai_model(prompt)
+    # return result
+
+    # ชั่วคราว: สร้าง "สรุปตัวอย่าง" จากคอมเมนต์ใหม่ เพื่อให้ระบบใช้ทดสอบได้
+    if base_summary:
+        return base_summary + "\n\nความคิดเห็นใหม่ (ตัวอย่าง ยังไม่สรุปด้วย AI จริง):\n- " + "\n- ".join(new_texts)
+    else:
+        return "สรุปความคิดเห็น (ตัวอย่าง ยังไม่สรุปด้วย AI จริง):\n- " + "\n- ".join(new_texts)
 
 
 # ---------- route main: /novel/<novels_id> ----------
@@ -249,7 +331,7 @@ def detail(novels_id: int):
                     )
                 novel["total_readers"] = int((cur.fetchone() or {}).get("c") or 0)
 
-                        # --- chapters ---
+            # --- chapters ---
             chap_pk = "chapters_id"
             try:
                 cur.execute("DESCRIBE chapters")
@@ -306,6 +388,7 @@ def detail(novels_id: int):
                 (novels_id,),
             )
             chapters = cur.fetchall()
+            novel["total_chapters"] = len(chapters)
 
             # เตรียมชุดข้อมูลตอนที่ user คนนี้เคยกดหัวใจ
             uid = _current_user_id()
@@ -328,7 +411,6 @@ def detail(novels_id: int):
             for ch in chapters:
                 ch["like_count"] = int(ch.get("like_count") or 0)
                 ch["is_liked"] = (ch.get("chapters_id") in liked_set)
-
 
             # --- comments + user info ---
             comments = []
@@ -364,6 +446,155 @@ def detail(novels_id: int):
     except Exception as e:
         print(f"[novel.detail] error: {e}")
         abort(500)
+
+
+# ---------- route: สรุปความคิดเห็นด้วย AI (API JSON) ----------
+
+@novel_bp.route("/novel/<int:novels_id>/comment-summary", methods=["POST"])
+def comment_summary(novels_id: int):
+    """คืนสรุปความคิดเห็นของนิยายเรื่องหนึ่งในรูปแบบ JSON
+
+    - ถ้ามีสรุปเก่าและ dirty = 0 → ส่งสรุปเก่าจาก DB เลย (from_cache = True)
+    - ถ้ายังไม่เคยสรุป หรือ dirty = 1 → ดึงคอมเมนต์ใหม่แล้วสร้างสรุปใหม่
+    """
+    try:
+        conn = get_db_connection()
+        with conn.cursor(DictCursor) as cur:
+            # ต้องมีตาราง comments ก่อนถึงจะสรุปได้
+            if not _has_table(cur, "comments"):
+                return jsonify({
+                    "ok": False,
+                    "error": "ยังไม่พบตาราง comments ในฐานข้อมูล"
+                }), 400
+
+            # อ่านข้อมูลนิยาย (เอา title ไว้ช่วยสร้าง prompt ถ้าจะใช้ AI จริง)
+            novel_title = ""
+            try:
+                cur.execute(
+                    "SELECT title FROM novels WHERE novels_id = %s LIMIT 1",
+                    (novels_id,),
+                )
+                row = cur.fetchone()
+                if row and row.get("title"):
+                    novel_title = str(row["title"])
+            except Exception:
+                novel_title = ""
+
+            # อ่านสรุปเดิม (ถ้ามี)
+            summary_row = None
+            if _has_table(cur, "comment_summaries"):
+                cur.execute(
+                    """SELECT summary_text, last_cm_id, dirty
+                        FROM comment_summaries
+                        WHERE novels_id = %s
+                        LIMIT 1""",
+                    (novels_id,),
+                )
+                summary_row = cur.fetchone()
+
+            base_summary = None
+            last_cm_id = 0
+            dirty = 1  # ถ้าไม่มี row เลย ให้ถือว่าต้องสรุปใหม่
+
+            if summary_row:
+                base_summary = summary_row.get("summary_text")
+                try:
+                    last_cm_id = int(summary_row.get("last_cm_id") or 0)
+                except (TypeError, ValueError):
+                    last_cm_id = 0
+                try:
+                    dirty = int(summary_row.get("dirty") or 1)
+                except (TypeError, ValueError):
+                    dirty = 1
+
+            # ถ้ามีสรุปเดิม + dirty = 0 → ใช้สรุปจาก cache ได้เลย
+            if base_summary and dirty == 0:
+                return jsonify({
+                    "ok": True,
+                    "summary": base_summary,
+                    "from_cache": True,
+                })
+
+            # ต้องสรุปใหม่ (ครั้งแรก หรือมีคอมเมนต์เปลี่ยน)
+            # ถ้ามี base_summary แปลว่าเคยสรุปแล้ว → ดึงเฉพาะคอมเมนต์ที่ cm_id > last_cm_id
+            if base_summary and last_cm_id > 0:
+                cur.execute(
+                    """SELECT cm_id, content
+                        FROM comments
+                        WHERE novels_id = %s
+                          AND cm_id > %s
+                        ORDER BY cm_id ASC""",
+                    (novels_id, last_cm_id),
+                )
+            else:
+                # ยังไม่เคยสรุป → ดึงคอมเมนต์ทั้งหมดของนิยายเรื่องนี้
+                cur.execute(
+                    """SELECT cm_id, content
+                        FROM comments
+                        WHERE novels_id = %s
+                        ORDER BY cm_id ASC""",
+                    (novels_id,),
+                )
+            new_comments = cur.fetchall()
+
+            # ถ้าไม่มีคอมเมนต์ใหม่เลย แต่มี base_summary อยู่แล้ว
+            # ให้ mark dirty=0 แล้วส่งสรุปเดิมกลับ
+            if not new_comments and base_summary:
+                if _has_table(cur, "comment_summaries"):
+                    cur.execute(
+                        "UPDATE comment_summaries SET dirty = 0 WHERE novels_id = %s",
+                        (novels_id,),
+                    )
+                    conn.commit()
+                return jsonify({
+                    "ok": True,
+                    "summary": base_summary,
+                    "from_cache": True,
+                })
+
+            # เรียกฟังก์ชัน generate_comment_summary (ปัจจุบันเป็น stub ยังไม่เรียก AI จริง)
+            new_summary = generate_comment_summary(base_summary, new_comments, novel_title=novel_title)
+
+            if not new_summary:
+                return jsonify({
+                    "ok": False,
+                    "error": "ไม่สามารถสร้างสรุปความคิดเห็นได้"
+                }), 500
+
+            # หา cm_id สูงสุดของคอมเมนต์ที่นำไปสรุป
+            max_cm_id = last_cm_id
+            for c in new_comments:
+                try:
+                    cm_id_val = int(c.get("cm_id") or 0)
+                except (TypeError, ValueError):
+                    cm_id_val = 0
+                if cm_id_val > max_cm_id:
+                    max_cm_id = cm_id_val
+
+            # บันทึก / อัปเดตตาราง comment_summaries
+            if _has_table(cur, "comment_summaries"):
+                cur.execute(
+                    """INSERT INTO comment_summaries (novels_id, summary_text, last_cm_id, dirty)
+                        VALUES (%s, %s, %s, 0)
+                        ON DUPLICATE KEY UPDATE
+                          summary_text = VALUES(summary_text),
+                          last_cm_id   = VALUES(last_cm_id),
+                          dirty        = 0""",
+                    (novels_id, new_summary, max_cm_id),
+                )
+                conn.commit()
+
+            return jsonify({
+                "ok": True,
+                "summary": new_summary,
+                "from_cache": False,
+            })
+    except Exception as e:
+        print(f"[novel.comment_summary] error: {e}")
+        return jsonify({
+            "ok": False,
+            "error": "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์"
+        }), 500
 
 
 # ---------- route สำหรับให้ดาว / บันทึก rating ----------
@@ -432,6 +663,7 @@ def rate(novels_id: int):
 
     return redirect(url_for("novel.detail", novels_id=novels_id))
 
+
 @novel_bp.route("/novel/<int:novels_id>/chapter/<int:chapters_id>/like", methods=["POST"])
 def toggle_chapter_like(novels_id: int, chapters_id: int):
     """กด/ยกเลิกหัวใจให้ตอน (toggle) แล้ว redirect กลับหน้า novel cover"""
@@ -445,7 +677,7 @@ def toggle_chapter_like(novels_id: int, chapters_id: int):
     try:
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
-            # ต้องมีตาราง chapter_likes ก่อน (ไฟล์ .sql ที่คุณแนบมา) :contentReference[oaicite:2]{index=2}
+            # ต้องมีตาราง chapter_likes ก่อน
             if not _has_table(cur, "chapter_likes"):
                 flash("ยังไม่พบตาราง chapter_likes ในฐานข้อมูล", "error")
                 return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))

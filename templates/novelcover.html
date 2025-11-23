@@ -364,6 +364,112 @@
       box-shadow:0 4px 14px rgba(0,0,0,.3);
     }
 
+        /* ปุ่มตัวช่วยสรุปความคิดเห็น */
+    .summary-helper-wrap{
+      margin:16px 0 28px;
+      display:flex;
+      justify-content:center;
+    }
+    .summary-helper-btn{
+      border-radius:999px;
+      padding:8px 20px;
+      font-size:15px;
+      font-weight:600;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      background:transparent;
+      color:var(--accent);
+      border:1px solid rgba(255, 255, 255, 0.28);
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 4px 14px rgba(253, 253, 253, 0.35);
+      transition:background .15s ease,color .15s ease,
+                 transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+    }
+    .summary-helper-btn::before{
+      content:"✨";
+      font-size:14px;
+    }
+    .summary-helper-btn:hover{
+      background:var(--accent);
+      color:#111214;
+      transform:translateY(-1px);
+      border-color:transparent;
+      box-shadow:0 8px 22px rgba(0,0,0,.5);
+    }
+    .summary-helper-btn:active{
+      transform:translateY(0);
+      box-shadow:0 4px 14px rgba(0,0,0,.3);
+    }
+
+    /* SUMMARY MODAL */
+    .summary-modal{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+    }
+    .summary-modal.active{
+      display:flex;
+    }
+    .summary-modal-overlay{
+      position:absolute;
+      inset:0;
+      background:rgba(0,0,0,.65);
+      backdrop-filter:blur(4px);
+    }
+    .summary-modal-dialog{
+      position:relative;
+      max-width:520px;
+      width:calc(100% - 40px);
+      background:var(--card);
+      padding:20px 22px 18px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 18px 36px rgba(0,0,0,.6);
+      z-index:1;
+    }
+    .summary-modal-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+    .summary-modal-title{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.08em;
+    }
+    .summary-modal-close{
+      border:0;
+      background:transparent;
+      color:var(--muted);
+      font-size:20px;
+      cursor:pointer;
+      border-radius:999px;
+      width:32px;
+      height:32px;
+      display:grid;
+      place-items:center;
+      transition:background .15s ease,color .15s ease,transform .15s ease;
+    }
+    .summary-modal-close:hover{
+      background:rgba(255,255,255,.08);
+      color:var(--accent);
+      transform:rotate(6deg);
+    }
+    .summary-modal-body{
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.7;
+    }
+
+
     .comments-header{
       display:flex;
       align-items:flex-end;
@@ -710,6 +816,37 @@
         </div>
       </form>
 
+          <!-- ปุ่มตัวช่วยสรุปความคิดเห็น (อยู่ตรงกลาง ระหว่างฟอร์มกับรายการคอมเมนต์) -->
+      <div class="summary-helper-wrap">
+        <button type="button" class="summary-helper-btn" id="openSummaryHelper">
+          ตัวช่วยสรุปความคิดเห็น
+        </button>
+      </div>
+
+        <!-- Modal ตัวช่วยสรุปความคิดเห็น -->
+      <div id="summaryModal" class="summary-modal" aria-hidden="true">
+        <div class="summary-modal-overlay" data-summary-close></div>
+
+        <div class="summary-modal-dialog" role="dialog"
+            aria-modal="true" aria-labelledby="summaryModalTitle">
+          <div class="summary-modal-header">
+            <h3 id="summaryModalTitle" class="summary-modal-title">
+              ตัวช่วยสรุปความคิดเห็น
+            </h3>
+            <button type="button" class="summary-modal-close"
+                    aria-label="ปิด" data-summary-close>×</button>
+          </div>
+          <div class="summary-modal-body">
+            <!-- ตอนเชื่อม DB ค่อยเปลี่ยนเนื้อหาส่วนนี้ -->
+            <p>
+              ข้อความสรุปความคิดเห็นจากผู้อ่านจะมาแสดงในกล่องนี้
+              (ตอนนี้เป็นข้อความตัวอย่างเพื่อทดสอบการแสดงผลของ modal)
+            </p>
+          </div>
+        </div>
+      </div>
+
+
       <div class="comments-header">
         <div class="comments-header-main">
           <h2>ความคิดเห็นผู้อ่าน</h2>
@@ -846,6 +983,8 @@
       update();
     })();
 
+    
+
     // Sort chapters บนหน้า (ไม่รีเฟรชหน้า)
     (function(){
       const list = document.getElementById('chaptersList');
@@ -890,6 +1029,125 @@
         });
       });
     })();
+
+    // --- ตัวช่วยสรุปความคิดเห็น: modal + fetch summary จาก backend ---
+    (function(){
+      const openBtn = document.getElementById('openSummaryHelper');
+      const modal   = document.getElementById('summaryModal');
+      if (!openBtn || !modal) return;
+
+      const overlay    = modal.querySelector('.summary-modal-overlay');
+      const closeEls   = modal.querySelectorAll('[data-summary-close]');
+      const body       = document.body;
+      const contentEl  = modal.querySelector('.summary-modal-body');
+
+      // URL สำหรับเรียกสรุปความคิดเห็น จาก blueprint novel.comment_summary
+      const summaryUrl = "{{ url_for('novel.comment_summary', novels_id=novel.novels_id) }}";
+
+      // ดึง CSRF token จาก input hidden ตัวใดก็ได้ในหน้านี้
+      function getCsrfToken() {
+        const input = document.querySelector('input[name="csrf_token"]');
+        return input ? input.value : null;
+      }
+
+      function showLoading() {
+        if (!contentEl) return;
+        contentEl.innerHTML = `
+          <p>
+            กำลังสรุปความคิดเห็นจากผู้อ่าน กรุณารอสักครู่... ✨<br>
+            (อาจใช้เวลาสักครู่ ขึ้นอยู่กับจำนวนความคิดเห็น)
+          </p>
+        `;
+      }
+
+      function showError(msg) {
+        if (!contentEl) return;
+        const text = msg || "โปรดลองใหม่อีกครั้งภายหลัง";
+        contentEl.innerHTML = `
+          <p style="color:#ff9f9f;">
+            เกิดข้อผิดพลาดขณะสรุปความคิดเห็นจากผู้อ่าน<br>
+            ${text}
+          </p>
+        `;
+      }
+
+      function showSummary(summary, fromCache) {
+        if (!contentEl) return;
+        const safeSummary = (summary || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+        const note = fromCache
+          ? '<p style="font-size:12px;opacity:.75;margin-top:8px;">(ใช้สรุปล่าสุดที่เคยสร้างไว้แล้ว)</p>'
+          : '<p style="font-size:12px;opacity:.75;margin-top:8px;">(พึ่งสรุปจากความคิดเห็นล่าสุดในตอนนี้)</p>';
+
+        contentEl.innerHTML =
+          '<p>' + safeSummary.replace(/\n/g, "<br>") + '</p>' + note;
+      }
+
+      async function fetchSummary() {
+        showLoading();
+
+        try {
+          const headers = {
+            "Content-Type": "application/json"
+          };
+          const csrf = getCsrfToken();
+          if (csrf) {
+            // รองรับทั้งชื่อ header ของ Flask-WTF
+            headers["X-CSRFToken"]   = csrf;
+            headers["X-CSRF-Token"] = csrf;
+          }
+
+          const resp = await fetch(summaryUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({})  // backend ตอนนี้ไม่ได้อ่าน body อยู่แล้ว
+          });
+
+          let data = {};
+          try {
+            data = await resp.json();
+          } catch (e) {
+            data = {};
+          }
+
+          if (!resp.ok || !data.ok) {
+            const msg = (data && (data.error || data.message)) || "";
+            showError(msg);
+            return;
+          }
+
+          showSummary(data.summary || "", !!data.from_cache);
+        } catch (err) {
+          console.error("fetch summary error", err);
+          showError("");
+        }
+      }
+
+      const openModal = () => {
+        modal.classList.add('active');
+        body.style.overflow = 'hidden'; // กัน scroll พื้นหลัง
+        fetchSummary();                  // กดปุ๊บ ยิงหา summary ทันที
+      };
+
+      const closeModal = () => {
+        modal.classList.remove('active');
+        body.style.overflow = '';
+      };
+
+      openBtn.addEventListener('click', openModal);
+      closeEls.forEach(el => el.addEventListener('click', closeModal));
+      if (overlay) overlay.addEventListener('click', closeModal);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+          closeModal();
+        }
+      });
+    })();
+
   </script>
 </body>
 </html>
