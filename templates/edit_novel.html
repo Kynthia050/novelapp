@@ -68,6 +68,66 @@
     .upload-icon{opacity:.85;font-size:26px}
     .upload-text{color:var(--text)}
     .upload-guidelines,.upload-dimensions{color:var(--muted);font-size:12px}
+
+    /* กลุ่มปุ่มในแถวตอน */
+  .chapter-actions{
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+  }
+
+  /* ซ่อนสามเหลี่ยม dropdown ของ datalist ในช่องแท็ก */
+  #tagInput::-webkit-calendar-picker-indicator{
+    opacity: 0;
+    display: none;
+  }
+
+  /* ห่อ select เอาไว้เพื่อวางลูกศร */
+  .status-select-wrapper{
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .status-select{
+    appearance:none;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+
+    background:#0f0f10;
+    border:1px solid #2b2c30;
+    border-radius:999px;
+
+    padding:.5rem 1.25rem;    /* ใช้ค่าเดียวกับ .chapter-actions .btn */
+    font-size:0.875rem;
+    color:#f9fafb;
+    line-height:1;
+    white-space:nowrap;
+  }
+
+  .status-select:focus{
+    outline:none;
+    box-shadow:0 0 0 2px rgba(148,163,184,.6);
+  }
+
+  /* ลูกศร dropdown อยู่ด้านใน ไม่เพิ่มความกว้าง */
+  .status-select-wrapper::after{
+    content:"▾";
+    position:absolute;
+    right:.8rem;              /* อยู่ในพื้นที่ padding เดียวกับปุ่ม */
+    top:50%;
+    transform:translateY(-50%);
+    font-size:0.7rem;
+    pointer-events:none;
+    color:#f9fafb;
+  }
+
+
+  /* ปรับปุ่ม แก้ไข / ลบ ให้เป็นเม็ดยาเหมือน "+ เพิ่มตอน" */
+  .chapter-actions .btn{
+    padding:.5rem 1.25rem;
+    border-radius:999px;
+  }
   </style>
 </head>
 <body>
@@ -130,10 +190,20 @@
             <textarea name="description" rows="6" class="textarea" placeholder="สรุปเรื่องย่อ">{{ novel.description or '' }}</textarea>
           </div>
 
-          <div class="flex gap-3">
-            <button class="btn btn-primary px-5 py-2 rounded-full font-semibold">บันทึกการแก้ไข</button>
-            <a href="{{ url_for('api.delete_novel', novels_id=novel.novels_id) }}" class="btn btn-ghost px-5 py-2 rounded-full">ลบงานเขียนนี้</a>
-          </div>
+          <div class="flex gap-3 items-center">
+          <button class="btn btn-primary px-5 py-2 rounded-full font-semibold">
+            บันทึกการแก้ไข
+          </button>
+
+          <form method="post"
+                action="{{ url_for('editnovel.delete_novel_page', novels_id=novel.novels_id) }}"
+                onsubmit="return confirm('ต้องการลบงานเขียนนี้หรือไม่?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost px-5 py-2 rounded-full">
+              ลบงานเขียนนี้
+            </button>
+          </form>
+        </div>
         </div>
       </div>
 
@@ -159,7 +229,7 @@
           <datalist id="allTags">
             {% for at in all_tags %}<option value="{{ at.name }}"></option>{% endfor %}
           </datalist>
-          <button id="addTagBtn" type="button" class="btn btn-dark px-4 rounded-xl">เพิ่มแท็ก</button>
+          <button id="addTagBtn" type="button" class="btn btn-dark px-4 rounded-xl">เพิ่ม</button>
         </div>
       </section>
 
@@ -174,34 +244,64 @@
         </div>
 
         {% if chapters and chapters|length %}
-          <ul class="divide-y divide-[var(--line)]" id="chapterList">
-            {% for ch in chapters %}
-              <li class="py-3 flex items-center justify-between">
-                <div>
-                  <div class="font-medium">ตอนที่ {{ ch.chapter_no }} — {{ ch.title }}</div>
-                  <div class="text-sm text-[var(--muted)]">อัปเดต {{ ch.updated_at or ch.created_at }}</div>
+        <ul class="divide-y divide-[var(--line)]" id="chapterList">
+          {% for ch in chapters %}
+            <li class="py-3 flex items-center justify-between">
+              <div>
+                <div class="font-medium">ตอนที่ {{ ch.chapter_no }} — {{ ch.title }}</div>
+                <div class="text-sm text-[var(--muted)]">
+                  อัปเดต {{ ch.updated_at or ch.created_at }}
                 </div>
-                <div class="flex gap-2">
-                            <a href="{{ url_for('writing.writing_form',
-                              novels_id=novel.novels_id,
-                              chapter_id=ch.chapters_id) }}"
-            class="btn btn-ghost px-3 py-1.5 rounded-lg">
-            แก้ไข
-          </a>
-                            <a href="{{ url_for('api.delete_chapter',
-                              novels_id=novel.novels_id,
-                              chapter_id=ch.chapters_id) }}"
-            class="btn btn-ghost px-3 py-1.5 rounded-lg">
-            ลบ
-          </a>
+              </div>
 
-                </div>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <div class="text-[var(--muted)]">ยังไม่มีตอน</div>
-        {% endif %}
+              <div class="chapter-actions">
+                <!-- เลือกสถานะ -->
+                <form method="post"
+                  action="{{ url_for('editnovel.update_chapter_status',
+                                    novels_id=novel.novels_id,
+                                    chapter_id=ch.chapters_id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              <div class="status-select-wrapper">
+              <select name="status"
+                      class="status-select"
+                      onchange="this.form.submit()">
+                <option value="draft"
+                        {% if ch.status == 'draft' %}selected{% endif %}>แบบร่าง</option>
+                <option value="published"
+                        {% if ch.status == 'published' %}selected{% endif %}>เผยแพร่</option>
+              </select>
+            </div>
+
+            </form>
+
+                <!-- ปุ่มแก้ไข -->
+                <a href="{{ url_for('writing.writing_form',
+                                    novels_id=novel.novels_id,
+                                    chapter_id=ch.chapters_id) }}"
+                  class="btn btn-dark">
+                  แก้ไข
+                </a>
+
+                <!-- ปุ่มลบ -->
+                <form method="post"
+                  action="{{ url_for('editnovel.delete_chapter_page',
+                                    novels_id=novel.novels_id,
+                                    chapter_id=ch.chapters_id) }}"
+                  onsubmit="return confirm('ต้องการลบตอนนี้หรือไม่?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-dark">
+                ลบ
+              </button>
+            </form>
+
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="text-[var(--muted)]">ยังไม่มีตอน</div>
+      {% endif %}
       </section>
     </form>
   </main>

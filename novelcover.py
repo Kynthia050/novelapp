@@ -299,13 +299,13 @@ def detail(novels_id: int):
                 FROM chapters c
                 {like_join}
                 WHERE c.novels_id = %s
+                  AND c.status = 'published'   -- ❗ กรองเฉพาะตอนเผยแพร่
                 {group_by}
                 ORDER BY c.chapter_no {order_dir}, c.{chap_pk} {order_dir}
                 """,
                 (novels_id,),
             )
             chapters = cur.fetchall()
-            novel["total_chapters"] = len(chapters)
 
             # เตรียมชุดข้อมูลตอนที่ user คนนี้เคยกดหัวใจ
             uid = _current_user_id()

@@ -7,7 +7,6 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 from contextlib import closing
 from pathlib import Path
-import os
 import MySQLdb  # สำหรับ conn.ping(True)
 
 from db import get_db_connection
@@ -132,7 +131,7 @@ def edit_novel(novels_id):
             # ตอนทั้งหมด — ไม่ดึง content_html เพื่อลด payload
             cur.execute(
                 """
-                SELECT chapters_id, title, chapter_no, created_at, updated_at
+                SELECT chapters_id, title, chapter_no, status, created_at, updated_at
                   FROM chapters
                  WHERE novels_id = %s
                  ORDER BY chapter_no ASC
@@ -222,12 +221,92 @@ def update_novel(novels_id):
         # ลบไฟล์ปกเก่าหลัง commit สำเร็จ (ถ้ามีและอัปโหลดใหม่จริง)
         if cover_filename and old_cover_filename:
             try:
-                (Path(current_app.static_folder) / COVER_SUBDIR / old_cover_filename).unlink(missing_ok=True)
+                (Path(current_app.static_folder) / COVER_SUBDIR / old_cover_filename).unlink(
+                    missing_ok=True
+                )
             except Exception:
                 # เงียบไว้ ไม่ให้กระทบผู้ใช้
                 pass
 
     flash("บันทึกสำเร็จ", "success")
+    return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+
+
+@editnovel_bp.post("/<int:novels_id>/chapters/<int:chapter_id>/status")
+def update_chapter_status(novels_id, chapter_id):
+    """อัปเดต status ของตอน (draft / published) จากหน้า edit_novel"""
+    new_status = (request.form.get("status") or "").strip()
+    if new_status not in ("draft", "published"):
+        flash("สถานะไม่ถูกต้อง", "error")
+        return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+
+    with closing(_conn_alive()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE chapters
+                   SET status = %s
+                 WHERE chapters_id = %s
+                   AND novels_id = %s
+                """,
+                (new_status, chapter_id, novels_id),
+            )
+        conn.commit()
+
+    flash("อัปเดตสถานะตอนเรียบร้อยแล้ว", "success")
+    return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+
+
+# ----- ลบนิยายจากหน้าเว็บ (ใช้กับปุ่ม "ลบงานเขียนนี้") -----
+@editnovel_bp.post("/<int:novels_id>/delete")
+def delete_novel_page(novels_id):
+    with closing(_conn_alive()) as conn:
+        # เอาไว้ลบไฟล์ปกด้วย
+        with conn.cursor() as cur:
+            cur.execute("SELECT cover FROM novels WHERE novels_id=%s", (novels_id,))
+            row = dictfetchone(cur)
+            if not row:
+                abort(404)
+            cover_filename = row.get("cover")
+
+            # ถ้า schema ตั้ง FK ON DELETE CASCADE ตารางลูกจะถูกลบให้อัตโนมัติ
+            cur.execute("DELETE FROM novels WHERE novels_id=%s", (novels_id,))
+        conn.commit()
+
+    # ลบไฟล์ปกถ้ามี
+    if cover_filename:
+        try:
+            (Path(current_app.static_folder) / COVER_SUBDIR / cover_filename).unlink(
+                missing_ok=True
+            )
+        except Exception:
+            pass
+
+    flash("ลบงานเขียนเรียบร้อยแล้ว", "success")
+    # กลับหน้าแรก (ปรับตาม endpoint จริงของโปรเจกต์ได้)
+    return redirect("/")
+
+
+# ----- ลบตอนจากหน้าเว็บ (ใช้กับปุ่ม "ลบ" ในลิสต์ตอน) -----
+@editnovel_bp.post("/<int:novels_id>/chapters/<int:chapter_id>/delete")
+def delete_chapter_page(novels_id, chapter_id):
+    with closing(_conn_alive()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT chapters_id FROM chapters WHERE chapters_id=%s AND novels_id=%s",
+                (chapter_id, novels_id),
+            )
+            if not dictfetchone(cur):
+                flash("ไม่พบตอนที่ต้องการลบ", "error")
+                return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+
+            cur.execute(
+                "DELETE FROM chapters WHERE chapters_id=%s AND novels_id=%s",
+                (chapter_id, novels_id),
+            )
+        conn.commit()
+
+    flash("ลบตอนเรียบร้อยแล้ว", "success")
     return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
 
@@ -284,7 +363,7 @@ def remove_tag(novels_id, tag_id):
                 (novels_id, tag_id),
             )
         conn.commit()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True}), 200
 
 
 # =========================  API: CHAPTERS  =========================
@@ -307,7 +386,8 @@ def create_chapter(novels_id):
         with conn.cursor() as cur:
             # ล็อกแถวที่เกี่ยวข้องระดับเรื่องนี้เพื่อลดโอกาส chapter_no ชน (ถ้า DB รองรับ)
             cur.execute(
-                "SELECT COALESCE(MAX(chapter_no), 0)+1 AS next_no FROM chapters WHERE novels_id=%s FOR UPDATE",
+                "SELECT COALESCE(MAX(chapter_no), 0)+1 AS next_no "
+                "FROM chapters WHERE novels_id=%s FOR UPDATE",
                 (novels_id,),
             )
             next_no = dictfetchone(cur)["next_no"]
@@ -351,7 +431,6 @@ def get_chapter(chapter_id):
 
 @api_bp.put("/chapters/<int:chapter_id>")
 def update_chapter(chapter_id):
-    """แก้ไขตอนเดิม (ชื่อ/เนื้อหา)"""
     data = request.get_json(silent=True) or {}
     title = (data.get("title") or "").strip()
     content_html = (data.get("content_html") or "").strip()
@@ -368,18 +447,21 @@ def update_chapter(chapter_id):
             if not dictfetchone(cur):
                 return _json_error("not found", 404)
 
-            fields, params = [], []
-            if title:
-                fields.append("title=%s"); params.append(title)
-            if content_html:
-                fields.append("content_html=%s"); params.append(content_html)
-            # อัปเดตเวลาแก้ไข (ถ้า schema มี updated_at แบบ DEFAULT CURRENT_TIMESTAMP ON UPDATE)
-            # DB จะอัปเดตเอง; ถ้าอยากบังคับเองก็เพิ่ม `fields.append("updated_at=NOW()")`
-
-            params.append(chapter_id)
-            cur.execute(f"UPDATE chapters SET {', '.join(fields)} WHERE chapters_id=%s", tuple(params))
+            # แก้ไข title / content พร้อมบังคับกลับเป็น draft
+            cur.execute(
+                """
+                UPDATE chapters
+                   SET title = %s,
+                       content_html = %s,
+                       status = 'draft'
+                 WHERE chapters_id = %s
+                """,
+                (title, content_html, chapter_id),
+            )
         conn.commit()
+
     return jsonify({"ok": True}), 200
+
 
 
 @api_bp.delete("/chapters/<int:chapter_id>")
@@ -397,9 +479,9 @@ def delete_chapter(chapter_id):
         conn.commit()
     return jsonify({"ok": True}), 200
 
+
 @api_bp.delete("/novels/<int:novels_id>")
 def delete_novel(novels_id):
-    from contextlib import closing
     with closing(_conn_alive()) as conn:
         # มี/ไม่มีนิยายนี้?
         with conn.cursor() as cur:
