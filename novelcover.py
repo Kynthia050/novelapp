@@ -2,11 +2,12 @@
 from flask import Blueprint, render_template, abort, url_for, request, redirect, session, flash, g, jsonify
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection
+from flask import current_app
+from openai import OpenAI
 import os
 
 novel_bp = Blueprint("novel", __name__, template_folder="./templates")
 
-# ---------- helpers พวกเช็คตาราง / สร้าง URL ----------
 
 def _has_table(cur, name: str) -> bool:
     try:
@@ -66,16 +67,15 @@ def _user_profile_parts(cur):
     """
     คืน select username + avatar (pfpic) + join users สำหรับ comments
 
-    จาก users.sql โครงสร้างคือ:
+    โครง users:
       users_id, username, pfpic, ...
-    และไฟล์อยู่ใต้ static/profile/.
     """
     if not _has_table(cur, "users"):
         return ("NULL AS username", "NULL AS profile_image", "")
 
     sel_username = "u.username AS username"
-    sel_avatar   = "u.pfpic AS profile_image"
-    join_clause  = "LEFT JOIN users u ON u.users_id = c.users_id"
+    sel_avatar = "u.pfpic AS profile_image"
+    join_clause = "LEFT JOIN users u ON u.users_id = c.users_id"
     return (sel_username, sel_avatar, join_clause)
 
 
@@ -103,86 +103,106 @@ def _current_user_id() -> int | None:
     return uid
 
 
-def _build_summary_prompt(novel_title: str, base_summary: str | None, comments: list[dict]) -> str:
-    """สร้างข้อความ prompt สำหรับให้ AI สรุปความคิดเห็นของนิยายเรื่องหนึ่ง"""
-    title_part = f"นิยายเรื่อง: {novel_title}\n" if novel_title else ""
-    bullet_lines: list[str] = []
+def generate_comment_summary(base_summary, comments, novel_title: str = "") -> str:
+    """
+    เรียก OpenAI API เพื่อสรุปความคิดเห็นผู้อ่านของนิยายเรื่องหนึ่งจริง ๆ
+    - base_summary = สรุปเดิม (ถ้าเคยสรุปแล้ว)
+    - comments = list ของคอมเมนต์ใหม่ที่ยังไม่เคยถูกสรุป
+    - novel_title = ชื่อเรื่อง (เอาไว้ช่วยให้ model รู้ context)
+    """
+
+    # ถ้าไม่มีคอมเมนต์ใหม่เลย แต่มีสรุปเดิมอยู่แล้ว → ส่งสรุปเดิมกลับ
+    if (not comments) and base_summary:
+        return base_summary
+
+    # ดึง client จาก app.config (เราตั้งไว้ใน app.py แล้ว)
+    client: OpenAI = current_app.config.get("OPENAI_CLIENT")
+    if client is None:
+        fallback = "ไม่สามารถเรียกใช้โมเดล AI ได้ (ยังไม่ได้ตั้งค่า OPENAI_CLIENT ใน app.py)"
+        return base_summary + "\n\n" + fallback if base_summary else fallback
+
+    # รวมข้อความคอมเมนต์ใหม่เป็น list
+    comment_items = []
     for c in comments:
         text = str(c.get("content") or "").strip()
         if not text:
             continue
-        # ตัดความยาวคอมเมนต์แต่ละอันให้ไม่ยาวเกินไป (กัน token บวม)
-        if len(text) > 300:
-            text = text[:300] + "..."
-        bullet_lines.append(f"- {text}")
-    comments_block = "\n".join(bullet_lines) if bullet_lines else "- (ไม่มีคอมเมนต์ใหม่)"
+        # กันคอมเมนต์ยาวเกินไป
+        if len(text) > 400:
+            text = text[:400] + "..."
+        comment_items.append(f"- {text}")
 
-    system_intro = (
-        "คุณคือผู้ช่วยสรุปความคิดเห็นผู้อ่านนิยายออนไลน์ "
-        "ช่วยสรุปเป็นภาษาไทยแบบกระชับ แบ่งเป็นหัวข้อย่อย 3–5 ข้อ "
-        "เน้นโทนความรู้สึกของผู้อ่าน (ชอบอะไร ไม่ชอบอะไร) และข้อเสนอแนะสำคัญ"
+    if not comment_items and base_summary:
+        return base_summary
+    elif not comment_items:
+        return base_summary or "ยังไม่มีความคิดเห็นจากผู้อ่านเพียงพอสำหรับการสรุป"
+
+    comments_block = "\n".join(comment_items)
+
+    # ใช้ instructions (ภาษาอังกฤษ) + input (มีไทยได้เต็ม ๆ)
+    # เพื่อลดโอกาสเจอ bug encoding แปลก ๆ
+    instructions = (
+        "You are an assistant that summarizes reader comments for an online novel. "
+        "You can read Thai and English comments and you must answer in Thai. "
+        "Summarize the key sentiments (what readers like, dislike, and suggestions) "
+        "into 3-5 concise bullet-style lines in Thai."
     )
 
+    if novel_title:
+        title_part = f"นิยายเรื่อง: {novel_title}\n"
+    else:
+        title_part = ""
+
     if base_summary:
-        return (
-            system_intro + "\n\n"
-            + title_part +
-            "สรุปเดิมที่เคยมี:\n"
+        user_prompt = (
+            f"{title_part}"
+            "นี่คือสรุปเดิมจากความคิดเห็นก่อนหน้า:\n"
             f"{base_summary}\n\n"
-            "คอมเมนต์ใหม่ที่เพิ่งถูกเพิ่มเข้ามา:\n"
+            "และนี่คือความคิดเห็นใหม่ที่เพิ่งเพิ่มเข้ามา:\n"
             f"{comments_block}\n\n"
-            "กรุณาสร้างสรุปฉบับอัปเดตที่รวมทั้งสรุปเดิมและคอมเมนต์ใหม่ "
-            "ตอบกลับเฉพาะข้อความสรุปเท่านั้น"
+            "โปรดสร้างสรุปฉบับอัปเดตที่รวมทั้งสรุปเดิมและความคิดเห็นใหม่ "
+            "ให้ตอบเป็นภาษาไทยเท่านั้น แบ่งบรรทัดให้อ่านง่าย"
         )
     else:
-        return (
-            system_intro + "\n\n"
-            + title_part +
-            "คอมเมนต์ทั้งหมดของผู้อ่าน:\n"
+        user_prompt = (
+            f"{title_part}"
+            "นี่คือความคิดเห็นจากผู้อ่านนิยายเรื่องนี้:\n"
             f"{comments_block}\n\n"
-            "กรุณาสร้างสรุปความคิดเห็นจากคอมเมนต์เหล่านี้ "
-            "ตอบกลับเฉพาะข้อความสรุปเท่านั้น"
+            "โปรดสรุปความคิดเห็นของผู้อ่านจากข้อความทั้งหมดด้านบน "
+            "ให้เป็นภาษาไทยสั้น ๆ แบ่งเป็นหลายบรรทัดอ่านง่าย"
         )
 
+    try:
+        # ใช้รูปแบบเรียกตาม docs: instructions + input (string เดียว)
+        # ตัวอย่างจากเอกสาร:
+        #   client.responses.create(model="gpt-4o-mini", instructions="...", input="...")
+        # อ้างอิง: GitHub openai-python :contentReference[oaicite:0]{index=0}
+        response = client.responses.create(
+            model="gpt-4o-mini",  # หรือรุ่นอื่นที่คุณมีสิทธิ์ใช้ เช่น gpt-4.1-mini
+            instructions=instructions,
+            input=user_prompt,
+        )
 
-def generate_comment_summary(base_summary, comments, novel_title: str = "") -> str:
-    """
-    ฟังก์ชันห่อสำหรับเรียก AI สรุปความคิดเห็น
+        # ไลบรารีใหม่จะมี helper ชื่อ output_text สำหรับ text ล้วน
+        summary_text = (getattr(response, "output_text", None) or "").strip()
 
-    *** ตรงนี้ให้คุณไปเชื่อมต่อ API จริงเอง ***
-    ตัวอย่างเช่น ต่อกับ OpenAI API, Azure OpenAI, หรือโมเดลภายในองค์กร/มหาวิทยาลัย ฯลฯ
+        # กันเคสที่ output_text ไม่มี (เผื่อใช้เวอร์ชันอื่น)
+        if not summary_text and hasattr(response, "output"):
+            try:
+                summary_text = response.output[0].content[0].text.strip()
+            except Exception:
+                pass
 
-    ตอนนี้จะเป็น implementation แบบง่าย ๆ (ยังไม่เรียก AI จริง)
-    คือเอาคอมเมนต์ใหม่มาตัดให้สั้นแล้วต่อกับสรุปเดิม
-    เพื่อให้ flow ฝั่ง backend + DB ทำงานได้ก่อน
-    """
-    # ถ้าไม่มีคอมเมนต์ใหม่เลย แต่มีสรุปเดิมอยู่แล้ว → ส่งสรุปเดิมกลับไป
-    if not comments and base_summary:
-        return base_summary
+        if not summary_text:
+            return base_summary or "ไม่สามารถสร้างสรุปความคิดเห็นได้ในขณะนี้"
 
-    # รวมข้อความคอมเมนต์ใหม่เป็น list
-    new_texts: list[str] = []
-    for c in comments:
-        t = str(c.get("content") or "").strip()
-        if not t:
-            continue
-        if len(t) > 200:
-            t = t[:200] + "..."
-        new_texts.append(t)
+        return summary_text
 
-    if not new_texts and base_summary:
-        return base_summary
-
-    # 🧠 จุดที่ควรไปเรียก AI จริง:
-    # prompt = _build_summary_prompt(novel_title, base_summary, comments)
-    # result = call_your_ai_model(prompt)
-    # return result
-
-    # ชั่วคราว: สร้าง "สรุปตัวอย่าง" จากคอมเมนต์ใหม่ เพื่อให้ระบบใช้ทดสอบได้
-    if base_summary:
-        return base_summary + "\n\nความคิดเห็นใหม่ (ตัวอย่าง ยังไม่สรุปด้วย AI จริง):\n- " + "\n- ".join(new_texts)
-    else:
-        return "สรุปความคิดเห็น (ตัวอย่าง ยังไม่สรุปด้วย AI จริง):\n- " + "\n- ".join(new_texts)
+    except Exception as e:
+        # log แบบไม่ไปชน encoding error (ใช้ repr)
+        print("[generate_comment_summary] OpenAI error type:", type(e), "detail:", repr(e))
+        fallback = "ไม่สามารถติดต่อบริการสรุปด้วย AI ได้ในขณะนี้ โปรดลองใหม่อีกครั้งภายหลัง"
+        return base_summary + "\n\n" + fallback if base_summary else fallback
 
 
 # ---------- route main: /novel/<novels_id> ----------
@@ -348,11 +368,9 @@ def detail(novels_id: int):
             like_join = ""
             group_by = ""
 
-            from_chapters_like_col = False
             if _has_column(cur, "chapters", "like_count"):
                 # ใช้คอลัมน์ใน chapters โดยตรง (มี trigger อัปเดตให้แล้ว)
                 like_sel = "COALESCE(c.like_count, 0) AS like_count"
-                from_chapters_like_col = True
             elif _has_table(cur, "chapter_likes"):
                 # fallback: join ไปตาราง chapter_likes แล้ว COUNT(cl.chapters_id)
                 fk = None
@@ -381,7 +399,7 @@ def detail(novels_id: int):
                 FROM chapters c
                 {like_join}
                 WHERE c.novels_id = %s
-                  AND c.status = 'published'   -- ❗ กรองเฉพาะตอนเผยแพร่
+                  AND c.status = 'published'
                 {group_by}
                 ORDER BY c.chapter_no {order_dir}, c.{chap_pk} {order_dir}
                 """,
@@ -552,37 +570,10 @@ def comment_summary(novels_id: int):
                     "from_cache": True,
                 })
 
-            # เรียกฟังก์ชัน generate_comment_summary (ปัจจุบันเป็น stub ยังไม่เรียก AI จริง)
+            # เรียกฟังก์ชัน generate_comment_summary (เรียก AI ตามที่ตั้งค่าใน app.py)
+            # ใหม่ (ถูกต้อง)
             new_summary = generate_comment_summary(base_summary, new_comments, novel_title=novel_title)
 
-            if not new_summary:
-                return jsonify({
-                    "ok": False,
-                    "error": "ไม่สามารถสร้างสรุปความคิดเห็นได้"
-                }), 500
-
-            # หา cm_id สูงสุดของคอมเมนต์ที่นำไปสรุป
-            max_cm_id = last_cm_id
-            for c in new_comments:
-                try:
-                    cm_id_val = int(c.get("cm_id") or 0)
-                except (TypeError, ValueError):
-                    cm_id_val = 0
-                if cm_id_val > max_cm_id:
-                    max_cm_id = cm_id_val
-
-            # บันทึก / อัปเดตตาราง comment_summaries
-            if _has_table(cur, "comment_summaries"):
-                cur.execute(
-                    """INSERT INTO comment_summaries (novels_id, summary_text, last_cm_id, dirty)
-                        VALUES (%s, %s, %s, 0)
-                        ON DUPLICATE KEY UPDATE
-                          summary_text = VALUES(summary_text),
-                          last_cm_id   = VALUES(last_cm_id),
-                          dirty        = 0""",
-                    (novels_id, new_summary, max_cm_id),
-                )
-                conn.commit()
 
             return jsonify({
                 "ok": True,

@@ -4,7 +4,7 @@ from flask import (
 )
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from datetime import timedelta
-
+from openai import OpenAI
 from db import init_db
 from auth import auth_bp, roles_required
 from home import home_bp
@@ -29,6 +29,29 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change-me-to-a-long-random-string'
 app.permanent_session_lifetime = timedelta(days=14)
 
+# ---------- สร้าง OpenAI client ----------
+api_key = os.environ.get("OPENAI_API_KEY")
+
+if not api_key:
+    # ถ้าไม่มี key ให้แค่เตือน และปิดฟีเจอร์ AI summary ไปก่อน
+    print(
+        "[WARNING] OPENAI_API_KEY ยังไม่ได้ตั้งค่า "
+        "ฟีเจอร์สรุปความคิดเห็นด้วย AI จะไม่สามารถใช้งานได้"
+    )
+    client = None
+else:
+    try:
+        client = OpenAI(api_key=api_key)
+        print("[INFO] OpenAI client ถูกสร้างเรียบร้อยแล้ว")
+    except Exception as e:
+        # กันเคส key ผิด / config มีปัญหา
+        print("[ERROR] สร้าง OpenAI client ไม่สำเร็จ:", repr(e))
+        client = None
+
+# เก็บ client ไว้ให้ blueprint อื่นใช้ เช่น novelcover.generate_comment_summary
+app.config['OPENAI_CLIENT'] = client
+# -----------------------------------------
+
 # เปิดใช้ CSRF protection ทั้งแอป
 csrf = CSRFProtect(app)
 
@@ -36,6 +59,7 @@ csrf = CSRFProtect(app)
 init_db(app)
 
 # ---------- Register Blueprints ----------
+
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(home_bp)
 app.register_blueprint(writing_bp, url_prefix='/writing')
