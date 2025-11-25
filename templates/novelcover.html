@@ -1071,19 +1071,35 @@
         `;
       }
 
-      function showSummary(summary, fromCache) {
+            function showSummary(summary, fromCache) {
         if (!contentEl) return;
-        const safeSummary = (summary || "")
+
+        const raw = (summary || "").trim();
+        const safeSummary = raw
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
 
-        const note = fromCache
-          ? '<p style="font-size:12px;opacity:.75;margin-top:8px;">(ใช้สรุปล่าสุดที่เคยสร้างไว้แล้ว)</p>'
-          : '<p style="font-size:12px;opacity:.75;margin-top:8px;">(พึ่งสรุปจากความคิดเห็นล่าสุดในตอนนี้)</p>';
+        // ถ้าเป็นข้อความ fallback ว่าเรียก AI ไม่ได้ → ไม่ต้องแสดง note ใด ๆ
+        const isFallback = raw.startsWith("ไม่สามารถติดต่อบริการสรุปด้วย AI ได้ในขณะนี้");
+
+        let noteHtml = "";
+        if (!isFallback) {
+          if (fromCache) {
+            noteHtml =
+              '<p style="font-size:12px;opacity:.75;margin-top:8px;">' +
+              '(ใช้สรุปล่าสุดที่เคยสร้างไว้แล้ว)' +
+              "</p>";
+          } else {
+            noteHtml =
+              '<p style="font-size:12px;opacity:.75;margin-top:8px;">' +
+              '(พึ่งสรุปจากความคิดเห็นล่าสุดในตอนนี้)' +
+              "</p>";
+          }
+        }
 
         contentEl.innerHTML =
-          '<p>' + safeSummary.replace(/\n/g, "<br>") + '</p>' + note;
+          "<p>" + safeSummary.replace(/\n/g, "<br>") + "</p>" + noteHtml;
       }
 
       async function fetchSummary() {

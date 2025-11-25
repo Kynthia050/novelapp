@@ -44,7 +44,6 @@ else:
         client = OpenAI(api_key=api_key)
         print("[INFO] OpenAI client ถูกสร้างเรียบร้อยแล้ว")
     except Exception as e:
-        # กันเคส key ผิด / config มีปัญหา
         print("[ERROR] สร้าง OpenAI client ไม่สำเร็จ:", repr(e))
         client = None
 
@@ -148,6 +147,25 @@ def new_novel():
 @roles_required('admin', 'superadmin')
 def dashboard():
     return render_template('dashboard.html')
+
+from flask import jsonify
+
+@app.route("/test-openai")
+def test_openai():
+    try:
+        resp = client.responses.create(
+            model="gpt-4o-mini",
+            input="ทดสอบการเรียก OpenAI API ภาษาไทยสั้น ๆ หน่อย"
+        )
+        return jsonify({
+            "ok": True,
+            "text": resp.output_text  # shortcut จาก SDK
+        })
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
 
 
 if __name__ == '__main__':

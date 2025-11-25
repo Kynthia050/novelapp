@@ -273,6 +273,265 @@ def detail(novels_id: int):
                 abort(404, description="ไม่พบนิยายที่ระบุ")
 
             novel["status"] = _normalize_status(novel.get("status"))
+            novel["cover_url"] = _process_cover_url(novel.get("cover"))
+
+            # --- ratings (ถ้ามีตาราง ratings) ---
+            novel["avg_rating"] = 0.0
+            novel["rating_count"] = 0
+            novel["user_rating"] = 0
+
+            if _has_table(cur, "ratings"):
+                # ค่าเฉลี่ย + จำนวนคนโหวต
+                cur.execute(
+                    """
+                    SELECT AVG(rating) AS avg_rating,
+                           COUNT(*) AS rating_count
+                    FROM ratings
+                    WHERE novels_id = %s
+                    """,
+                    (novels_id,),
+                )
+                row = cur.fetchone() or {}
+                try:
+                    novel["avg_rating"] = float(row.get("avg_rating") or 0.0)
+                except (TypeError, ValueError):
+                    novel["avg_rating"] = 0.0
+                try:
+                    novel["rating_count"] = int(row.get("rating_count") or 0)
+                except (TypeError, ValueError):
+                    novel["rating_count"] = 0
+
+                # คะแนนที่ user คนนี้เคยให้ (ถ้ามี)
+                uid = _current_user_id()
+                if uid:
+                    cur.execute(
+                        """
+                        SELECT rating
+                        FROM ratings
+                        WHERE novels_id = %s AND users_id = %s
+                        LIMIT 1
+                        """,
+                        (novels_id, uid),
+                    )
+                    r = cur.fetchone()
+                    try:
+                        novel["user_rating"] = int(r["rating"]) if r and r.get("rating") is not None else 0
+                    except (TypeError, ValueError):
+                        novel["user_rating"] = 0
+
+            # --- favorites ---
+            novel["total_favorites"] = 0
+            if _has_table(cur, "favorites"):
+                cur.execute(
+                    "SELECT COUNT(*) AS c FROM favorites WHERE novels_id = %s",
+                    (novels_id,),
+                )
+                novel["total_favorites"] = int((cur.fetchone() or {}).get("c") or 0)
+            elif _has_table(cur, "bookmarks"):
+                cur.execute(
+                    "SELECT COUNT(*) AS c FROM bookmarks WHERE novels_id = %s",
+                    (novels_id,),
+                )
+                novel["total_favorites"] = int((cur.fetchone() or {}).get("c") or 0)
+
+            # --- readers ---
+            novel["total_readers"] = 0
+            if _has_table(cur, "reading_history") and _has_column(cur, "reading_history", "users_id"):
+                cur.execute(
+                    "SELECT COUNT(DISTINCT users_id) AS c FROM reading_history WHERE novels_id = %s",
+                    (novels_id,),
+                )
+                novel["total_readers"] = int((cur.fetchone() or {}).get("c") or 0)
+            elif _has_table(cur, "novel_reads"):
+                if _has_column(cur, "novel_reads", "users_id"):
+                    cur.execute(
+                        "SELECT COUNT(DISTINCT users_id) AS c "
+                        "FROM novel_reads WHERE novels_id = %s",
+                        (novels_id,),
+                    )
+                else:
+                    cur.execute(
+                        "SELECT COUNT(*) AS c FROM novel_reads WHERE novels_id = %s",
+                        (novels_id,),
+                    )
+                novel["total_readers"] = int((cur.fetchone() or {}).get("c") or 0)
+
+            # --- chapters ---
+            chap_pk = "chapters_id"
+            try:
+                cur.execute("DESCRIBE chapters")
+                ccols = {r["Field"] for r in cur.fetchall()}
+                if "chapters_id" in ccols:
+                    chap_pk = "chapters_id"
+                elif "chapter_id" in ccols:
+                    chap_pk = "chapter_id"
+            except Exception:
+                pass
+
+            # like_count: ถ้ามีคอลัมน์ใน chapters ก็ใช้เลย / ถ้าไม่มีก็ไปนับจาก chapter_likes
+            like_sel = "0 AS like_count"
+            like_join = ""
+            group_by = ""
+
+            if _has_column(cur, "chapters", "like_count"):
+                like_sel = "c.like_count"
+            elif _has_table(cur, "chapter_likes"):
+                # มีตาราง chapter_likes → นับจำนวน like ต่อ chapter
+                like_sel = "COUNT(cl.like_id) AS like_count"
+                like_join = "LEFT JOIN chapter_likes cl ON cl.chapters_id = c.chapters_id"
+                group_by = "GROUP BY c.chapters_id"
+
+            cur.execute(
+                f"""
+                SELECT c.{chap_pk} AS chapters_id,
+                       c.chapter_no,
+                       c.title,
+                       c.created_at,
+                       {like_sel}
+                FROM chapters c
+                {like_join}
+                WHERE c.novels_id = %s
+                  AND c.status = 'published'
+                {group_by}
+                ORDER BY c.chapter_no {order_dir}, c.{chap_pk} {order_dir}
+                """,
+                (novels_id,),
+            )
+            chapters = cur.fetchall()
+            novel["total_chapters"] = len(chapters)
+
+            # เตรียมชุดข้อมูลตอนที่ user คนนี้เคยกดหัวใจ
+            uid = _current_user_id()
+            liked_set = set()
+            if uid and _has_table(cur, "chapter_likes") and chapters:
+                cur.execute(
+                    """
+                    SELECT chapters_id
+                    FROM chapter_likes
+                    WHERE users_id = %s
+                    """,
+                    (uid,),
+                )
+                for r in cur.fetchall():
+                    cid = r.get("chapters_id")
+                    if cid is not None:
+                        liked_set.add(cid)
+
+            # ใส่ฟิลด์ is_liked + แปลง like_count เป็น int
+            for ch in chapters:
+                ch["like_count"] = int(ch.get("like_count") or 0)
+                ch["is_liked"] = (ch.get("chapters_id") in liked_set)
+
+            # --- comments + user info ---
+            comments = []
+            if _has_table(cur, "comments"):
+                sel_username, sel_avatar, join_users = _user_profile_parts(cur)
+                cur.execute(
+                    f"""
+                    SELECT
+                        c.cm_id,
+                        c.content,
+                        c.created_at,
+                        {sel_username},
+                        {sel_avatar}
+                    FROM comments c
+                    {join_users}
+                    WHERE c.novels_id = %s
+                    ORDER BY c.created_at DESC
+                    """,
+                    (novels_id,),
+                )
+                comments = cur.fetchall()
+                for cm in comments:
+                    cm["avatar_url"] = _process_avatar_url(cm.get("profile_image"))
+
+        return render_template(
+            "novelcover.html",
+            novel=novel,
+            chapters=chapters,
+            comments=comments,
+        )
+    except Exception as e:
+        print(f"[novel.detail] error: {e}")
+        abort(500)
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor(DictCursor) as cur:
+
+            # ---------- POST: รับฟอร์มความคิดเห็น ----------
+            if request.method == "POST":
+                content = (request.form.get("content") or "").strip()
+
+                # ตัดให้ไม่เกิน 500 ตัวอักษรอีกชั้น (กันคนยิงตรง ๆ)
+                if len(content) > 500:
+                    content = content[:500]
+
+                if not content:
+                    flash("กรุณาพิมพ์ความคิดเห็นก่อนส่ง", "error")
+                    return redirect(url_for("novel.detail", novels_id=novels_id))
+
+                users_id = _current_user_id()
+                if not users_id:
+                    flash("กรุณาเข้าสู่ระบบก่อนแสดงความคิดเห็น", "error")
+                    return redirect(url_for("novel.detail", novels_id=novels_id))
+
+                if not _has_table(cur, "comments"):
+                    flash("ไม่พบตาราง comments ในฐานข้อมูล", "error")
+                    return redirect(url_for("novel.detail", novels_id=novels_id))
+
+                # บันทึกคอมเมนต์ใหม่
+                cur.execute(
+                    """
+                    INSERT INTO comments (users_id, novels_id, content)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (users_id, novels_id, content),
+                )
+
+                # ทำเครื่องหมายว่า summary ของนิยายเรื่องนี้ต้องสรุปใหม่ (dirty = 1)
+                if _has_table(cur, "comment_summaries"):
+                    cur.execute(
+                        """
+                        INSERT INTO comment_summaries (novels_id, summary_text, last_cm_id, dirty)
+                        VALUES (%s, NULL, NULL, 1)
+                        ON DUPLICATE KEY UPDATE dirty = 1
+                        """,
+                        (novels_id,),
+                    )
+
+                conn.commit()
+                flash("ส่งความคิดเห็นเรียบร้อยแล้ว", "success")
+
+                # PRG pattern: กลับไปโหลดหน้าเดิมแบบ GET
+                return redirect(url_for("novel.detail", novels_id=novels_id))
+
+            # ---------- GET: โหลดข้อมูลนิยาย + ตอน + ความคิดเห็น ----------
+
+            # ----- อ่านค่า sort จาก query string (asc=เก่า→ใหม่, desc=ใหม่→เก่า) -----
+            sort = request.args.get("sort", "asc")
+            if sort not in ("asc", "desc"):
+                sort = "asc"
+            order_dir = "ASC" if sort == "asc" else "DESC"
+
+            # --- novel ---
+            sel_author, join_author = _author_sql_parts(cur)
+            cur.execute(
+                f"""
+                SELECT n.novels_id, n.title, n.description, n.status, n.cover,
+                       n.cate_id, c.name AS category_name, {sel_author}
+                FROM novels n
+                LEFT JOIN categories c ON c.cate_id = n.cate_id
+                {join_author}
+                WHERE n.novels_id = %s
+                """,
+                (novels_id,),
+            )
+            novel = cur.fetchone()
+            if not novel:
+                abort(404, description="ไม่พบนิยายที่ระบุ")
+
+            novel["status"] = _normalize_status(novel.get("status"))
             novel["cover"] = _process_cover_url(novel.get("cover"))
 
             # --- rating (เฉลี่ย + จำนวนโหวต) ---
@@ -468,12 +727,16 @@ def detail(novels_id: int):
 
 # ---------- route: สรุปความคิดเห็นด้วย AI (API JSON) ----------
 
+# ---------- route: สรุปความคิดเห็นด้วย AI (API JSON) ----------
+
 @novel_bp.route("/novel/<int:novels_id>/comment-summary", methods=["POST"])
 def comment_summary(novels_id: int):
-    """คืนสรุปความคิดเห็นของนิยายเรื่องหนึ่งในรูปแบบ JSON
+    """
+    คืนสรุปความคิดเห็นของนิยายเรื่องหนึ่งในรูปแบบ JSON
 
     - ถ้ามีสรุปเก่าและ dirty = 0 → ส่งสรุปเก่าจาก DB เลย (from_cache = True)
     - ถ้ายังไม่เคยสรุป หรือ dirty = 1 → ดึงคอมเมนต์ใหม่แล้วสร้างสรุปใหม่
+      และอัปเดตตาราง comment_summaries ให้ตรงกับสรุปล่าสุด
     """
     try:
         conn = get_db_connection()
@@ -485,7 +748,7 @@ def comment_summary(novels_id: int):
                     "error": "ยังไม่พบตาราง comments ในฐานข้อมูล"
                 }), 400
 
-            # อ่านข้อมูลนิยาย (เอา title ไว้ช่วยสร้าง prompt ถ้าจะใช้ AI จริง)
+            # อ่านชื่อเรื่อง (ใช้ช่วย context ให้โมเดล)
             novel_title = ""
             try:
                 cur.execute(
@@ -498,24 +761,29 @@ def comment_summary(novels_id: int):
             except Exception:
                 novel_title = ""
 
-            # อ่านสรุปเดิม (ถ้ามี)
+            has_summary_table = _has_table(cur, "comment_summaries")
             summary_row = None
-            if _has_table(cur, "comment_summaries"):
+            if has_summary_table:
                 cur.execute(
-                    """SELECT summary_text, last_cm_id, dirty
-                        FROM comment_summaries
-                        WHERE novels_id = %s
-                        LIMIT 1""",
+                    """
+                    SELECT summary_text, last_cm_id, dirty
+                    FROM comment_summaries
+                    WHERE novels_id = %s
+                    LIMIT 1
+                    """,
                     (novels_id,),
                 )
                 summary_row = cur.fetchone()
 
+            # คำขึ้นต้นของข้อความ fallback เวลาเรียก AI ไม่ได้
+            fallback_prefix = "ไม่สามารถติดต่อบริการสรุปด้วย AI ได้ในขณะนี้"
+
             base_summary = None
             last_cm_id = 0
-            dirty = 1  # ถ้าไม่มี row เลย ให้ถือว่าต้องสรุปใหม่
+            dirty = 1  # ถ้าไม่มี row เลยให้ถือว่าสกปรก (ต้องสรุปใหม่)
 
             if summary_row:
-                base_summary = summary_row.get("summary_text")
+                base_summary = summary_row.get("summary_text") or None
                 try:
                     last_cm_id = int(summary_row.get("last_cm_id") or 0)
                 except (TypeError, ValueError):
@@ -525,7 +793,11 @@ def comment_summary(novels_id: int):
                 except (TypeError, ValueError):
                     dirty = 1
 
-            # ถ้ามีสรุปเดิม + dirty = 0 → ใช้สรุปจาก cache ได้เลย
+                # ถ้า summary เดิมเป็นข้อความ fallback ให้ถือว่าไม่มี base_summary
+                if base_summary and str(base_summary).strip().startswith(fallback_prefix):
+                    base_summary = None
+
+            # ถ้ามีสรุปเดิมและไม่ dirty → ส่ง cache ได้เลย
             if base_summary and dirty == 0:
                 return jsonify({
                     "ok": True,
@@ -534,23 +806,27 @@ def comment_summary(novels_id: int):
                 })
 
             # ต้องสรุปใหม่ (ครั้งแรก หรือมีคอมเมนต์เปลี่ยน)
-            # ถ้ามี base_summary แปลว่าเคยสรุปแล้ว → ดึงเฉพาะคอมเมนต์ที่ cm_id > last_cm_id
+            # ถ้ามี base_summary + last_cm_id → ดึงเฉพาะคอมเมนต์ใหม่
             if base_summary and last_cm_id > 0:
                 cur.execute(
-                    """SELECT cm_id, content
-                        FROM comments
-                        WHERE novels_id = %s
-                          AND cm_id > %s
-                        ORDER BY cm_id ASC""",
+                    """
+                    SELECT cm_id, content
+                    FROM comments
+                    WHERE novels_id = %s
+                      AND cm_id > %s
+                    ORDER BY cm_id ASC
+                    """,
                     (novels_id, last_cm_id),
                 )
             else:
                 # ยังไม่เคยสรุป → ดึงคอมเมนต์ทั้งหมดของนิยายเรื่องนี้
                 cur.execute(
-                    """SELECT cm_id, content
-                        FROM comments
-                        WHERE novels_id = %s
-                        ORDER BY cm_id ASC""",
+                    """
+                    SELECT cm_id, content
+                    FROM comments
+                    WHERE novels_id = %s
+                    ORDER BY cm_id ASC
+                    """,
                     (novels_id,),
                 )
             new_comments = cur.fetchall()
@@ -558,7 +834,7 @@ def comment_summary(novels_id: int):
             # ถ้าไม่มีคอมเมนต์ใหม่เลย แต่มี base_summary อยู่แล้ว
             # ให้ mark dirty=0 แล้วส่งสรุปเดิมกลับ
             if not new_comments and base_summary:
-                if _has_table(cur, "comment_summaries"):
+                if has_summary_table:
                     cur.execute(
                         "UPDATE comment_summaries SET dirty = 0 WHERE novels_id = %s",
                         (novels_id,),
@@ -571,9 +847,58 @@ def comment_summary(novels_id: int):
                 })
 
             # เรียกฟังก์ชัน generate_comment_summary (เรียก AI ตามที่ตั้งค่าใน app.py)
-            # ใหม่ (ถูกต้อง)
             new_summary = generate_comment_summary(base_summary, new_comments, novel_title=novel_title)
 
+            # หา cm_id สูงสุดที่จะถือว่าอยู่ในสรุปนี้
+            new_last_cm_id = last_cm_id
+            for row in new_comments:
+                try:
+                    cid = int(row.get("cm_id") or 0)
+                    if cid > new_last_cm_id:
+                        new_last_cm_id = cid
+                except (TypeError, ValueError):
+                    pass
+
+            # อัปเดต/สร้าง row ใน comment_summaries
+            if has_summary_table:
+                is_fallback = str(new_summary or "").strip().startswith(fallback_prefix)
+
+                if summary_row:
+                    if is_fallback:
+                        # อย่าเขียนทับสรุปเก่าด้วย fallback; แค่ mark ว่ายังต้องสรุปใหม่
+                        cur.execute(
+                            "UPDATE comment_summaries SET dirty = 1 WHERE novels_id = %s",
+                            (novels_id,),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            UPDATE comment_summaries
+                            SET summary_text = %s,
+                                last_cm_id   = %s,
+                                dirty        = 0
+                            WHERE novels_id = %s
+                            """,
+                            (new_summary, new_last_cm_id or None, novels_id),
+                        )
+                else:
+                    if is_fallback:
+                        cur.execute(
+                            """
+                            INSERT INTO comment_summaries (novels_id, summary_text, last_cm_id, dirty)
+                            VALUES (%s, NULL, NULL, 1)
+                            """,
+                            (novels_id,),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO comment_summaries (novels_id, summary_text, last_cm_id, dirty)
+                            VALUES (%s, %s, %s, 0)
+                            """,
+                            (novels_id, new_summary, new_last_cm_id or None),
+                        )
+                conn.commit()
 
             return jsonify({
                 "ok": True,
@@ -586,6 +911,7 @@ def comment_summary(novels_id: int):
             "ok": False,
             "error": "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์"
         }), 500
+
 
 
 # ---------- route สำหรับให้ดาว / บันทึก rating ----------
