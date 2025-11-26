@@ -102,6 +102,38 @@ def _current_user_id() -> int | None:
             uid = None
     return uid
 
+def _is_novel_owner(cur, users_id: int | None, novels_id: int) -> bool:
+    """
+    คืน True ถ้า users_id เป็นเจ้าของนิยายเรื่องนี้
+    (พยายามรองรับทั้งคอลัมน์ users_id / author_id / created_by)
+    """
+    if not users_id:
+        return False
+
+    try:
+        cur.execute("DESCRIBE novels")
+        cols = {r["Field"] for r in cur.fetchall()}
+        owner_col = None
+        for name in ("users_id", "author_id", "created_by"):
+            if name in cols:
+                owner_col = name
+                break
+        if not owner_col:
+            return False
+
+        cur.execute(
+            f"SELECT {owner_col} AS owner_id FROM novels WHERE novels_id = %s LIMIT 1",
+            (novels_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return False
+
+        return int(row.get("owner_id") or 0) == int(users_id)
+    except Exception:
+        return False
+
+
 
 def generate_comment_summary(base_summary, comments, novel_title: str = "") -> str:
     """
@@ -209,6 +241,11 @@ def generate_comment_summary(base_summary, comments, novel_title: str = "") -> s
 
 @novel_bp.route("/novel/<int:novels_id>", methods=["GET", "POST"])
 def detail(novels_id: int):
+    is_ajax_comment = (
+        request.method == "POST"
+        and request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
+    )
+
     try:
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
@@ -217,23 +254,37 @@ def detail(novels_id: int):
             if request.method == "POST":
                 content = (request.form.get("content") or "").strip()
 
-                # ตัดให้ไม่เกิน 500 ตัวอักษรอีกชั้น (กันคนยิงตรง ๆ)
+                # กันยิงตรง ๆ
                 if len(content) > 500:
                     content = content[:500]
 
                 if not content:
-                    flash("กรุณาพิมพ์ความคิดเห็นก่อนส่ง", "error")
+                    msg = "กรุณาพิมพ์ความคิดเห็นก่อนส่ง"
+                    if is_ajax_comment:
+                        return jsonify({"ok": False, "error": msg}), 400
+                    flash(msg, "error")
                     return redirect(url_for("novel.detail", novels_id=novels_id))
 
                 users_id = _current_user_id()
                 if not users_id:
-                    flash("กรุณาเข้าสู่ระบบก่อนแสดงความคิดเห็น", "error")
+                    msg = "กรุณาเข้าสู่ระบบก่อนแสดงความคิดเห็น"
+                    if is_ajax_comment:
+                        return jsonify({
+                            "ok": False,
+                            "error": msg,
+                            "need_login": True
+                        }), 401
+                    flash(msg, "error")
                     return redirect(url_for("novel.detail", novels_id=novels_id))
 
                 if not _has_table(cur, "comments"):
-                    flash("ไม่พบตาราง comments ในฐานข้อมูล", "error")
+                    msg = "ไม่พบตาราง comments ในฐานข้อมูล"
+                    if is_ajax_comment:
+                        return jsonify({"ok": False, "error": msg}), 500
+                    flash(msg, "error")
                     return redirect(url_for("novel.detail", novels_id=novels_id))
 
+                # insert comment
                 cur.execute(
                     """
                     INSERT INTO comments (users_id, novels_id, content)
@@ -241,11 +292,78 @@ def detail(novels_id: int):
                     """,
                     (users_id, novels_id, content),
                 )
-                conn.commit()
-                flash("ส่งความคิดเห็นเรียบร้อยแล้ว", "success")
+                new_cm_id = cur.lastrowid
 
-                # PRG pattern: กลับไปโหลดหน้าเดิมแบบ GET
+                # mark summary dirty
+                if _has_table(cur, "comment_summaries"):
+                    cur.execute(
+                        """
+                        INSERT INTO comment_summaries (novels_id, summary_text, last_cm_id, dirty)
+                        VALUES (%s, NULL, NULL, 1)
+                        ON DUPLICATE KEY UPDATE dirty = 1
+                        """,
+                        (novels_id,),
+                    )
+
+                conn.commit()
+
+                # ถ้าเป็น AJAX → ส่ง JSON กลับพร้อมข้อมูลคอมเมนต์ล่าสุด
+                if is_ajax_comment:
+                    sel_username, sel_avatar, join_users = _user_profile_parts(cur)
+                    cur.execute(
+                        f"""
+                        SELECT c.cm_id,
+                               c.users_id,
+                               c.novels_id,
+                               c.content,
+                               c.created_at,
+                               {sel_username},
+                               {sel_avatar}
+                        FROM comments c
+                        {join_users}
+                        WHERE c.cm_id = %s
+                        LIMIT 1
+                        """,
+                        (new_cm_id,),
+                    )
+                    cm = cur.fetchone()
+                    if not cm:
+                        return jsonify({
+                            "ok": True,
+                            "message": "ส่งความคิดเห็นเรียบร้อยแล้ว"
+                        })
+
+                    cm["avatar_url"] = _process_avatar_url(cm.get("profile_image"))
+                    current_uid = users_id
+                    is_owner = _is_novel_owner(cur, current_uid, novels_id)
+                    can_delete = bool(
+                        current_uid
+                        and (current_uid == cm.get("users_id") or is_owner)
+                    )
+
+                    display_name = cm.get("username") or f"ผู้ใช้ #{cm['users_id']}"
+                    created_display = (
+                        cm["created_at"].strftime("%d/%m/%Y")
+                        if cm.get("created_at") else "ไม่ระบุวันที่"
+                    )
+
+                    return jsonify({
+                        "ok": True,
+                        "message": "ส่งความคิดเห็นเรียบร้อยแล้ว",
+                        "comment": {
+                            "cm_id": cm["cm_id"],
+                            "content": cm["content"],
+                            "username": display_name,
+                            "avatar_url": cm["avatar_url"],
+                            "created_at": created_display,
+                            "can_delete": can_delete,
+                        },
+                    }), 201
+
+                # เดิม: non-AJAX
+                flash("ส่งความคิดเห็นเรียบร้อยแล้ว", "success")
                 return redirect(url_for("novel.detail", novels_id=novels_id))
+
 
             # ---------- GET: โหลดข้อมูลนิยาย + ตอน + ความคิดเห็น ----------
 
@@ -274,6 +392,24 @@ def detail(novels_id: int):
 
             novel["status"] = _normalize_status(novel.get("status"))
             novel["cover_url"] = _process_cover_url(novel.get("cover"))
+
+            # --- bookshelf state ของผู้ใช้ปัจจุบัน ---
+            novel["in_bookshelf"] = False
+            uid = _current_user_id()
+            if uid and _has_table(cur, "bookshelf"):
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM bookshelf
+                    WHERE users_id = %s AND novels_id = %s
+                    LIMIT 1
+                    """,
+                    (uid, novels_id),
+                )
+                novel["in_bookshelf"] = cur.fetchone() is not None
+
+
+            
 
             # --- ratings (ถ้ามีตาราง ratings) ---
             novel["avg_rating"] = 0.0
@@ -318,21 +454,6 @@ def detail(novels_id: int):
                         novel["user_rating"] = int(r["rating"]) if r and r.get("rating") is not None else 0
                     except (TypeError, ValueError):
                         novel["user_rating"] = 0
-
-            # --- favorites ---
-            novel["total_favorites"] = 0
-            if _has_table(cur, "favorites"):
-                cur.execute(
-                    "SELECT COUNT(*) AS c FROM favorites WHERE novels_id = %s",
-                    (novels_id,),
-                )
-                novel["total_favorites"] = int((cur.fetchone() or {}).get("c") or 0)
-            elif _has_table(cur, "bookmarks"):
-                cur.execute(
-                    "SELECT COUNT(*) AS c FROM bookmarks WHERE novels_id = %s",
-                    (novels_id,),
-                )
-                novel["total_favorites"] = int((cur.fetchone() or {}).get("c") or 0)
 
             # --- readers ---
             novel["total_readers"] = 0
@@ -430,6 +551,8 @@ def detail(novels_id: int):
                     f"""
                     SELECT
                         c.cm_id,
+                        c.users_id,
+                        c.novels_id,
                         c.content,
                         c.created_at,
                         {sel_username},
@@ -442,8 +565,19 @@ def detail(novels_id: int):
                     (novels_id,),
                 )
                 comments = cur.fetchall()
+
+                current_uid = _current_user_id()
+                is_owner    = _is_novel_owner(cur, current_uid, novels_id)
+
                 for cm in comments:
                     cm["avatar_url"] = _process_avatar_url(cm.get("profile_image"))
+                    # เจ้าของคอมเมนต์ ลบได้ / เจ้าของเรื่องลบได้ทุกอัน
+                    cm["can_delete"] = bool(
+                        current_uid
+                        and (current_uid == cm.get("users_id") or is_owner)
+                    )
+
+
 
         return render_template(
             "novelcover.html",
@@ -725,7 +859,80 @@ def detail(novels_id: int):
         abort(500)
 
 
-# ---------- route: สรุปความคิดเห็นด้วย AI (API JSON) ----------
+@novel_bp.route("/novel/<int:novels_id>/bookshelf", methods=["POST"])
+def toggle_bookshelf(novels_id: int):
+    """กด/ยกเลิก เติมเข้าชั้นหนังสือ สำหรับนิยายทั้งเรื่อง"""
+    sort = request.form.get("next_sort") or request.args.get("sort", "asc")
+    is_ajax = request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
+
+    users_id = _current_user_id()
+    if not users_id:
+        msg = "กรุณาเข้าสู่ระบบก่อนเพิ่มนิยายเข้าชั้นหนังสือ"
+        if is_ajax:
+            return jsonify({"ok": False, "error": msg, "need_login": True}), 401
+        flash(msg, "error")
+        return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
+
+    in_bookshelf = False
+    message = ""
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor(DictCursor) as cur:
+            if not _has_table(cur, "bookshelf"):
+                msg = "ยังไม่พบตาราง bookshelf ในฐานข้อมูล"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 500
+                flash(msg, "error")
+                return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
+
+            cur.execute(
+                """
+                SELECT bookshelf_id
+                FROM bookshelf
+                WHERE users_id = %s AND novels_id = %s
+                LIMIT 1
+                """,
+                (users_id, novels_id),
+            )
+            row = cur.fetchone()
+
+            if row:
+                cur.execute(
+                    "DELETE FROM bookshelf WHERE bookshelf_id = %s",
+                    (row["bookshelf_id"],),
+                )
+                in_bookshelf = False
+                message = "นำออกจากชั้นหนังสือแล้ว"
+                if not is_ajax:
+                    flash(message, "info")
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO bookshelf (users_id, novels_id)
+                    VALUES (%s, %s)
+                    """,
+                    (users_id, novels_id),
+                )
+                in_bookshelf = True
+                message = "เพิ่มนิยายเข้าชั้นหนังสือแล้ว"
+                if not is_ajax:
+                    flash(message, "success")
+
+            conn.commit()
+
+    except Exception as e:
+        print(f"[novel.toggle_bookshelf] error: {e}")
+        message = "เกิดข้อผิดพลาดขณะบันทึกชั้นหนังสือ"
+        if is_ajax:
+            return jsonify({"ok": False, "error": message}), 500
+        flash(message, "error")
+        return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
+
+    if is_ajax:
+        return jsonify({"ok": True, "in_bookshelf": in_bookshelf, "message": message})
+
+    return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
 
 # ---------- route: สรุปความคิดเห็นด้วย AI (API JSON) ----------
 
@@ -918,30 +1125,40 @@ def comment_summary(novels_id: int):
 
 @novel_bp.route("/novel/<int:novels_id>/rate", methods=["POST"])
 def rate(novels_id: int):
+    is_ajax = request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
+
     rating_raw = (request.form.get("rating") or "").strip()
     try:
         rating = int(rating_raw)
     except (TypeError, ValueError):
         rating = 0
 
-    # รับเฉพาะ 1–5 ดาว
     if rating < 1 or rating > 5:
-        flash("คะแนนต้องอยู่ระหว่าง 1–5 ดาว", "error")
+        msg = "คะแนนต้องอยู่ระหว่าง 1–5 ดาว"
+        if is_ajax:
+            return jsonify({"ok": False, "error": msg}), 400
+        flash(msg, "error")
         return redirect(url_for("novel.detail", novels_id=novels_id))
 
     try:
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
             if not _has_table(cur, "ratings"):
-                flash("ยังไม่พบตาราง ratings ในฐานข้อมูล", "error")
+                msg = "ยังไม่พบตาราง ratings ในฐานข้อมูล"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 500
+                flash(msg, "error")
                 return redirect(url_for("novel.detail", novels_id=novels_id))
 
             users_id = _current_user_id()
             if not users_id:
-                flash("กรุณาเข้าสู่ระบบก่อนให้คะแนน", "error")
+                msg = "กรุณาเข้าสู่ระบบก่อนให้คะแนน"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg, "need_login": True}), 401
+                flash(msg, "error")
                 return redirect(url_for("novel.detail", novels_id=novels_id))
 
-            # ถ้ามีอยู่แล้ว -> update, ถ้ายังไม่มี -> insert
+            # update / insert rating
             cur.execute(
                 """
                 SELECT rating
@@ -971,45 +1188,83 @@ def rate(novels_id: int):
                     (users_id, novels_id, rating),
                 )
 
+            # คำนวณค่าเฉลี่ยใหม่
+            cur.execute(
+                """
+                SELECT AVG(rating) AS avg_rating,
+                       COUNT(*) AS rating_count
+                FROM ratings
+                WHERE novels_id = %s
+                """,
+                (novels_id,),
+            )
+            agg = cur.fetchone() or {}
+            avg_rating = float(agg.get("avg_rating") or 0.0)
+            rating_count = int(agg.get("rating_count") or 0)
+
             conn.commit()
+
+            if is_ajax:
+                avg_text = "—" if rating_count == 0 else f"{avg_rating:.1f}"
+                return jsonify({
+                    "ok": True,
+                    "message": "บันทึกคะแนนเรียบร้อยแล้ว",
+                    "avg_rating": avg_rating,
+                    "avg_rating_text": avg_text,
+                    "rating_count": rating_count,
+                    "user_rating": rating,
+                })
+
             flash("บันทึกคะแนนเรียบร้อยแล้ว", "success")
 
     except Exception as e:
         print(f"[novel.rate] error: {e}")
-        flash("เกิดข้อผิดพลาดขณะบันทึกคะแนน", "error")
+        msg = "เกิดข้อผิดพลาดขณะบันทึกคะแนน"
+        if is_ajax:
+            return jsonify({"ok": False, "error": msg}), 500
+        flash(msg, "error")
 
     return redirect(url_for("novel.detail", novels_id=novels_id))
 
 
 @novel_bp.route("/novel/<int:novels_id>/chapter/<int:chapters_id>/like", methods=["POST"])
 def toggle_chapter_like(novels_id: int, chapters_id: int):
-    """กด/ยกเลิกหัวใจให้ตอน (toggle) แล้ว redirect กลับหน้า novel cover"""
-    sort = request.form.get("next_sort") or "asc"
+    """กด/ยกเลิกหัวใจให้ตอน (toggle)"""
+    sort = request.form.get("next_sort") or request.args.get("sort", "asc")
+    is_ajax = request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
 
     users_id = _current_user_id()
     if not users_id:
-        flash("กรุณาเข้าสู่ระบบก่อนกดหัวใจ", "error")
+        msg = "กรุณาเข้าสู่ระบบก่อนกดหัวใจ"
+        if is_ajax:
+            return jsonify({"ok": False, "error": msg, "need_login": True}), 401
+        flash(msg, "error")
         return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
 
     try:
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
-            # ต้องมีตาราง chapter_likes ก่อน
             if not _has_table(cur, "chapter_likes"):
-                flash("ยังไม่พบตาราง chapter_likes ในฐานข้อมูล", "error")
+                msg = "ยังไม่พบตาราง chapter_likes ในฐานข้อมูล"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 500
+                flash(msg, "error")
                 return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
 
-            # ตรวจสอบว่าตอนนี้อยู่ในนิยายที่ระบุจริง ๆ
+            # ตรวจสอบว่าตอนนี้อยู่ในนิยายนี้จริง ๆ
             cur.execute(
                 "SELECT novels_id FROM chapters WHERE chapters_id = %s LIMIT 1",
                 (chapters_id,),
             )
             row = cur.fetchone()
             if not row or int(row["novels_id"]) != novels_id:
-                flash("ไม่พบตอนที่ต้องการ", "error")
+                msg = "ไม่พบตอนที่ต้องการ"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 404
+                flash(msg, "error")
                 return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
 
-            # เช็คว่าผู้ใช้นี้เคยกดหัวใจตอนนี้หรือยัง
+            # เคยกดหัวใจหรือยัง
             cur.execute(
                 """
                 SELECT 1
@@ -1022,7 +1277,6 @@ def toggle_chapter_like(novels_id: int, chapters_id: int):
             already = cur.fetchone() is not None
 
             if already:
-                # ถ้าเคยกดแล้ว -> ยกเลิกหัวใจ
                 cur.execute(
                     """
                     DELETE FROM chapter_likes
@@ -1030,9 +1284,10 @@ def toggle_chapter_like(novels_id: int, chapters_id: int):
                     """,
                     (chapters_id, users_id),
                 )
-                flash("ยกเลิกหัวใจตอนนี้แล้ว", "info")
+                liked = False
+                if not is_ajax:
+                    flash("ยกเลิกหัวใจตอนนี้แล้ว", "info")
             else:
-                # ยังไม่เคยกด -> กดหัวใจ
                 cur.execute(
                     """
                     INSERT INTO chapter_likes (chapters_id, users_id)
@@ -1040,12 +1295,120 @@ def toggle_chapter_like(novels_id: int, chapters_id: int):
                     """,
                     (chapters_id, users_id),
                 )
-                flash("ขอบคุณที่กดหัวใจให้ตอนนี้", "success")
+                liked = True
+                if not is_ajax:
+                    flash("ขอบคุณที่กดหัวใจให้ตอนนี้", "success")
+
+            # นับ like ล่าสุด
+            cur.execute(
+                "SELECT COUNT(*) AS c FROM chapter_likes WHERE chapters_id = %s",
+                (chapters_id,),
+            )
+            like_count = int((cur.fetchone() or {}).get("c") or 0)
 
             conn.commit()
 
     except Exception as e:
         print(f"[novel.toggle_chapter_like] error: {e}")
-        flash("เกิดข้อผิดพลาดขณะบันทึกหัวใจ", "error")
+        msg = "เกิดข้อผิดพลาดขณะบันทึกหัวใจ"
+        if is_ajax:
+            return jsonify({"ok": False, "error": msg}), 500
+        flash(msg, "error")
+        return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
+
+    if is_ajax:
+        return jsonify({
+            "ok": True,
+            "liked": liked,
+            "like_count": like_count,
+        })
 
     return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
+
+
+@novel_bp.route("/novel/<int:novels_id>/comment/<int:cm_id>/delete", methods=["POST"])
+def delete_comment(novels_id: int, cm_id: int):
+    """
+    ลบความคิดเห็น:
+      - เจ้าของคอมเมนต์ลบของตัวเองได้
+      - เจ้าของนิยายลบคอมเมนต์ใด ๆ ของเรื่องตัวเองได้
+    """
+    is_ajax = request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
+    users_id = _current_user_id()
+    if not users_id:
+        msg = "กรุณาเข้าสู่ระบบก่อนลบความคิดเห็น"
+        if is_ajax:
+            return jsonify({"ok": False, "error": msg, "need_login": True}), 401
+        flash(msg, "error")
+        return redirect(url_for("novel.detail", novels_id=novels_id))
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor(DictCursor) as cur:
+            if not _has_table(cur, "comments"):
+                msg = "ไม่พบตาราง comments ในฐานข้อมูล"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 500
+                flash(msg, "error")
+                return redirect(url_for("novel.detail", novels_id=novels_id))
+
+            cur.execute(
+                """
+                SELECT cm_id, users_id, novels_id
+                FROM comments
+                WHERE cm_id = %s
+                LIMIT 1
+                """,
+                (cm_id,),
+            )
+            row = cur.fetchone()
+            if not row or int(row["novels_id"]) != int(novels_id):
+                msg = "ไม่พบความคิดเห็นที่ต้องการลบ"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 404
+                flash(msg, "error")
+                return redirect(url_for("novel.detail", novels_id=novels_id))
+
+            comment_owner_id = int(row["users_id"])
+            is_owner = _is_novel_owner(cur, users_id, novels_id)
+
+            if (users_id != comment_owner_id) and (not is_owner):
+                msg = "คุณไม่มีสิทธิ์ลความคิดเห็นนี้"
+                if is_ajax:
+                    return jsonify({"ok": False, "error": msg}), 403
+                flash(msg, "error")
+                return redirect(url_for("novel.detail", novels_id=novels_id))
+
+            cur.execute(
+                "DELETE FROM comments WHERE cm_id = %s",
+                (cm_id,),
+            )
+
+            if _has_table(cur, "comment_summaries"):
+                cur.execute(
+                    """
+                    INSERT INTO comment_summaries (novels_id, summary_text, last_cm_id, dirty)
+                    VALUES (%s, NULL, NULL, 1)
+                    ON DUPLICATE KEY UPDATE dirty = 1
+                    """,
+                    (novels_id,),
+                )
+
+            conn.commit()
+            if not is_ajax:
+                flash("ลบความคิดเห็นเรียบร้อยแล้ว", "success")
+
+    except Exception as e:
+        print(f"[novel.delete_comment] error: {e}")
+        msg = "เกิดข้อผิดพลาดขณะลบความคิดเห็น"
+        if is_ajax:
+            return jsonify({"ok": False, "error": msg}), 500
+        flash(msg, "error")
+        return redirect(url_for("novel.detail", novels_id=novels_id))
+
+    if is_ajax:
+        return jsonify({"ok": True, "cm_id": cm_id})
+
+    return redirect(url_for("novel.detail", novels_id=novels_id))
+
+

@@ -43,95 +43,304 @@
     .meta-item{background:var(--chip);padding:8px 16px;border-radius:999px;font-size:14px}
     .novel-description{color:var(--muted);line-height:1.7;margin:16px 0}
 
-    /* --------- RATING SECTION ใต้รูปปก ---------- */
-       .novel-left{
-      display:flex;
-      flex-direction:column;
-      gap:16px;
-    }
+    /* ===================== NOVEL DETAIL (REACT-LIKE UI) ===================== */
 
-    
+  .main-header-space{
+    padding:28px 0 0;
+  }
 
-    .rating-row-top{
-      display:flex;
-      align-items:baseline;
-      justify-content:space-between;
-      gap:12px;
-      font-size:14px;
-    }
-    .rating-title{
-      font-weight:600;
-      letter-spacing:.06em;
-    }
-    .rating-summary{
-      text-align:right;
-      font-size:13px;
-      color:var(--muted);
-    }
-    .rating-summary-score{
-      font-weight:600;
-      color:var(--accent);
-      margin-left:4px;
-    }
-    .rating-summary-count{
-      display:block;
-    }
+  /* กริดหลัก: ปก + รายละเอียด */
+  .novel-header{
+    display:grid;
+    grid-template-columns:minmax(260px, 320px) minmax(0, 1fr);
+    gap:32px;
+    margin-bottom:32px;
+    align-items:flex-start;
+  }
 
-    .rating-row-stars{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:2px;
-    }
+  /* ฝั่งซ้าย: ปก + การให้คะแนน */
+  .novel-left{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
 
-    .star-rating{
-      display:inline-flex;
-      gap:4px;
-      font-size:22px;
-      direction:rtl; /* ทำให้ input:checked ~ label เติมดาวไปทางซ้าย */
-    }
-    .star-rating input{
-      display:none;
-    }
-    .star-rating label{
-      cursor:pointer;
-      color:rgba(255,255,255,.18);
-      text-shadow:0 0 10px rgba(0,0,0,.4);
-      transition:color .15s ease, transform .15s ease;
-    }
-    .star-rating label:hover,
-    .star-rating label:hover ~ label{
-      color:var(--star);
-      transform:translateY(-1px);
-    }
-    .star-rating input:checked ~ label{
-      color:var(--star);
-    }
+  /* การ์ดคะแนน */
+.rating-card{
+  background:var(--card);
+  border-radius:24px;
+  padding:10px 20px 14px;
+  box-shadow:var(--shadow);
+  border:1px solid rgba(255,255,255,.08);
+}
 
-    .rating-hint{
-      font-size:11px;
-      color:var(--muted);
-      opacity:.85;
+/* แถวบน: "คะแนนเฉลี่ย" + ตัวเลข */
+.rating-card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  margin-bottom:4px;
+}
+
+.rating-card-header{
+  font-size:.85rem;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+/* กล่องตัวเลขด้านขวา */
+.rating-card-score{
+  display:flex;
+  align-items:baseline;
+  gap:4px;
+}
+
+.rating-score-main{
+  font-size:2.4rem;
+  font-weight:700;
+  color:var(--star);   /* ให้สีตัวเลขเหมือนสีดาว */
+}
+
+.rating-score-max{
+  font-size:1rem;
+  color:var(--muted);
+}
+
+/* ดาวสำหรับให้คะแนน */
+.rating-card-stars{
+  margin:2px 0 6px;
+  display:flex;              /* ทำให้เป็น flex container */
+  justify-content:center;    /* จัดลูก (ดาว) ให้อยู่กึ่งกลางแนวนอน */
+}
+
+.star-rating{
+  display:inline-flex;
+  flex-direction:row-reverse;   /* ให้ hover ไล่จากขวาไปซ้าย */
+  gap:4px;
+}
+
+.star-rating input{
+  display:none;
+}
+
+.star-rating label{
+  cursor:pointer;
+  font-size:22px;
+  color:rgba(255,255,255,.18);
+  transition:color .15s ease, transform .15s ease;
+  text-shadow:0 0 8px rgba(0,0,0,.4);
+}
+
+/* hover */
+.star-rating label:hover,
+.star-rating label:hover ~ label{
+  color:var(--star);
+  transform:translateY(-1px);
+}
+
+/* checked (ค่าที่ผู้ใช้เลือก) */
+.star-rating input:checked ~ label{
+  color:var(--star);
+}
+
+/* ข้อความด้านล่างการ์ดคะแนน */
+.rating-card-footer{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  align-items:center;
+  text-align:center;
+}
+
+.rating-count{
+  font-size:.8rem;
+  color:var(--muted);
+}
+
+.rating-hint{
+  font-size:.75rem;
+  color:var(--muted);
+  opacity:.85;
+}
+
+
+
+  /* ฝั่งขวา: ข้อมูลนิยาย */
+  .novel-main{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .novel-title{
+    font-size:clamp(26px, 3vw, 36px);
+    font-weight:700;
+    letter-spacing:.05em;
+    margin:0;
+  }
+
+  .novel-author-line{
+    font-size:.95rem;
+    color:var(--muted);
+  }
+
+  .novel-author{
+    font-weight:600;
+    color:var(--accent);
+  }
+
+  .novel-submeta{
+    font-size:.85rem;
+    color:var(--muted);
+    margin-top:2px;
+  }
+
+  /* แท็กหมวดหมู่/สถานะ */
+  .tag-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:12px;
+  }
+
+  .tag-pill{
+    background:var(--chip);
+    padding:8px 14px;
+    border-radius:999px;
+    font-size:.85rem;
+  }
+
+  /* สถิติ: ผู้อ่าน / ตอน / กดถูกใจ */
+  .novel-stats{
+    display:flex;
+    flex-wrap:wrap;
+    gap:18px;
+    margin-top:10px;
+    font-size:.9rem;
+    color:var(--muted);
+  }
+
+  .stat-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:.9rem;
+}
+
+.stat-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.stat-icon svg{
+  width:18px;
+  height:18px;
+  display:block;
+}
+
+
+  /* เรื่องย่อ */
+  .novel-description-block{
+    margin-top:14px;
+  }
+
+  .section-heading{
+    font-size:1rem;
+    font-weight:700;
+    margin:0 0 6px;
+  }
+
+  .novel-description{
+    margin:0;
+    color:var(--muted);
+    line-height:1.7;
+  }
+
+  /* ปุ่ม action */
+  .novel-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-top:18px;
+  }
+
+  .btn-lg{
+  border-radius:999px;
+  padding:10px 22px;
+  font-size:.95rem;
+  border:1px solid rgba(255,255,255,.16);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  background:transparent;
+  color:var(--text);
+  text-decoration:none;
+  transition:background-color .18s ease, color .18s ease;
+}
+/* ปุ่มหลัก */
+
+/* icon ในปุ่มขนาดใหญ่ */
+.btn-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.btn-icon svg{
+  width:18px;
+  height:18px;
+  display:block;
+  stroke:currentColor; /* ให้สีตามสีตัวอักษร */
+  fill:none;
+  stroke-width:1.7;
+}
+
+
+/* hover เหมือนกันทุกแบบ */
+.btn-lg:hover,
+.btn-lg:focus,
+.btn-lg-primary:hover,
+.btn-lg-ghost:hover,
+.bookshelf-btn--active{
+  text-decoration:none;
+  background:#ffffff;   /* พื้นหลังขาว */
+  color:#000000;        /* ตัวหนังสือดำ */
+}
+
+  .bookshelf-btn {
+    transition: background .15s ease, color .15s ease, transform .1s ease;
+  }
+
+
+  .bookshelf-btn--active:hover {
+    transform: translateY(-1px);
+  }
+
+  .bookshelf-btn--active svg {
+    fill: currentColor;
+  }
+
+  /* mobile */
+  @media (max-width:768px){
+    .novel-header{
+      grid-template-columns:1fr;
+      gap:20px;
     }
-
-    @media (max-width:768px){
-      .rating-panel{
-        margin-top:8px;
-      }
-      .rating-row-top{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-      .rating-summary{
-        text-align:left;
-      }
+    .cover-card{
+      max-width:320px;
+      margin:0 auto;
     }
+  }
 
 
-    /* --------- CHAPTER LIST (แบบ All chapters + เส้นคั่น) ---------- */
+
+       /* --------- CHAPTER LIST (แบบ Accordion 1–50, 51–100 ...) ---------- */
 
     .chapters-section{
-      margin-top: 8px;
+      margin-top:32px;
     }
 
     .chapters-header{
@@ -149,146 +358,230 @@
       font-weight:700;
     }
 
-    .chapters-sort{
+    /* ปุ่มสลับเรียง */
+    .chapters-sort-toggle{
+      border-radius:999px;
+      padding:6px 14px;
+      font-size:.85rem;
+      background:var(--chip);
+      border:1px solid rgba(255,255,255,.16);
+      color:var(--muted);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      cursor:pointer;
+    }
+    .chapters-sort-toggle:hover{
+      background:rgba(255,255,255,.12);
+    }
+    .chapters-sort-toggle.desc{
+      background:var(--accent);
+      color:#111214;
+    }
+    .chapters-sort-label{
+      white-space:nowrap;
+    }
+    .chapters-sort-icon{
+      font-size:.7rem;
+      transition:transform .15s ease;
+    }
+    .chapters-sort-toggle.desc .chapters-sort-icon{
+      transform:rotate(180deg);
+    }
+
+    /* กล่องกลุ่มตอน */
+    .chapters-accordion{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .chapter-group{
+      background:var(--card);
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    /* หัวกล่องแต่ละช่วงตอน (ตอนที่ 1-50, 51-100 ...) */
+    .chapter-group-header{
+      width:100%;
+      padding:14px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background:rgba(0,0,0,.12);
+      border:none;
+      cursor:pointer;
+      color:var(--text);
+      font-size:.9rem;
+    }
+
+    .chapter-group-title{
+      font-weight:600;
+      letter-spacing:.03em;
+    }
+
+    .chapter-group-meta{
       display:flex;
       align-items:center;
       gap:8px;
       font-size:.85rem;
       color:var(--muted);
     }
-    .chapters-sort-label{
-      opacity:.8;
-    }
-    .sort-pill{
-      padding:4px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.18);
-      text-decoration:none;
-      color:var(--muted);
-      font-size:.75rem;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      cursor:pointer;
-      background:transparent;
-      outline:none;
-      transition:background .15s ease,color .15s ease,border-color .15s ease;
-    }
-    .sort-pill:hover{
-      background:rgba(255,255,255,.08);
-    }
-    .sort-pill.active{
-      background:var(--accent);
-      color:#111214;
-      border-color:transparent;
+
+    .chapter-group-count{
+      opacity:.9;
     }
 
-    .chapters-list{
-      border-top:1px solid rgba(255,255,255,.18);
+    .chapter-group-caret{
+      font-size:.75rem;
+      display:inline-flex;
+      align-items:center;
+      transition:transform .15s ease;
     }
+
+    /* ถ้ากล่องเปิด ให้ใส่ class is-open ที่ .chapter-group */
+    .chapter-group.is-open .chapter-group-caret{
+      transform:rotate(180deg);
+    }
+
+    /* ตัวเนื้อหาด้านในกล่อง */
+    .chapter-group-body{
+      border-top:1px solid rgba(255,255,255,.16);
+      background:var(--card);
+    }
+
+    /* ซ่อน body ถ้ากล่องไม่ได้มี is-open */
+    .chapter-group:not(.is-open) .chapter-group-body{
+      display:none;
+    }
+
+
+    /* list ตอนในแต่ละกล่อง */
+    .chapters-list{
+      margin:0;
+      padding:0;
+      list-style:none;
+    }
+
     .chapter-row{
-      display:flex;
-      align-items:baseline;
-      justify-content:space-between;
-      padding:18px 0;
-      text-decoration:none;
-      color:var(--text);
-      border-bottom:1px solid rgba(255,255,255,.18);
+      padding:12px 20px;
+      border-bottom:1px solid rgba(255,255,255,.12);
       transition:background .15s ease;
+    }
+    .chapter-row:last-child{
+      border-bottom:none;
     }
     .chapter-row:hover{
       background:rgba(255,255,255,.03);
     }
+
+    .chapter-row-inner{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    /* ด้านซ้าย: ตอนที่ X + ชื่อตอน (เรียงในบรรทัดเดียวเหมือนรูป) */
     .chapter-main{
+      flex:1;
       display:flex;
-      gap:10px;
-      font-size:1rem;
-      letter-spacing:.06em;
-      flex-wrap:wrap;
-      color:var(--text);        /* ให้สีเหมือนเดิม */
-      text-decoration:none;     /* ตัดเส้นใต้ลิงก์ */
+      align-items:center;
+      gap:20px;
+      text-decoration:none;
+      color:var(--text);
     }
-
     .chapter-main:visited{
-      color:var(--text);        /* ลิงก์ที่เคยคลิกแล้วก็ให้เป็นสีเดียวกัน */
+      color:var(--text);
     }
 
-    .chapter-main:hover{
-      text-decoration:none;     /* เวลา hover ไม่ต้องมีเส้นใต้เพิ่ม */
-    }
-
-    .chapter-label{
-      opacity:.9;
-    }
-    .chapter-title{
-      font-weight:500;
-    }
-    .chapter-meta{
-      display:flex;
-      gap:16px;
+    .chapter-label{          /* “ตอนที่ 1” */
       font-size:.85rem;
       color:var(--muted);
-      flex-shrink:0;
-      align-items:center;
+      white-space:nowrap;
     }
-    .chapter-like{
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-    }
-    @media(max-width:600px){
-      .chapter-row{
-        flex-direction:column;
-        align-items:flex-start;
-        gap:4px;
-      }
-      .chapter-meta{
-        font-size:.8rem;
-      }
-    }
-        .chapter-like{
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
+    .chapter-title{          /* ชื่อตอน */
+      font-size:.95rem;
+      font-weight:500;
     }
 
-        .chapter-like-form{
-      margin:0;
+    /* ด้านขวา: วันที่ / ปุ่มหัวใจ + ยอดไลก์ */
+    .chapter-meta{
+      margin-left:auto;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      font-size:.85rem;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+
+
+    .chapter-date{
+      white-space:nowrap;
     }
 
     .chapter-like-btn{
-      border:0;
-      background:transparent;
-      cursor:pointer;
-      padding:0;
       display:inline-flex;
       align-items:center;
       gap:4px;
-      font-size:.85rem;
+      border:none;
+      background:transparent;
       color:var(--muted);
+      cursor:pointer;
+      padding:4px 8px;
+      border-radius:999px;
+      transition:background .15s ease, color .15s ease;
     }
 
     .chapter-like-btn .heart-icon{
-      font-size:1rem;
-      transition:transform .15s ease;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
 
-    .chapter-like-btn:hover .heart-icon{
-      transform:translateY(-1px);
+    .chapter-like-btn .heart-icon svg{
+      width:16px;
+      height:16px;
+      display:block;
     }
 
-    .chapter-like-btn.liked .heart-icon{
-      color:#ff4b6e; /* หัวใจแดงเมื่อกดแล้ว */
+    .chapter-like-btn:hover{
+      background:rgba(255,255,255,.08);
     }
 
-    
-
-    .back-link{display:inline-flex;align-items:center;gap:8px;color:var(--accent);text-decoration:none;margin-bottom:24px;font-size:14px}
-    .back-link:hover{text-decoration:underline}
-
-    @media (max-width:768px){
-      .novel-header{grid-template-columns:1fr;gap:20px}
-      .cover-image{max-width:300px;margin:0 auto}
+    .chapter-like-btn.liked{
+      color:var(--muted); /* ให้สีข้อความกลับไปเหมือนเดิม */
     }
+
+    .chapter-like-btn.liked .heart-icon svg{
+      fill:#ff4b5c;
+    }
+
+    /* เปลี่ยนฟอนต์เฉพาะหัวกล่อง + จำนวนตอน + ยอดไลก์ */
+    .chapter-group-title,
+    .chapter-group-count,
+    .chapter-like-btn .like-count {
+      font-family:"Georgia", serif, -apple-system, BlinkMacSystemFont,
+              "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+
+    @media(max-width:600px){
+      .chapter-row-inner{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .chapter-meta{
+        width:100%;
+        justify-content:space-between;
+        font-size:.8rem;
+      }
+    }
+
 
     /* ---------------- COMMENTS UI ---------------- */
 
@@ -560,11 +853,35 @@
       opacity:.6;
       margin-bottom:8px;
     }
-    .comment-text{
+        .comment-text{
       font-size:14px;
       color:var(--text);
       line-height:1.7;
     }
+
+    .comment-delete-form{
+      margin-left:auto;  
+    }
+
+    .comment-delete-btn{
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.24);
+      background:transparent;
+      color:var(--muted);
+      font-size:11px;
+      padding:4px 10px;
+      cursor:pointer;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+
+    .comment-delete-btn:hover{
+      background:rgba(255,255,255,.16);
+      color:#000;
+    }
+
+
     .comment-meta{
       display:flex;
       align-items:center;
@@ -658,142 +975,353 @@
   <main class="site">
     <a href="/" class="back-link">← กลับไปหน้าแรก</a>
 
-        <!-- Novel Header -->
-    <section class="novel-header">
-      <div class="novel-left">
-        <img class="cover-image"
-             src="{{ novel.cover or url_for('static', filename='cover/placeholder.jpg') }}"
-             alt="{{ novel.title }}" />
+    <!-- Novel Header (React-like UI) -->
+<section class="novel-header">
+  <!-- ซ้าย: ปก + การให้คะแนน -->
+  <div class="novel-left">
+    <div class="cover-card">
+      <img
+        class="cover-image"
+        src="{{ novel.cover_url or url_for('static', filename='cover/placeholder.jpg') }}"
+        alt="{{ novel.title }}"
+      />
+    </div>
 
-        <!-- บล็อคให้คะแนน -->
-        <form id="ratingForm"
-              class="rating-panel"
-              method="post"
-              action="{{ url_for('novel.rate', novels_id=novel.novels_id) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <!-- การ์ดคะแนน + ฟอร์มให้คะแนน -->
+<form
+  id="ratingForm"
+  class="rating-card"
+  method="post"
+  action="{{ url_for('novel.rate', novels_id=novel.novels_id) }}"
+>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-          <div class="rating-row-top">
-            <div class="rating-title">ให้คะแนนเรื่องนี้</div>
-            <div class="rating-summary">
-              {% if novel.rating_count > 0 %}
-                <span>⭐</span>
-                <span class="rating-summary-score">
-                  {{ "%.1f"|format(novel.avg_rating) }}
-                </span>
-                <span class="rating-summary-count">
-                  จาก {{ novel.rating_count }} โหวต
-                </span>
-              {% else %}
-                <span>ยังไม่มีการโหวต</span>
-              {% endif %}
-            </div>
-          </div>
+  <!-- แถวบน: หัวข้อซ้าย + คะแนนขวา -->
+  <div class="rating-card-top">
+    <div class="rating-card-header">คะแนนเฉลี่ย</div>
 
-          <div class="rating-row-stars">
-            <div class="star-rating">
-              {# คะแนนที่ user คนนี้เคยให้ (0 = ยังไม่เคยให้) #}
-              {% set ur = novel.user_rating or 0 %}
-              {# เรียงจาก 5 → 1 เพื่อให้ direction:rtl ทำงานถูก #}
-              {% for star in range(5, 0, -1) %}
-                <input
-                  type="radio"
-                  id="rating-{{ star }}"
-                  name="rating"
-                  value="{{ star }}"
-                  {% if ur == star %}checked{% endif %}>
-                <label for="rating-{{ star }}" title="{{ star }} ดาว">★</label>
-              {% endfor %}
-            </div>
-          </div>
-        </form>
+    <div class="rating-card-score">
+      {% if novel.rating_count > 0 %}
+        <span class="rating-score-main">
+          {{ "%.1f"|format(novel.avg_rating) }}
+        </span>
+        <span class="rating-score-max">/5</span>
+      {% else %}
+        <span class="rating-score-main">—</span>
+        <span class="rating-score-max">/5</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- แถวที่สอง: ดาวให้คะแนน -->
+  <div class="rating-card-stars">
+    <div class="star-rating">
+      {% set ur = novel.user_rating or 0 %}
+      {% for star in range(5, 0, -1) %}
+        <input
+          type="radio"
+          id="rating-{{ star }}"
+          name="rating"
+          value="{{ star }}"
+          {% if ur == star %}checked{% endif %}
+        >
+        <label for="rating-{{ star }}" title="{{ star }} ดาว">★</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- แถวล่าง: จำนวนคนให้คะแนน + hint -->
+  <div class="rating-card-footer">
+    {% if novel.rating_count > 0 %}
+      <span class="rating-count">
+        จาก {{ novel.rating_count }} คะแนน
+      </span>
+    {% else %}
+      <span class="rating-count">
+        ยังไม่มีการให้คะแนน
+      </span>
+    {% endif %}
+    <span class="rating-hint">แตะดาวเพื่อให้คะแนนเรื่องนี้</span>
+  </div>
+</form>
+  </div>
+
+
+  <!-- ขวา: ข้อมูลนิยาย -->
+  <div class="novel-main">
+    <h1 class="novel-title">{{ novel.title }}</h1>
+
+    {% if novel.author_name is defined and novel.author_name %}
+      <div class="novel-author-line">
+        โดย <span class="novel-author">{{ novel.author_name }}</span>
       </div>
+    {% endif %}
 
-      <div class="novel-info">
-        <h1>{{ novel.title }}</h1>
-        
-        <div class="novel-meta">
-          {% if novel.category_name %}
-          <span class="meta-item">{{ novel.category_name }}</span>
-          {% endif %}
-          {% if novel.author_name %}
-          <span class="meta-item">โดย {{ novel.author_name }}</span>
-          {% endif %}
-          <span class="meta-item">{{ novel.total_chapters }} ตอน</span>
-          <span class="meta-item">ผู้อ่าน {{ novel.total_readers }}</span>
-          {% if novel.avg_rating > 0 %}
-          <span class="meta-item">⭐ {{ "%.1f"|format(novel.avg_rating) }} ({{ novel.rating_count }})</span>
-          {% endif %}
-        </div>
+    {% if novel.updated_at is defined and novel.updated_at %}
+      <div class="novel-submeta">
+        อัปเดตล่าสุด: {{ novel.updated_at.strftime('%d/%m/%Y') }}
+      </div>
+    {% endif %}
 
-        {% if novel.description %}
-        <p class="novel-description">{{ novel.description }}</p>
+    <!-- หมวดหมู่ / สถานะ -->
+      <div class="tag-list">
+        {% if novel.category_name %}
+          <span class="tag-pill">{{ novel.category_name }}</span>
         {% endif %}
 
-        <div class="novel-meta">
-          <span class="meta-item">
-            สถานะ: {{ 'จบแล้ว' if novel.status == 'completed' else 'ยังไม่จบ' }}
+        {% if novel.status %}
+          <span class="tag-pill">
+            {% if novel.status == "completed" %}
+              จบแล้ว
+            {% elif novel.status == "ongoing" %}
+              ยังไม่จบ
+            {% else %}
+              {{ novel.status }}
+            {% endif %}
           </span>
-          {% if novel.total_favorites > 0 %}
-          <span class="meta-item">❤ {{ novel.total_favorites }}</span>
-          {% endif %}
+        {% endif %}
+      </div>
+
+      <!-- สถิติ -->
+     <div class="novel-stats">
+        <!-- ผู้อ่าน -->
+        <div class="stat-item">
+          <span class="stat-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor">
+              <path fill-rule="evenodd"
+                d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z"
+                clip-rule="evenodd" />
+            </svg>
+          </span>
+          <span>
+            {{ novel.total_readers or 0 }}
+            ผู้อ่าน
+          </span>
+        </div>
+
+        <!-- จำนวนตอน -->
+        <div class="stat-item">
+          <span class="stat-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor">
+              <path
+                d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z" />
+            </svg>
+          </span>
+          <span>{{ novel.total_chapters or 0 }} ตอน</span>
+        </div>
+
+        <!-- กดถูกใจ / เข้าชั้นหนังสือ -->
+        <div class="stat-item">
+          <span class="stat-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor">
+              <path
+                d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
+            </svg>
+          </span>
+          <span>{{ novel.total_favorites or 0 }}</span>
         </div>
       </div>
-    </section>
+
+
+      <!-- เรื่องย่อ -->
+      {% if novel.description %}
+        <div class="novel-description-block">
+          <h2 class="section-heading">เรื่องย่อ</h2>
+          <p class="novel-description">
+            {{ novel.description }}
+          </p>
+        </div>
+      {% endif %}
+
+      <!-- ปุ่ม action -->
+<div class="novel-actions">
+  <a
+    href="/reading/read/{{ novel.novels_id }}/1"
+    class="btn-lg"
+  >
+    เริ่มอ่าน
+  </a>
+
+
+      <!-- เติมเข้าชั้นหนังสือ / อยู่บนชั้นหนังสือแล้ว -->
+        <form id="bookshelf-form"
+              method="post"
+              action="{{ url_for('novel.toggle_bookshelf', novels_id=novel.novels_id) }}"
+              style="display:none;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="next_sort" value="{{ request.args.get('sort', 'asc') }}">
+        </form>
+
+        <!-- ปุ่มที่ผู้ใช้กด -->
+        <button type="button"
+                id="bookshelfToggleBtn"
+                class="btn-lg btn-lg-ghost bookshelf-btn{% if novel.in_bookshelf %} bookshelf-btn--active{% endif %}">
+          <span class="btn-icon" aria-hidden="true">
+            <!-- ไอคอนเดิม -->
+            <svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="size-6">
+              <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
+            </svg>
+          </span>
+
+          <span>
+            {% if novel.in_bookshelf %}
+              อยู่บนชั้นหนังสือแล้ว
+            {% else %}
+              เติมเข้าชั้นหนังสือ
+            {% endif %}
+          </span>
+        </button>
+
+
+
+
+  <!-- คัดลอกลิงก์ + icon แชร์ -->
+    <button type="button"
+            class="btn-lg btn-lg-ghost"
+            id="copyLinkBtn"
+            data-copy-url="{{ request.url }}">  <!-- ถ้าไม่ใช้ Jinja จะลบ attribute นี้ก็ได้ -->
+      <span class="btn-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24" fill="currentColor" class="size-6">
+          <path fill-rule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z" clip-rule="evenodd" />
+          <path fill-rule="evenodd" d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375Zm9.586 4.594a.75.75 0 0 0-1.172-.938l-2.476 3.096-.908-.907a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.116-.062l3-3.75Z" clip-rule="evenodd" />
+        </svg>
+      </span>
+      <span class="copy-label">คัดลอกลิงก์</span>
+    </button>
+
+  </div>
+    </div>
+  </section>
+
 
 
            <!-- Chapters List -->
-    <section class="chapters-section">
+        <section class="chapters-section">
       <div class="chapters-header">
-        <h2 class="chapters-heading">ตอนทั้งหมด</h2>
+        <h2 class="chapters-heading">รายการตอน</h2>
 
-        <div class="chapters-sort">
-          <button type="button" id="sortAsc" class="sort-pill active">
-            เก่า → ใหม่
-          </button>
-          <button type="button" id="sortDesc" class="sort-pill">
-            ใหม่ → เก่า
-          </button>
-        </div>
+        <!-- ปุ่มสลับเรียง เก่าไปใหม่ / ใหม่ไปเก่า -->
+        <button type="button" id="chaptersSortToggle" class="chapters-sort-toggle">
+          <span id="chaptersSortLabel" class="chapters-sort-label">เก่าไปใหม่</span>
+          <span class="chapters-sort-icon">▾</span>
+        </button>
       </div>
-      
+
       {% if chapters %}
-      <div class="chapters-list" id="chaptersList">
+      <div class="chapters-accordion" id="chaptersAccordion">
+        {% set total_chapters = chapters|length %}
+        {% set groups = namespace(current=-1) %}
+
         {% for chapter in chapters %}
-        <div class="chapter-row" data-chapter-no="{{ chapter.chapter_no|int }}">
-          <!-- คลิกชื่อ/บรรทัดเพื่อเข้าอ่านตอน -->
-          <a class="chapter-main"
-             href="/reading/read/{{ novel.novels_id }}/{{ chapter.chapter_no }}">
-            <span class="chapter-label">ตอนที่ {{ chapter.chapter_no }}</span>
-            <span class="chapter-title">{{ chapter.title or 'ไม่มีชื่อตอน' }}</span>
-          </a>
+          {# index ของตอนนี้ (เริ่มนับ 0) #}
+          {% set g_index = (loop.index0 // 50) %}
 
-          <div class="chapter-meta">
-            <span class="chapter-date">
-              {{ chapter.created_at.strftime('%d/%m/%Y') if chapter.created_at else 'ไม่ระบุ' }}
-            </span>
+          {# ถ้าเปลี่ยนกลุ่ม ให้เปิดกล่องใหม่ #}
+          {% if g_index != groups.current %}
+            {# ปิดกล่องเดิมก่อน (ถ้าไม่ใช่อันแรก) #}
+            {% if not loop.first %}
+                  </div>  {# .chapters-list #}
+                </div>    {# .chapter-group-body #}
+              </div>      {# .chapter-group #}
+            {% endif %}
 
-            <!-- ปุ่มหัวใจ -->
-            <form class="chapter-like-form"
-                  method="post"
-                  action="{{ url_for('novel.toggle_chapter_like',
-                                     novels_id=novel.novels_id,
-                                     chapters_id=chapter.chapters_id) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% set groups.current = g_index %}
+            {% set group_start_index = g_index * 50 %}
+            {% set group_start = group_start_index + 1 %}
+            {% set remaining = total_chapters - group_start_index %}
 
-              <button type="submit"
-                      class="chapter-like-btn{% if chapter.is_liked %} liked{% endif %}">
-                <span class="heart-icon">❤</span>
-                <span class="like-count">{{ chapter.like_count or 0 }}</span>
+            {% if remaining > 50 %}
+              {% set group_count = 50 %}
+            {% else %}
+              {% set group_count = remaining %}
+            {% endif %}
+            {% set group_end = group_start + group_count - 1 %}
+
+            {# กล่องช่วงตอน เช่น ตอนที่ 1–50, 51–100 ... #}
+            <div class="chapter-group{% if g_index == 0 %} is-open{% endif %}"
+                data-group-index="{{ g_index }}">
+              <button class="chapter-group-header" type="button">
+                <div class="chapter-group-title">
+                  ตอนที่ {{ group_start }}–{{ group_end }}
+                </div>
+                <div class="chapter-group-meta">
+                  <span class="chapter-group-count">{{ group_count }} ตอน</span>
+                  <span class="chapter-group-caret">▾</span>
+                </div>
               </button>
-            </form>
-          </div>
-        </div>
+
+              <div class="chapter-group-body">
+                <div class="chapters-list">
+          {% endif %}
+
+                  {# แถวตอนแต่ละตอน #}
+                  <div class="chapter-row" data-chapter-no="{{ chapter.chapter_no|int }}">
+                    <div class="chapter-row-inner">
+                      <!-- คลิกเพื่ออ่านตอน -->
+                      <a class="chapter-main"
+                        href="/reading/read/{{ novel.novels_id }}/{{ chapter.chapter_no }}">
+                        <span class="chapter-label">
+                          ตอนที่ {{ chapter.chapter_no }}
+                        </span>
+                        <span class="chapter-title">
+                          {{ chapter.title or 'ไม่มีชื่อตอน' }}
+                        </span>
+                      </a>
+
+                      <div class="chapter-meta">
+                        <span class="chapter-date">
+                          {{ chapter.created_at.strftime('%d/%m/%Y') if chapter.created_at else 'ไม่ระบุ' }}
+                        </span>
+
+                  
+                        <!-- ปุ่มหัวใจ -->
+                  <div class="chapter-like-wrap">
+                        <form class="chapter-like-form"
+                              method="post"
+                              action="{{ url_for('novel.toggle_chapter_like',
+                                                novels_id=novel.novels_id,
+                                                chapters_id=chapter.chapters_id) }}">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                          <button type="submit"
+                                class="chapter-like-btn{% if chapter.is_liked %} liked{% endif %}">
+                          <span class="heart-icon" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="currentColor">
+                              <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+                            </svg>
+                          </span>
+                          <span class="like-count">{{ chapter.like_count or 0 }}</span>
+                        </button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+
+          {% if loop.last %}
+                </div>  {# .chapters-list #}
+              </div>    {# .chapter-group-body #}
+            </div>      {# .chapter-group #}
+          {% endif %}
         {% endfor %}
-      </div>
+      </div>            {# .chapters-accordion #}
+
       {% else %}
-      <p style="opacity:.7">ยังไม่มีตอนในนิยายนี้</p>
+        <p style="opacity:.7">ยังไม่มีตอนในนิยายนี้</p>
       {% endif %}
     </section>
+
 
 
 
@@ -816,17 +1344,16 @@
         </div>
       </form>
 
-          <!-- ปุ่มตัวช่วยสรุปความคิดเห็น (อยู่ตรงกลาง ระหว่างฟอร์มกับรายการคอมเมนต์) -->
+      <!-- ปุ่มตัวช่วยสรุปความคิดเห็น -->
       <div class="summary-helper-wrap">
         <button type="button" class="summary-helper-btn" id="openSummaryHelper">
           ตัวช่วยสรุปความคิดเห็น
         </button>
       </div>
 
-        <!-- Modal ตัวช่วยสรุปความคิดเห็น -->
+      <!-- Modal ตัวช่วยสรุปความคิดเห็น (เหมือนเดิม) -->
       <div id="summaryModal" class="summary-modal" aria-hidden="true">
         <div class="summary-modal-overlay" data-summary-close></div>
-
         <div class="summary-modal-dialog" role="dialog"
             aria-modal="true" aria-labelledby="summaryModalTitle">
           <div class="summary-modal-header">
@@ -836,46 +1363,43 @@
             <button type="button" class="summary-modal-close"
                     aria-label="ปิด" data-summary-close>×</button>
           </div>
-          <div class="summary-modal-body">
-            <!-- ตอนเชื่อม DB ค่อยเปลี่ยนเนื้อหาส่วนนี้ -->
-            <p>
-              ข้อความสรุปความคิดเห็นจากผู้อ่านจะมาแสดงในกล่องนี้
-              (ตอนนี้เป็นข้อความตัวอย่างเพื่อทดสอบการแสดงผลของ modal)
-            </p>
-          </div>
+          <div class="summary-modal-body"></div>
         </div>
       </div>
-
 
       <div class="comments-header">
         <div class="comments-header-main">
           <h2>ความคิดเห็นผู้อ่าน</h2>
         </div>
         <div class="comments-controls">
-          <button type="button" class="comments-btn" id="commentsPrev" aria-label="ความคิดเห็นก่อนหน้า">❮</button>
-          <button type="button" class="comments-btn" id="commentsNext" aria-label="ความคิดเห็นถัดไป">❯</button>
+          <button type="button" class="comments-btn" id="commentsPrev"
+                  aria-label="ความคิดเห็นก่อนหน้า">❮</button>
+          <button type="button" class="comments-btn" id="commentsNext"
+                  aria-label="ความคิดเห็นถัดไป">❯</button>
         </div>
       </div>
 
-      {% if comments %}
+      <!-- ให้มี track เสมอ -->
       <div class="comments-track" id="commentsTrack">
         {% for c in comments %}
-        <article class="comment-card">
+        <article class="comment-card" data-cm-id="{{ c.cm_id }}">
           <div class="comment-bubble">
             <div class="comment-quote">“</div>
             <p class="comment-text">
               {{ c.content }}
             </p>
           </div>
+
           <div class="comment-meta">
             <div class="comment-avatar">
               {% if c.avatar_url %}
                 <img src="{{ c.avatar_url }}"
-                     alt="{{ c.username or ('ผู้ใช้ #' ~ c.users_id) }}">
+                    alt="{{ c.username or ('ผู้ใช้ #' ~ c.users_id) }}">
               {% else %}
-                <span>{{ c.username or ('#' ~ c.users_id) }}</span>
+                <span>{{ c.username or ('ผู้ใช้ #' ~ c.users_id) }}</span>
               {% endif %}
             </div>
+
             <div class="comment-author">
               <div class="comment-author-name">
                 {{ c.username or ('ผู้ใช้ #' ~ c.users_id) }}
@@ -888,29 +1412,36 @@
                 {% endif %}
               </div>
             </div>
+
+            {% if c.can_delete %}
+            <form class="comment-delete-form"
+                  method="post"
+                  action="{{ url_for('novel.delete_comment',
+                                    novels_id=novel.novels_id,
+                                    cm_id=c.cm_id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="comment-delete-btn">
+                ลบความคิดเห็น
+              </button>
+            </form>
+            {% endif %}
           </div>
         </article>
         {% endfor %}
       </div>
-      {% else %}
-        <p style="opacity:.7;margin-top:12px;">ยังไม่มีความคิดเห็นในนิยายนี้</p>
+
+      {% if not comments %}
+        <p id="noCommentsMessage" style="opacity:.7;margin-top:12px;">
+          ยังไม่มีความคิดเห็นในนิยายนี้
+        </p>
       {% endif %}
     </section>
+
 
   </main>
 
   <script>
-    // auto submit form ให้คะแนนเมื่อเลือกดาว
-    (function () {
-      const form = document.getElementById('ratingForm');
-      if (!form) return;
-      const inputs = form.querySelectorAll('.star-rating input[type="radio"]');
-      inputs.forEach(input => {
-        input.addEventListener('change', () => {
-          form.submit();
-        });
-      });
-    })();
+   
     // script สำหรับ carousel + effect เดิม
     (function(){
       const track = document.getElementById('commentsTrack');
@@ -985,38 +1516,71 @@
 
     
 
-    // Sort chapters บนหน้า (ไม่รีเฟรชหน้า)
-    (function(){
-      const list = document.getElementById('chaptersList');
-      const ascBtn = document.getElementById('sortAsc');
-      const descBtn = document.getElementById('sortDesc');
-      if (!list || !ascBtn || !descBtn) return;
+        // Accordion + sort chapters (แบบ 1–50, 51–100 ...)
+        (function () {
+          const accordion  = document.getElementById('chaptersAccordion');
+          const sortBtn    = document.getElementById('chaptersSortToggle');
+          const sortLabel  = document.getElementById('chaptersSortLabel');
 
-      const originalRows = Array.from(list.querySelectorAll('.chapter-row'));
+          if (!accordion) return;
 
-      function sortChapters(direction){
-        const rows = [...originalRows].sort((a,b)=>{
-          const na = parseFloat(a.dataset.chapterNo || '0');
-          const nb = parseFloat(b.dataset.chapterNo || '0');
-          return direction === 'asc' ? na - nb : nb - na;
-        });
-        rows.forEach(row => list.appendChild(row));
-      }
-      function setActive(btn){
-        [ascBtn, descBtn].forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      }
-      ascBtn.addEventListener('click', ()=>{
-        sortChapters('asc');
-        setActive(ascBtn);
+          // toggle เปิด/ปิด group
+          accordion.addEventListener('click', function (e) {
+            const header = e.target.closest('.chapter-group-header');
+            if (!header || !accordion.contains(header)) return;
+
+            const group = header.closest('.chapter-group');
+            if (!group) return;
+
+            const isOpen = group.classList.contains('is-open');
+
+            // ถ้าอยากให้เปิดทีละกล่องเดียว
+            accordion.querySelectorAll('.chapter-group.is-open').forEach(g => {
+              if (g !== group) g.classList.remove('is-open');
+            });
+
+            if (isOpen) {
+              group.classList.remove('is-open');   // พับกล่อง
+            } else {
+              group.classList.add('is-open');      // กางกล่อง
+            }
+          });
+
+          // เรียงลำดับตอนในแต่ละกล่อง
+          function sortChapters(direction) {
+            const lists = accordion.querySelectorAll('.chapters-list');
+            lists.forEach(list => {
+              const rows = Array.from(list.querySelectorAll('.chapter-row'));
+              rows.sort((a, b) => {
+                const na = parseFloat(a.dataset.chapterNo || '0');
+                const nb = parseFloat(b.dataset.chapterNo || '0');
+                return direction === 'asc' ? na - nb : nb - na;
+              });
+              rows.forEach(row => list.appendChild(row));
+            });
+          }
+
+
+      // ค่าเริ่มต้น: เก่าไปใหม่
+      let direction = 'asc';
+      sortChapters(direction);
+
+      if (!sortBtn) return;
+
+      sortBtn.addEventListener('click', function () {
+        direction = direction === 'asc' ? 'desc' : 'asc';
+
+        if (sortLabel) {
+          sortLabel.textContent = direction === 'asc'
+            ? 'เก่าไปใหม่'
+            : 'ใหม่ไปเก่า';
+        }
+        sortBtn.classList.toggle('desc', direction === 'desc');
+
+        sortChapters(direction);
       });
-      descBtn.addEventListener('click', ()=>{
-        sortChapters('desc');
-        setActive(descBtn);
-      });
-      sortChapters('asc');
-      setActive(ascBtn);
     })();
+
 
     // auto submit rating form เมื่อเลือกดาว
     (function(){
@@ -1029,6 +1593,57 @@
         });
       });
     })();
+
+    document.addEventListener('DOMContentLoaded', function () {
+  const btn = document.getElementById('copyLinkBtn');
+  if (!btn) return;
+
+  const labelSpan = btn.querySelector('.copy-label');
+  const originalText = labelSpan.textContent;
+
+  btn.addEventListener('click', function () {
+    const urlToCopy = btn.dataset.copyUrl || window.location.href;
+
+    // ฟังก์ชันช่วยคัดลอก (รองรับทั้ง clipboard ใหม่และ fallback เดิม)
+      function doCopy(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve, reject) {
+          const tempInput = document.createElement('textarea');
+          tempInput.value = text;
+          tempInput.style.position = 'fixed';
+          tempInput.style.left = '-9999px';
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          try {
+            document.execCommand('copy');
+            resolve();
+          } catch (err) {
+            reject(err);
+          } finally {
+            document.body.removeChild(tempInput);
+          }
+        });
+      }
+
+      doCopy(urlToCopy).then(function () {
+        // เปลี่ยนข้อความบนปุ่ม 2 วินาที
+        labelSpan.textContent = 'คัดลอกแล้ว';
+        btn.classList.add('copied');
+        btn.disabled = true;
+
+        setTimeout(function () {
+          labelSpan.textContent = originalText;
+          btn.classList.remove('copied');
+          btn.disabled = false;
+        }, 2000);
+      }).catch(function (err) {
+        console.error('คัดลอกลิงก์ไม่สำเร็จ', err);
+        // ถ้าอยากแจ้งเตือนผู้ใช้เพิ่มก็ทำตรงนี้ได้
+      });
+    });
+  })();
 
     // --- ตัวช่วยสรุปความคิดเห็น: modal + fetch summary จาก backend ---
     (function(){
@@ -1163,6 +1778,8 @@
         }
       });
     })();
+
+    
 
   </script>
 </body>

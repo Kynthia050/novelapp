@@ -9,6 +9,7 @@
       --bg:#1f1f21; --panel:#232326; --text:#f3f3f3; --muted:#c7c7cc;
       --card:#2a2a2d; --radius:16px; --shadow:0 4px 12px rgba(0,0,0,.35);
       --line:rgba(255,255,255,.08); --star:#ffe402;
+      --accent:#00d4c3;
     }
     *{box-sizing:border-box}
     body{
@@ -24,11 +25,6 @@
       margin:0 auto;
     }
     .search-header{
-      display:flex;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
       margin-bottom:20px;
     }
     .search-title{
@@ -39,7 +35,87 @@
       font-size:13px;
       color:var(--muted);
       margin-top:4px;
+      margin-bottom:16px;
     }
+
+    /* search bar แบบ pill */
+    .search-bar-wrap{
+      margin-bottom:12px;
+    }
+    .search-bar{
+      display:flex;
+      align-items:center;
+      border-radius:999px;
+      overflow:hidden;
+      background:#fff;
+      color:#222;
+      box-shadow:0 4px 10px rgba(0,0,0,.35);
+    }
+    .search-input{
+      flex:1;
+      border:none;
+      padding:10px 16px;
+      font-size:14px;
+      outline:none;
+      background:transparent;
+      font-family:inherit;
+    }
+    .search-input::placeholder{
+      color:#999;
+    }
+    .search-category{
+      border:none;
+      border-left:1px solid #eee;
+      padding:10px 12px;
+      font-size:13px;
+      background:#fff;
+      outline:none;
+    }
+    .search-button{
+      border:none;
+      padding:10px 18px;
+      background:var(--accent);
+      color:#fff;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      font-family:inherit;
+    }
+
+    /* filter tabs: ทั้งหมด / ชื่อเรื่อง / นามปากกา / เรื่องย่อ / แท็ก */
+    .filter-tabs{
+      display:flex;
+      flex-wrap:wrap;
+      gap:20px;
+      font-size:13px;
+      border-bottom:1px solid var(--line);
+      padding-bottom:4px;
+      margin-bottom:20px;
+    }
+    .filter-tab{
+      position:relative;
+      padding-bottom:6px;
+      color:var(--muted);
+      text-decoration:none;
+      cursor:pointer;
+    }
+    .filter-tab::after{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:2px;
+      background:transparent;
+      border-radius:999px;
+    }
+    .filter-tab.is-active{
+      color:var(--accent);
+    }
+    .filter-tab.is-active::after{
+      background:var(--accent);
+    }
+
     .results-grid{
       display:grid;
       grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
@@ -119,80 +195,81 @@
     a.novel-link:hover .novel-title{
       text-decoration:underline;
     }
-
-    /* reuse header-search style ถ้ายังไม่ใส่ใน base */
-    .header-search{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 14px;
-      border-radius:999px;
-      background:#111;
-      border:1px solid rgba(255,255,255,.08);
-      max-width:320px;
-    }
-    .header-search input{
-      flex:1;
-      background:transparent;
-      border:none;
-      outline:none;
-      color:#e5e5e5;
-      font-size:14px;
-      font-family:"Georgia", serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
-    }
-    .header-search input::placeholder{
-      color:rgba(255,255,255,.4);
-    }
-    .header-search-icon{
-      border:none;
-      background:transparent;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:rgba(255,255,255,.5);
-      cursor:pointer;
-    }
   </style>
 </head>
 <body>
   <div class="page">
     <header class="search-header">
-      <div>
-        <div class="search-title">
-          {% if q %}
-            ผลการค้นหา "{{ q }}"
-          {% else %}
-            ค้นหานิยาย
-          {% endif %}
-        </div>
+      <div class="search-title">
         {% if q %}
-          <div class="search-sub">
-            พบ {{ results|length }} เรื่องที่ตรงกับคำค้นของคุณ
-          </div>
+          ผลการค้นหา "{{ q }}"
         {% else %}
-          <div class="search-sub">
-            พิมพ์ชื่อเรื่อง ชื่อผู้แต่ง หรือคีย์เวิร์ดที่ต้องการค้นหา
-          </div>
+          ค้นหานิยาย
         {% endif %}
       </div>
+      {% if q %}
+        <div class="search-sub">
+          พบ {{ results|length }} เรื่องที่ตรงกับคำค้นของคุณ
+        </div>
+      {% else %}
+        <div class="search-sub">
+          พิมพ์ชื่อเรื่อง ชื่อผู้แต่ง หรือคีย์เวิร์ดที่ต้องการค้นหา
+        </div>
+      {% endif %}
 
-      <!-- ช่องค้นหาซ้ำที่หัวหน้าเพจ (เชื่อมกับ /search เหมือน header จริง) -->
-      <form class="header-search" action="{{ url_for('search.search_novels') }}" method="get">
-        <button class="header-search-icon" type="submit" aria-label="ค้นหา">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <circle cx="11" cy="11" r="6" stroke="currentColor" fill="none" stroke-width="2"/>
-            <line x1="15" y1="15" x2="21" y2="21"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </button>
-        <input type="search" name="q" placeholder="Search" value="{{ q or '' }}" />
-      </form>
+      <!-- แถบค้นหาแบบในรูป: ช่องค้นหา + เลือกหมวด + ปุ่มค้นหา -->
+      <div class="search-bar-wrap">
+        <form class="search-bar" action="{{ url_for('search.search_novels') }}" method="get">
+          <input
+            class="search-input"
+            type="search"
+            name="q"
+            placeholder="ค้นหานิยาย"
+            value="{{ q or '' }}"
+          />
+          <select name="cate_id" class="search-category">
+            <option value="">ทุกหมวด</option>
+            {% for cate in categories %}
+              <option value="{{ cate.cate_id }}"
+                {% if cate_id == cate.cate_id %}selected{% endif %}>
+                {{ cate.name }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <!-- ให้จำ scope / sort เดิมไว้เวลาเปลี่ยนหมวด -->
+          <input type="hidden" name="scope" value="{{ scope }}">
+          <input type="hidden" name="sort" value="{{ sort }}">
+          <button type="submit" class="search-button">ค้นหา</button>
+        </form>
+      </div>
+
+      <!-- filter tabs : ทั้งหมด / ชื่อเรื่อง / นามปากกา / เรื่องย่อ / แท็ก -->
+      <nav class="filter-tabs">
+        {% set tabs = [
+          ('all',  'ทั้งหมด'),
+          ('title','ชื่อเรื่อง'),
+          ('author','นามปากกา'),
+          ('desc','เรื่องย่อ'),
+          ('tag','แท็ก')
+        ] %}
+        {% for value, label in tabs %}
+          <a
+            class="filter-tab{% if scope == value %} is-active{% endif %}"
+            href="{{ url_for('search.search_novels',
+                             q=q or '',
+                             cate_id=cate_id,
+                             scope=value,
+                             sort=sort) }}"
+          >{{ label }}</a>
+        {% endfor %}
+      </nav>
     </header>
 
     {% if q and results %}
       <section class="results-grid">
         {% for novel in results %}
-        <a class="novel-link" href="{{ url_for('novel_detail', novels_id=novel.novels_id) }}">
+        <a class="novel-link" href="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
           <article class="novel-card">
             <div class="novel-cover-wrap">
               <img src="{{ url_for('static', filename='covers/' ~ (novel.cover or 'default.jpg')) }}"
