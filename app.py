@@ -16,7 +16,7 @@ from edit_novel import editnovel_bp, api_bp
 from mywrite import mywrite_bp
 from notification import noti_bp
 from readingform import reading_bp
-from authorwork import authorwork_bp
+from writerwork import  writerwork_bp
 from bookshelf import bookshelf_bp
 from comment import comment_bp
 from search import search_bp
@@ -69,7 +69,7 @@ app.register_blueprint(editnovel_bp)
 app.register_blueprint(mywrite_bp)
 app.register_blueprint(noti_bp)
 app.register_blueprint(reading_bp, url_prefix='/reading')
-app.register_blueprint(authorwork_bp)
+app.register_blueprint(writerwork_bp)
 app.register_blueprint(api_bp)
 app.register_blueprint(bookshelf_bp)
 app.register_blueprint(comment_bp)
@@ -106,13 +106,13 @@ def readingform():
     return render_template('readingform.html')
 
 
-@app.route('/authorwork')
+@app.route('/writerwork')
 @roles_required('user')
-def authorwork():
-    # Redirect to the canonical author works page with the current user's id
+def writerwork():
+    # Redirect to the canonical writer works page with the current user's id
     if not getattr(g, 'user', None):
         return redirect(url_for('auth.login'))
-    return redirect(url_for('authorwork.author_works', author_id=g.user['users_id']))
+    return redirect(url_for('writerwork.writer_works', writer_id=g.user['users_id']))
 
 
 @app.route('/bookshelf')

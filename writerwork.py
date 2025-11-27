@@ -1,12 +1,11 @@
-# authorwork.py
 from flask import Blueprint, render_template, request, jsonify, abort
 from db import get_db_connection, query_all, query_one
 from datetime import datetime
 
-authorwork_bp = Blueprint('authorwork', __name__, template_folder='templates')
+writerwork_bp = Blueprint('writerwork', __name__, template_folder='templates')
 
 # ---------- Helpers ----------
-def _author_overview(author_id: int):
+def _writer_overview(users_id: int):
     """ดึงข้อมูลโปรไฟล์ + สรุปผลงานของผู้เขียน"""
     sql = """
     SELECT u.users_id, u.username, u.pfpic,
@@ -18,9 +17,9 @@ def _author_overview(author_id: int):
     WHERE u.users_id = %s
     GROUP BY u.users_id, u.username, u.pfpic
     """
-    return query_one(sql, (author_id,))
+    return query_one(sql, (users_id,))
 
-def _author_works(author_id: int):
+def _writer_works(users_id: int):
     """รายการนิยายของผู้เขียน + สถิติโดยย่อ (ตอน, ยอดดู, ไลก์, บุ๊คมาร์ก, คอมเมนต์, เรตติ้ง)"""
     sql = """
     SELECT
@@ -54,20 +53,20 @@ def _author_works(author_id: int):
     WHERE n.users_id = %s
     ORDER BY n.updated_at DESC, n.novels_id DESC
     """
-    return query_all(sql, (author_id,))
+    return query_all(sql, (users_id,))
 
 def _novel_exists(novel_id: int):
     row = query_one("SELECT novels_id, users_id, title, updated_at FROM novels WHERE novels_id = %s", (novel_id,))
     return row
 
-# ---------- Page: /author/<author_id>/works ----------
-@authorwork_bp.get("/author/<int:author_id>/works")
-def author_works(author_id: int):
-    author = _author_overview(author_id)
-    if not author:
+# ---------- Page: /writer/<writer_id>/works ----------
+@writerwork_bp.get("/writer/<int:writer_id>/works")
+def writer_works(writer_id: int):
+    writer = _writer_overview(writer_id)
+    if not writer:
         abort(404)
 
-    works = _author_works(author_id)
+    works = _writer_works(writer_id)
 
     # แปลงข้อมูลสำหรับฝั่ง template (ทำ data-* ที่การ์ด)
     cards = []
@@ -84,21 +83,21 @@ def author_works(author_id: int):
             "bookmarks": int(w["bookmarks"] or 0),
             "comments": int(w["comments_count"] or 0),
             "rating_avg": float(w["rating_avg"] or 0.0),
-            "author_name": author["username"],
+            "writer_name": writer["username"],
         })
 
     # NOTE: current_user_id คุณสามารถโยงกับระบบ auth ได้จริง
     current_user_id = request.args.get("as_user", type=int)  # ชั่วคราว: ผ่าน ?as_user=42 เพื่อทดสอบปุ่มสถิติ
     return render_template(
-        "authorwork.html",
-        current_user_id=current_user_id or author["users_id"],
-        author_id=author["users_id"],
-        author=author,
+        "writerwork.html",
+        current_user_id=current_user_id or writer["users_id"],
+        writer_id=writer["users_id"],
+        writer=writer,
         works=cards
     )
 
 # ---------- API: /api/novels/<novel_id>/stats ----------
-@authorwork_bp.get("/api/novels/<int:novel_id>/stats")
+@writerwork_bp.get("/api/novels/<int:novel_id>/stats")
 def novel_stats(novel_id: int):
     novel = _novel_exists(novel_id)
     if not novel:

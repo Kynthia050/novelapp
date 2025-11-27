@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Author — Works (Monochrome)</title>
+  <title>Writing — Works (Monochrome)</title>
 
   <!-- current user id จากเซิร์ฟเวอร์ -->
   <meta name="current-user-id" content="{{ current_user_id or '' }}" />
@@ -19,7 +19,7 @@
           boxShadow: { soft: '0 10px 24px rgba(0,0,0,.45)' }
         }
       }
-    }
+    } 
   </script>
   <style>body{background:#0b0b0b}</style>
 </head>
@@ -31,17 +31,17 @@
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto p-5" data-author-id="{{ author_id }}">
-    <!-- AUTHOR PANEL -->
+  <main class="max-w-6xl mx-auto p-5" data-writer-id="{{ writer_id }}">
+    <!-- WRITER PANEL -->
     <section class="bg-neutral-900/70 border border-white/10 rounded-2xl shadow-soft p-5 md:p-6">
       <div class="grid grid-cols-[auto,1fr,auto] gap-4 items-center">
         <img class="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover bg-zinc-300 border border-white/10"
-             src="{{ author.pfpic or '/static/img/avatar-placeholder.jpg' }}" alt="avatar"/>
+             src="{{ writer.pfpic or '/static/img/avatar-placeholder.jpg' }}" alt="avatar"/>
         <div>
-          <div class="text-2xl md:text-3xl font-bold">{{ author.username }}</div>
+          <div class="text-2xl md:text-3xl font-bold">{{ writer.username }}</div>
           <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-zinc-300 text-sm">
-            <span>✍️ งานเขียน {{ author.work_count }} เรื่อง</span>
-            <span>📥 เพิ่มเข้าชั้น {{ "{:,}".format(author.total_bookshelf or 0) }} ครั้ง</span>
+            <span>✍️ งานเขียน {{ writer.work_count }} เรื่อง</span>
+            <span>📥 เพิ่มเข้าชั้น {{ "{:,}".format(writer.total_bookshelf or 0) }} ครั้ง</span>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -112,7 +112,7 @@
                 <a href="/novel/{{ w.novels_id }}" class="inline-flex items-center gap-1 rounded-full bg-white text-black px-3 py-1.5 text-sm font-medium">อ่านต่อ</a>
               </div>
             </div>
-            <div class="text-zinc-300 text-sm">by {{ w.author_name }}</div>
+            <div class="text-zinc-300 text-sm">by {{ w.writer_name }}</div>
             <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-sm">
               <span>📄 {{ w.chapters }}</span>
               <span>👁️ {{ "{:,}".format(w.views) }}</span>
@@ -142,8 +142,8 @@
   <script>
     // ===== Owner gate =====
     const currentUserId = document.querySelector('meta[name="current-user-id"]').content;
-    const authorId = document.querySelector('main')?.dataset.authorId;
-    const isOwner = currentUserId && authorId && currentUserId === authorId;
+    const writerId = document.querySelector('main')?.dataset.writerId;
+    const isOwner = currentUserId && writerId && currentUserId === writerId;
     document.querySelectorAll('[data-owner-only]').forEach(el => { if (isOwner) el.classList.remove('hidden'); });
 
     // ===== Filters =====

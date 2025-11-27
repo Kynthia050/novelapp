@@ -175,14 +175,15 @@
       margin:0;
     }
 
-    .novel-author-line{
+    .novel-writer-line{
       font-size:.95rem;
       color:var(--muted);
     }
 
-    .novel-author{
+    .novel-writer{
       font-weight:600;
       color:var(--accent);
+      text-decoration:none;  
     }
 
     .novel-submeta{
@@ -204,6 +205,55 @@
       border-radius:999px;
       font-size:.85rem;
     }
+
+      .tag-pill--interactive{
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:none;
+    background:var(--chip);
+    color:inherit;
+  }
+  .tag-pill-caret{
+    font-size:.7rem;
+    opacity:.8;
+  }
+
+  .novel-tags-popover{
+    margin-top:8px;
+    max-width:520px;
+    background:var(--card);
+    border-radius:14px;
+    padding:10px 14px 12px;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:var(--shadow);
+    display:none;
+  }
+  .novel-tags-popover.is-open{
+    display:block;
+  }
+  .novel-tags-title{
+    font-size:.8rem;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .novel-tags-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .novel-tag-chip{
+    padding:5px 10px;
+    border-radius:999px;
+    background:var(--chip-on);
+    font-size:.8rem;
+    text-decoration:none;
+    color:var(--text);
+  }
+
 
     .novel-stats{
       display:flex;
@@ -581,7 +631,6 @@
     .comment-form textarea{
       width:100%;
       min-height:96px;
-      resize:vertical;
       border-radius:12px;
       border:1px solid rgba(255,255,255,.12);
       background:#111214;
@@ -590,7 +639,10 @@
       font-family:inherit;
       font-size:14px;
       outline:none;
+      resize:none;        /* ไม่ให้ลากย่อ–ขยายเอง */
+      overflow-y:hidden;  /* ให้สูงขึ้นแทนการมี scrollbar */
     }
+
     .comment-form textarea::placeholder{
       color:rgba(199,199,204,.8);
     }
@@ -604,11 +656,15 @@
       justify-content:space-between;
       align-items:center;
       gap:12px;
+      flex-wrap:nowrap;        /* กันไม่ให้ห่อไปบรรทัดใหม่ */
     }
+
     .char-count{
       font-size:12px;
       color:var(--muted);
+      white-space:nowrap;      /* 500/500 ไม่หักบรรทัด */
     }
+
     .comment-submit-btn{
       border:0;
       border-radius:999px;
@@ -625,7 +681,10 @@
       gap:6px;
       box-shadow:0 6px 18px rgba(0,0,0,.35);
       transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+      flex-shrink:0;           /* ไม่ให้ปุ่มหดเล็กลงเวลาแคบ */
+      white-space:nowrap;      /* ตัวอักษรในปุ่มไม่ตัดบรรทัด */
     }
+
     .comment-submit-btn:hover{
       transform:translateY(-1px);
       box-shadow:0 10px 24px rgba(0,0,0,.45);
@@ -913,16 +972,21 @@
       margin-top:2px;
     }
 
-    @media (max-width:768px){
-      .comments-header{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-      .comment-form-footer{
-        flex-direction:column;
-        align-items:flex-start;
-      }
-    }
+   @media (max-width:768px){
+  .comments-header{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  /* อย่าเปลี่ยนเป็น column จะได้อยู่บรรทัดเดียวกันเหมือนเดิม */
+  .comment-form-footer{
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+  }
+}
+
+
   </style>
 </head>
 <body>
@@ -1020,11 +1084,15 @@
       <div class="novel-main">
         <h1 class="novel-title">{{ novel.title }}</h1>
 
-        {% if novel.author_name is defined and novel.author_name %}
-          <div class="novel-author-line">
-            โดย <span class="novel-author">{{ novel.author_name }}</span>
-          </div>
-        {% endif %}
+        {% if novel.writer_name is defined and novel.writer_name %}
+        <div class="novel-writer-line">
+          ผู้เขียน
+          <a href="{{ url_for('writerwork.writer_works', writer_id=novel.writer_id) }}" class="novel-writer">
+            {{ novel.writer_name }}
+          </a>
+        </div>
+      {% endif %}
+
 
         {% if novel.updated_at is defined and novel.updated_at %}
           <div class="novel-submeta">
@@ -1032,23 +1100,48 @@
           </div>
         {% endif %}
 
+        
         <div class="tag-list">
-          {% if novel.category_name %}
-            <span class="tag-pill">{{ novel.category_name }}</span>
-          {% endif %}
+        {% if novel.category_name %}
+          <span class="tag-pill">{{ novel.category_name }}</span>
+        {% endif %}
 
-          {% if novel.status %}
-            <span class="tag-pill">
-              {% if novel.status == "completed" %}
-                จบแล้ว
-              {% elif novel.status == "ongoing" %}
-                ยังไม่จบ
-              {% else %}
-                {{ novel.status }}
-              {% endif %}
-            </span>
-          {% endif %}
+
+        {# ปุ่ม "แท็ก" แสดงเหมือน pill ปกติ ถ้ามีแท็กในเรื่องนี้ #}
+        {% if novel_tags %}
+          <button type="button"
+                  id="novelTagsToggle"
+                  class="tag-pill tag-pill--interactive">
+            <span>แท็ก</span>
+            <span class="tag-pill-caret">▾</span>
+          </button>
+        {% endif %}
+
+        {% if novel.status %}
+          <span class="tag-pill">
+            {% if novel.status == "completed" %}
+              จบแล้ว
+            {% elif novel.status == "ongoing" %}
+              ยังไม่จบ
+            {% else %}
+              {{ novel.status }}
+            {% endif %}
+          </span>
+        {% endif %}
+      </div>
+
+      {# ป๊อปอัปแสดงแท็ก จะโผล่ใต้กล่องเมื่อคลิกปุ่ม "แท็ก" #}
+      {% if novel_tags %}
+        <div class="novel-tags-popover" id="novelTagsPopover">
+          <div class="novel-tags-title">แท็กของเรื่องนี้</div>
+          <div class="novel-tags-list">
+            {% for tag in novel_tags %}
+              <span class="novel-tag-chip">{{ tag.tag_name }}</span>
+            {% endfor %}
+          </div>
         </div>
+      {% endif %}
+
 
         <div class="novel-stats">
           <div class="stat-item">
@@ -1868,6 +1961,37 @@
 
       const novelId = track.dataset.novelId;
 
+      // ----- textarea + counter: auto-resize + จำกัด 500 ตัวอักษร -----
+      const textarea = form ? form.querySelector('textarea[name="content"]') : null;
+      const counter  = document.getElementById('commentCharCount');
+      const maxChars = textarea ? Number(textarea.getAttribute('maxlength') || 500) : 500;
+
+      function updateTextareaState(){
+        if (!textarea) return;
+
+        // บังคับไม่ให้เกิน maxChars (กันเผื่อ browser ไหนไม่สน maxlength)
+        if (textarea.value.length > maxChars) {
+          textarea.value = textarea.value.slice(0, maxChars);
+        }
+
+        // อัปเดตตัวนับ
+        if (counter) {
+          const len = textarea.value.length;
+          counter.textContent = len + '/' + maxChars;
+        }
+
+        // ปรับความสูงอัตโนมัติ
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+      }
+
+      if (textarea) {
+        // ตั้งค่าเริ่มต้น (เผื่อมีข้อความเดิมจาก validate error ฯลฯ)
+        updateTextareaState();
+        textarea.addEventListener('input', updateTextareaState);
+      }
+
+      // ----- ลบความคิดเห็น -----
       function attachDeleteHandler(delForm){
         if (!delForm) return;
         delForm.addEventListener('submit', function (e) {
@@ -1915,12 +2039,13 @@
       // ผูกกับฟอร์มลบที่มีอยู่เดิม
       document.querySelectorAll('.comment-delete-form').forEach(attachDeleteHandler);
 
+      // ถ้าไม่มีฟอร์มคอมเมนต์ (เช่น ยังไม่ล็อกอิน) ก็จบแค่นี้
       if (!form) return;
 
+      // ----- ส่งความคิดเห็น -----
       form.addEventListener('submit', function (e) {
         e.preventDefault();
 
-        const textarea = form.querySelector('textarea[name="content"]');
         if (!textarea) return;
 
         const text = textarea.value.trim();
@@ -2041,12 +2166,9 @@
 
           track.prepend(card);
 
+          // เคลียร์ค่า textarea และรีเซ็ตตัวนับ + ความสูง
           textarea.value = '';
-          const counter = document.getElementById('commentCharCount');
-          if (counter) {
-            const max = textarea.getAttribute('maxlength') || 500;
-            counter.textContent = `0/${max}`;
-          }
+          updateTextareaState();
         })
         .catch(err => {
           console.error('comment error', err);
@@ -2054,6 +2176,38 @@
         });
       });
     })();
-  </script>
+
+        /* ================== ป๊อปอัปแท็กนิยาย ================== */
+    (function(){
+      const toggle  = document.getElementById('novelTagsToggle');
+      const popover = document.getElementById('novelTagsPopover');
+      if (!toggle || !popover) return;
+
+      function onDocClick(e){
+        if (popover.contains(e.target) || toggle.contains(e.target)) return;
+        hide();
+      }
+
+      function show(){
+        popover.classList.add('is-open');
+        toggle.classList.add('is-open');
+        document.addEventListener('click', onDocClick);
+      }
+      function hide(){
+        popover.classList.remove('is-open');
+        toggle.classList.remove('is-open');
+        document.removeEventListener('click', onDocClick);
+      }
+
+      toggle.addEventListener('click', function(e){
+        e.stopPropagation();
+        if (popover.classList.contains('is-open')){
+          hide();
+        } else {
+          show();
+        }
+      });
+      })();
+      </script>
 </body>
 </html>
