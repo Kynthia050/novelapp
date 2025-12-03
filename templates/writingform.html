@@ -32,7 +32,19 @@
     .pill{background:#ddd;color:#111;padding:10px 18px;border-radius:14px;min-width:64px;text-align:center}
     .input{width:100%;background:#ddd;color:#111;border:0;outline:none;border-radius:14px;padding:12px 16px;font-size:1rem}
     .editor-wrap{margin-top:12px}
-    .editor-label{font-weight:700;margin-bottom:8px}
+    .editor-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px; /* keep small gap before toolbar/editor */
+}
+.editor-label{
+  font-weight:700;
+  margin-bottom:0; /* ensure label stays on the same line */
+}
+.preview-bar{
+  margin-bottom:0; /* keep preview button vertically aligned with label */
+}
     .actions{display:flex;gap:16px;justify-content:center;margin-top:22px}
     .btn{padding:12px 22px;border-radius:14px;border:1px solid var(--soft);background:#ddd;color:#111;font-weight:600;cursor:pointer}
     .btn.primary{background:var(--brand);color:#000;border-color:var(--brand)}
@@ -45,33 +57,66 @@
       border:1px solid rgba(255,255,255,.15);
       border-radius:12px; background:#f3f3f3; color:#111;
     }
+
+    /* Replace previous undo/redo styles with toolbar-consistent styles */
+.ql-toolbar .ql-undo,
+.ql-toolbar .ql-redo {
+  color: inherit;               /* match other toolbar icons */
+  background: transparent;
+  border: none;
+  padding: 4px;                 /* match typical toolbar button spacing */
+  margin: 0 2px;
+  border-radius: 6px;
+  font-weight: normal;
+  transition: background-color .12s, color .12s;
+  line-height: 1;
+}
+.ql-toolbar .ql-undo:hover,
+.ql-toolbar .ql-redo:hover,
+.ql-toolbar button:hover {
+  background: rgba(0,0,0,0.06); /* same hover feel as other toolbar buttons */
+}
+.ql-toolbar .ql-undo::before,
+.ql-toolbar .ql-redo::before {
+  color: inherit;
+  font-weight: normal;
+  font-size: 1em;
+}
     .ql-container.ql-snow{
       border:1px solid rgba(255,255,255,.12);
       border-radius:12px; background:#fff; color:#000;
       min-height:400px;
+      overflow-y:auto;
+      max-height:calc(100vh - 380px);
     }
     .ql-editor{
-      font-family: var(--content-font-family);
+      font-family: "Georgia", serif;
+      font-size:1.1rem;
+      line-height:1.8;
       min-height: 360px;
+      padding:2rem;
     }
-    .editor-bar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between; /* ซ้าย–ขวา */
-      margin-bottom:8px;
+    /* Scrollbar styling */
+    .ql-container::-webkit-scrollbar {
+      width: 10px;
+    }
+    .ql-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    .ql-container::-webkit-scrollbar-thumb {
+      background: #999;
+      border-radius: 4px;
+    }
+    .ql-container::-webkit-scrollbar-thumb:hover {
+      background: #666;
+    }
+    /* Firefox scrollbar */
+    .ql-container {
+      scrollbar-color: #999 #f1f1f1;
+      scrollbar-width: thin;
     }
 
-    .editor-label{
-      margin-bottom:0;  /* ไม่ให้ดันลงบรรทัดใหม่ */
-    }
-
-    .preview-bar{
-      display:flex;
-      justify-content:flex-end;
-      margin-bottom:0;
-    }
-
-    /* ปุ่ม Undo/Redo แบบกำหนดเอง (ไอคอนตัวอักษร) */
     .ql-undo::before { content: '↶'; }
     .ql-redo::before { content: '↷'; }
   </style>
@@ -79,9 +124,13 @@
   <!-- Quill (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill/dist/quill.snow.css">
 </head>
-<body>
-  <header>
-    <div class="nav"><div class="brand">MY SHELF</div></div>
+<body class="dark-mode h-full font-thai text-white bg-bg"
+      data-novels-id="{{ novels_id }}"
+      data-chapters-id="{{ chapters_id }}">
+  
+  <!-- Header -->
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
+    {% include 'header.html' %}
   </header>
 
   <main class="page">
@@ -234,26 +283,19 @@
           }
         }
       },
-      formats: ['header','bold','italic','underline','list','align','indent','image','clean']
+      formats: ['header','bold','italic','list','align','indent','image','clean','underline','italic']
     });
-
-    // ปุ่ม Undo/Redo แบบกำหนดเอง
-    (function(){
-      const toolbar = quill.getModule('toolbar');
-      if (toolbar) {
-        toolbar.addHandler('undo', () => quill.history.undo());
-        toolbar.addHandler('redo', () => quill.history.redo());
-        const undoBtn = document.querySelector('.ql-undo');
-        const redoBtn = document.querySelector('.ql-redo');
-        if (undoBtn) undoBtn.addEventListener('click', () => quill.history.undo());
-        if (redoBtn) redoBtn.addEventListener('click', () => quill.history.redo());
-      }
-    })();
 
     // โหลดเนื้อหาเดิม (HTML)
     if (serverData.hasChapter && serverData.chapterContent) {
       quill.clipboard.dangerouslyPasteHTML(serverData.chapterContent);
     }
+
+    // --- initial snapshot (ค่าก่อนผู้ใช้เริ่มแก้ไข) ---
+    // เก็บค่า part / epName / HTML ที่เป็น "ล่าสุดก่อนแก้ไข" เพื่อใช้ในปุ่ม Cancel
+    const initialPart = document.getElementById('part').value || '';
+    const initialEpName = document.getElementById('epName').value || '';
+    const initialHtml = (serverData && serverData.chapterContent) ? serverData.chapterContent : quill.root.innerHTML;
 
     // ===== อัปโหลดรูปจาก Quill -> /writing/upload =====
     quill.getModule('toolbar').addHandler('image', () => {
@@ -301,10 +343,11 @@
 
     function scheduleAutoSave() {
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
-      autoSaveTimer = setTimeout(runAutoSave, 3000); // 3 วิหลังหยุดพิมพ์
+      // ตั้งเป็น 5 นาที (300000 ms) หลังหยุดพิมพ์ ก่อนจะ autosave
+      autoSaveTimer = setTimeout(() => runAutoSave(false), 300000); // 5 นาทีหลังหยุดพิมพ์
     }
 
-    async function runAutoSave() {
+    async function runAutoSave(force = false) {
       autoSaveTimer = null;
 
       const part   = Number(document.getElementById('part').value || 0);
@@ -317,7 +360,8 @@
       // ยังไม่กรอกอะไรเลย / ไม่มีเนื้อหา → ไม่ต้อง autosave
       if (part < 1) return;
       if (!textOnly && !hasImage) return;
-      if (html === lastAutoSavedHtml && currentChapterId) return;
+      // ถ้าไม่บังคับ และ HTML เหมือนกับ lastAutoSavedHtml (แล้วมี chapter_id) → ข้าม
+      if (!force && html === lastAutoSavedHtml && currentChapterId) return;
       if (autoSaving) return;
 
       autoSaving = true;
@@ -394,28 +438,52 @@
 
 
     // ===== ปุ่ม Cancel: กลับหน้าก่อนหน้า (referrer/history) หรือ fallback =====
-  document.getElementById('cancelBtn').addEventListener('click', () => {
-  if (dirty && !confirm('ยกเลิกการแก้ไขตอนนี้หรือไม่?')) return;
+  document.getElementById('cancelBtn').addEventListener('click', async () => {
+    // ถ้ามีการแก้ไข (dirty) ให้ยืนยันแล้วคืนค่าไปเป็น snapshot ก่อนแก้ไข
+    if (dirty) {
+      if (!confirm('ยกเลิกการแก้ไขตอนนี้และคืนค่ากลับเป็นเดิมหรือไม่?')) return;
 
-  const prev = document.referrer || "";
-  // ถ้า referrer เป็นหน้า preview (?preview=1) ให้ "ถือว่า" มาจาก preview
-  const isPreviewReferrer = prev.includes("preview=1");
+      // คืนค่า input และ editor เป็นค่าก่อนเริ่มแก้ไข
+      try {
+        document.getElementById('part').value = initialPart;
+        document.getElementById('epName').value = initialEpName;
+        // คืน HTML เดิม
+        quill.clipboard.dangerouslyPasteHTML(initialHtml || '');
+      } catch (e) {
+        console.warn('restore failed', e);
+      }
 
-  // ถ้าไม่ได้มาจาก preview → ใช้ behavior เดิม (referrer / history)
-  if (!isPreviewReferrer) {
-    if (prev && new URL(prev, location.href).origin === location.origin) {
-      location.href = prev;
+      // ยกเลิก timer และสถานะ dirty
+      if (autoSaveTimer) { clearTimeout(autoSaveTimer); autoSaveTimer = null; }
+      dirty = false;
+      lastAutoSavedHtml = initialHtml || '';
+
+      // บันทึกสภาวะที่คืนค่าไปแล้วไปยังเซิร์ฟเวอร์ (force) เพื่อให้ DB กลับสู่ค่าก่อนแก้ไข
+      try {
+        await runAutoSave(true);
+      } catch (e) {
+        console.debug('forced save after cancel failed', e);
+      }
+
+      // เสร็จแล้วไม่ต้องนำทางออก — ผู้ใช้ยังคงอยู่ที่หน้า editor
       return;
     }
-    if (history.length > 1) {
-      history.back();
-      return;
-    }
-  }
 
-  // กรณีมาจาก preview หรือไม่มี referrer/history → กลับหน้า fallback เสมอ
-  location.href = CANCEL_FALLBACK_URL;
-});
+    // ถ้าไม่มีการแก้ไข → พฤติกรรมเดิม: กลับหน้า referrer/history หรือ fallback
+    const prev = document.referrer || "";
+    const isPreviewReferrer = prev.includes("preview=1");
+    if (!isPreviewReferrer) {
+      if (prev && new URL(prev, location.href).origin === location.origin) {
+        location.href = prev;
+        return;
+      }
+      if (history.length > 1) {
+        history.back();
+        return;
+      }
+    }
+    location.href = CANCEL_FALLBACK_URL;
+  });
 
 
          // ===== ปุ่ม Preview: autosave แล้วไปอ่านโหมด Preview =====

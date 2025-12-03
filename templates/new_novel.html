@@ -1,356 +1,570 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>สร้างนิยายใหม่ - MYSHELF</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap');
+  <meta charset="UTF-8" />
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>สร้างนิยายใหม่ — MYSHELF</title>
 
-    :root{
-      --bg:#1f1f22; --text:#f2f2f3; --panel:rgba(30,30,33,.9);
-      --muted:#bdbdbf; --line:#68686d; --line-soft:#3a3a41;
-      --brand:#00d4ff; --ok:#00ff88; --danger:#ff4d4f;
-      --radius:16px; --shadow:0 8px 24px rgba(0,0,0,.45); --maxw:1200px;
+  <!-- Tailwind (ใช้ config แบบเดียวกับ edit_novel) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg:    '#111214',
+            panel: '#18191b',
+            line:  '#27282c',
+            text:  '#e5e7eb',
+            muted: '#9ca3af',
+            brand: '#d4d4d8'
+          },
+          borderRadius: { '2xl': '16px' }
+        }
+      }
     }
+  </script>
 
-    *{box-sizing:border-box;margin:0;padding:0}
+  <style>
+    :root {
+      --bg:#111214;
+      --panel:#18191b;
+      --line:#27282c;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --radius:16px;
+      --card:#18191b;
+      --chip:rgba(255,255,255,.04);
+      --accent:#f3f4f6;
+      --shadow:0 18px 45px rgba(0,0,0,.55);
+    }
+    *{box-sizing:border-box}
     html,body{height:100%}
     body{
-      font-family:'Noto Sans Thai', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: var(--bg) url('{{ url_for("static", filename="img/bg-login.jpg") }}') no-repeat center/cover fixed;
-      color:var(--text); line-height:1.65;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      margin:0;
+      background: var(--bg);
+      color:var(--text);
     }
 
-
-    /* ===== Page ===== */
-    .main{max-width:var(--maxw);margin:0 auto;padding:clamp(16px,3vw,28px)}
-    .panel{background:var(--panel);box-shadow:var(--shadow);border-radius:var(--radius);
-      padding:clamp(16px,2.8vw,24px); margin-bottom:clamp(16px,2.8vw,24px);
-      border:1px solid rgba(255,255,255,.08)}
-    .form-title{font-size:clamp(1.25rem,2.3vw,1.6rem);font-weight:600;letter-spacing:.03em;margin-bottom:12px}
-
-    /* Responsive grid */
-    .form-layout{display:grid;grid-template-columns:360px 1fr;gap:clamp(16px,2.5vw,28px)}
-    @media (max-width:1024px){.form-layout{grid-template-columns:320px 1fr}}
-    @media (max-width:768px){.form-layout{grid-template-columns:1fr}}
-
-    .left-panel{display:flex;flex-direction:column;gap:16px}
-    .cover-upload{position:relative;background:#2a2a2d;border:2px dashed var(--line);
-      border-radius:12px;padding:24px;min-height:300px;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:border-color .2s, background .2s}
-    .cover-upload:hover{border-color:var(--brand);background:#303033}
-    .cover-upload.dragover{border-color:var(--brand);background:#1a1a1a}
-    .upload-icon{width:60px;height:60px;border-radius:50%;background:#fff;color:#333;display:grid;place-items:center;font-size:1.5rem}
-    .upload-text{font-weight:600}
-    .upload-guidelines{color:#ccc;font-size:.92rem}
-    .upload-dimensions{color:#999;font-size:.82rem}
-    .camera-icon{position:absolute;right:16px;bottom:16px;width:40px;height:40px;border-radius:50%;background:#fff;color:#333;display:grid;place-items:center}
-
-    .right-panel{display:flex;flex-direction:column;gap:16px}
-
-    /* กล่องประกาศ: เอากรอบ/พื้นหลังออก เป็นข้อความล้วน */
-    .content-warning,
-    .categories-notice{
-      background:none; border:none; padding:0; border-radius:0; color:#d8d8d8;
+    .site{
+      max-width:1100px;
+      margin:0 auto;
+      padding:20px;
+    }
+    .panel{
+      background:rgba(24,25,27,.96);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+    }
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.5rem;
+    }
+    .btn-primary{
+      background:#f3f4f6;
+      color:#111827;
+      border:1px solid #d1d5db;
+    }
+    .btn-ghost{
+      background:transparent;
+      border:1px solid var(--line);
+      color:var(--text);
+    }
+    .btn-dark{
+      background:#0f0f10;
+      border:1px solid #2b2c30;
+      color:#e5e7eb;
+    }
+    .btn:disabled{
+      opacity:.5;
+      pointer-events:none;
     }
 
-    .form-group{display:flex;flex-direction:column;gap:8px}
-    .form-label{font-weight:600}
-    .form-input,.form-textarea,.category-select,.tags-input{
-      width:100%;padding:14px;border:1px solid var(--line-soft);border-radius:10px;background:#444;color:#eee;font-size:1rem
+    .input,
+    .select,
+    .textarea{
+      width:100%;
+      padding:.65rem .8rem;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#0f1012;
+      color:var(--text);
+      outline:none;
+      font-size:.95rem;
     }
-    .form-input:focus,.form-textarea:focus,.category-select:focus,.tags-input:focus{outline:none;border-color:var(--brand)}
-    .form-textarea{min-height:120px;resize:vertical}
+    .textarea-description{
+      min-height: 170px;
+      max-height: 170px;
+      resize: none;
+    }
+    .input:focus,
+    .select:focus,
+    .textarea:focus{
+      outline:none;
+      box-shadow:0 0 0 1px #4b5563;
+    }
 
-    .input-footer{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:10px}
-    .character-count{font-size:.9rem;color:#999}
-    .input-actions{display:flex;gap:8px}
-    .action-icon{width:28px;height:28px;border-radius:999px;background:var(--ok);color:#000;display:grid;place-items:center;font-size:.9rem;cursor:pointer;transition:.2s}
-    .action-icon:hover{transform:scale(1.05)}
+    /* select ลูกศรแบบ edit_novel */
+    .select{
+      appearance:none;
+      background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23a1a1aa%22 d=%22M6 8L0 0h12z%22/%3E%3C/svg%3E');
+      background-repeat:no-repeat;
+      background-position:right .8rem center;
+      background-size:12px 8px;
+    }
 
-    /* นามปากกาแบบอ่านอย่างเดียว */
-    .pen-name{display:flex;gap:12px;align-items:end}
-    .pen-input[readonly]{background:#3a3a41; color:#ddd; cursor:not-allowed}
-    .pen-btn{display:none} /* ปิดปุ่มจัดการ */
+    /* กล่องอัปโหลดปกแบบเดียวกับ edit_novel */
+    .cover-upload{
+      width:min(320px, 90vw);
+      height:min(320px, 90vw);
+      border:2px dashed var(--line);
+      border-radius:16px;
+      background:#0f1012;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      cursor:pointer;
+      text-align:center;
+      padding:12px;
+    }
+    .cover-upload:focus{
+      outline:2px dashed #4b5563;
+      outline-offset:2px;
+    }
+    .cover-upload img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      border-radius:16px;
+      display:block;
+    }
+    .upload-icon{opacity:.85;font-size:26px}
+    .upload-text{color:var(--text)}
+    .upload-guidelines,
+    .upload-dimensions{
+      color:var(--muted);
+      font-size:12px;
+    }
 
-    .categories-title{font-size:1.1rem;margin-bottom:8px}
-
-    /* Tags */
-    .tags-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-    .tags-title{font-weight:600}
-    .tags-count{color:#999}
-    .tags-instruction{color:#ccc;font-size:.9rem;margin-top:6px}
-    .tag-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-    .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:#3b3b3f;color:#eee;font-size:.92rem}
-    .chip button{all:unset;cursor:pointer;background:#2b2b2f;border-radius:50%;width:20px;height:20px;display:grid;place-items:center;line-height:1.0}
-    .chip button:hover{background:#222}
-
-    .actions{display:flex;gap:12px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
-    .btn{padding:12px 20px;border-radius:999px;border:1px solid #666;background:transparent;color:#fff;cursor:pointer}
-    .btn:hover{background:#333}
-    .btn.primary{background:#fff;color:#000;border-color:#fff}
-    .btn.primary[disabled]{opacity:.6;cursor:not-allowed}
-    .btn.primary:hover{filter:brightness(.94);transform:translateY(-1px)}
+    /* แท็ก */
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:.5rem;
+      padding:.35rem .6rem;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:rgba(255,255,255,.03);
+      font-size:.8rem;
+    }
+    .chip button{
+      opacity:.7;
+      cursor:pointer;
+    }
+    .chip button:hover{opacity:1}
 
     .hidden{display:none}
-    .msg{margin-top:10px;font-size:.95rem}.msg.error{color:var(--danger)}.msg.ok{color:var(--ok)}
+
+    .msg{
+      font-size:.9rem;
+      min-height:1.1em;
+    }
+    .msg-error{color:#f87171;}
+    .msg-ok{color:#4ade80;}
   </style>
 </head>
 <body>
-   <header>
+
+  <!-- Header แบบเดียวกับ edit_novel -->
+  <header >
   </header>
 
-  <main class="main">
-    <section class="panel">
-      <h1 class="form-title">สร้างนิยายใหม่</h1>
+  <main class="site">
+    <!-- ฟอร์มสร้างนิยายใหม่ ใช้ดีไซน์ panel เดียวกับ edit_novel -->
+    <form id="novelForm" class="panel p-5 md:p-6 space-y-6" novalidate>
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <h1 class="text-lg md:text-xl font-semibold tracking-wide">
+          สร้างนิยายใหม่
+        </h1>
+      </div>
 
-      <div id="formMsg" class="msg" aria-live="polite"></div>
+      <p id="formMsg" class="msg"></p>
 
-      <form id="novelForm" novalidate>
-        <div class="form-layout">
-          <!-- Left -->
-          <div class="left-panel">
-            <label class="form-label" for="coverFile" style="display:block;margin-bottom:6px">รูปปก</label>
-            <div class="cover-upload" id="coverUpload" tabindex="0" role="button" aria-label="อัปโหลดรูปปก (รองรับ .jpg .png .webp)">
-              <div class="upload-icon">⬆️</div>
-              <div class="upload-text">อัปโหลดรูปปก</div>
-              <div class="upload-guidelines">รองรับ .jpg .png .webp</div>
-              <div class="upload-dimensions">(800×800 px)</div>
-            </div>
-            <input type="file" id="coverFile" class="hidden" accept=".jpg,.jpeg,.png,.webp">
+      <!-- Cover + Meta -->
+      <div class="grid md:grid-cols-[320px_1fr] gap-5 items-start">
+        <!-- LEFT: Cover -->
+        <div class="space-y-3">
+          <label class="block text-sm text-[var(--muted)] mb-1" for="coverInput">
+            รูปปก
+          </label>
+          <div
+            id="coverUpload"
+            class="cover-upload"
+            tabindex="0"
+            role="button"
+            aria-label="อัปโหลดรูปปก (รองรับ .jpg .png .webp)">
+            <div class="upload-icon">⬆️</div>
+            <div class="upload-text">อัปโหลดรูปปก</div>
+            <div class="upload-guidelines">รองรับ .jpg .png .webp</div>
+            <div class="upload-dimensions">(800×800 px)</div>
           </div>
-
-          <!-- Right -->
-          <div class="right-panel">
-
-            <p class="content-warning">*กรุณางดใช้ชื่อผลงานที่ไม่เหมาะสม หากพบเจอนิยายของท่านจะถูกลบจาก Platform โดยไม่แจ้งให้ทราบล่วงหน้า</p>
-
-            <div class="form-group">
-              <label for="title" class="form-label">ชื่อเรื่อง <span aria-hidden="true" style="color:#aaa;font-weight:500">(บังคับ)</span></label>
-              <input class="form-input" type="text" id="title" name="title" maxlength="120" placeholder="ชื่อเรื่องของนิยาย" required>
-              <div class="input-footer">
-                <div class="character-count"><span id="titleCount">0</span>/120</div>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="synopsis" class="form-label">คำโปรย</label>
-              <textarea class="form-textarea" id="synopsis" name="synopsis" maxlength="200" placeholder="คำโปรยหรือคำอธิบายสั้นๆ เกี่ยวกับนิยาย"></textarea>
-              <div class="input-footer">
-                <div class="character-count"><span id="synopsisCount">0</span>/200</div>
-              </div>
-            </div>
-
-             <!-- นามปากกา: ใช้ username จาก backend แสดงอย่างเดียว -->
-             <div class="form-group" style="margin-bottom: 24px;">
-               <label for="penName" class="form-label">นามปากกา</label>
-               <div class="pen-name">
-                 <input class="form-input pen-input" type="text" id="penName" name="penName"
-                        value="{{ username }}" readonly aria-readonly="true"
-                        title="นามปากกาใช้ชื่อผู้ใช้ ไม่สามารถแก้ไขได้">
-               </div>
-             </div>
-          </div>
+          <input
+            id="coverInput"
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp"
+            class="hidden" />
         </div>
 
-        <!-- Categories -->
-        <div class="panel">
-          <h2 class="categories-title">หมวดหมู่</h2>
-          
-          <div class="form-group">
-            <!-- ช่องพิมพ์เพื่อค้นหา (datalist) -->
-            <input class="form-input" id="cateSearch" list="categoriesList"
-                   placeholder="พิมพ์เพื่อค้นหา เช่น Romance, Fantasy, ...">
-        
-            <!-- รายการหมวดจาก DB -->
-            <datalist id="categoriesList">
+        <!-- RIGHT: ข้อมูลนิยาย -->
+        <div class="grid gap-4">
+          <!-- ชื่อเรื่อง -->
+          <div>
+            <label class="block text-sm text-[var(--muted)] mb-1" for="title">
+              ชื่อเรื่อง <span class="text-xs text-[var(--muted)]">(บังคับ)</span>
+            </label>
+            <input
+              id="title"
+              name="title"
+              maxlength="120"
+              required
+              class="input"
+              placeholder="ใส่ชื่อเรื่องของนิยาย" />
+            <p class="mt-1 text-xs text-[var(--muted)] text-right">
+              <span id="titleCount">0</span>/120
+            </p>
+          </div>
+
+          <!-- นามปากกา (ใช้ username) -->
+          <div>
+            <label class="block text-sm text-[var(--muted)] mb-1" for="penName">
+              นามปากกา
+            </label>
+            <input
+              id="penName"
+              name="penName"
+              class="input bg-[#0f1012] cursor-not-allowed"
+              value="{{ username }}"
+              readonly
+              aria-readonly="true"
+              title="นามปากกาใช้ชื่อผู้ใช้ ไม่สามารถแก้ไขได้" />
+          </div>
+
+          <!-- หมวดหมู่ -->
+          <div>
+            <label class="block text-sm text-[var(--muted)] mb-1" for="mainCategory">
+              หมวดหมู่
+            </label>
+            <select
+              id="mainCategory"
+              name="mainCategory"
+              class="select"
+              required>
+              <option value="">— เลือกหมวดหมู่ —</option>
               {% for c in categories %}
-                <option value="{{ c.name }}" data-id="{{ c.cate_id }}"></option>
+                <option value="{{ c.cate_id }}">{{ c.name }}</option>
               {% endfor %}
-            </datalist>
-        
-            <!-- เก็บค่า cate_id ที่เลือกไว้ (ให้ backend รับ field นี้) -->
-            <input type="hidden" id="mainCategory" name="mainCategory">
-            <small class="tags-instruction">ทางเราขอสงวนสิทธิ์ในการแก้ไขหมวดของงานเขียนให้สอดคล้องกับเนื้อหาโดยไม่จำเป็นต้องแจ้งให้ทราบล่วงหน้า</small>
+            </select>
+            <p class="mt-1 text-xs text-[var(--muted)]">
+              ทางเราขอสงวนสิทธิ์ในการแก้ไขหมวดของงานเขียนให้สอดคล้องกับเนื้อหาโดยไม่จำเป็นต้องแจ้งให้ทราบล่วงหน้า
+            </p>
+          </div>
+
+          <!-- คำโปรย -->
+          <div>
+            <label class="block text-sm text-[var(--muted)] mb-1" for="synopsis">
+              คำโปรย
+            </label>
+            <textarea
+              id="synopsis"
+              name="synopsis"
+              maxlength="200"
+              class="textarea textarea-description"
+              placeholder="คำโปรยหรือคำอธิบายสั้นๆ เกี่ยวกับนิยาย (ไม่เกิน 200 ตัวอักษร)"
+            ></textarea>
+            <p class="mt-1 text-xs text-[var(--muted)] text-right">
+              <span id="synopsisCount">0</span>/1000
+            </p>
           </div>
         </div>
-        
+      </div>
 
-        <!-- Tags -->
-        <div class="panel">
-          <div class="tags-header">
-            <div class="tags-title">แท็ก</div>
-            <span class="tags-count">(<span id="tagsCount">0</span>/19)</span>
+      <!-- TAGS PANEL (สไตล์คล้ายส่วนแท็กใน edit_novel) -->
+      <section class="panel p-4 md:p-5 mt-4 space-y-3">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="font-semibold tracking-wide text-sm md:text-base">
+            แท็กของนิยาย
+          </h2>
+          <div class="text-xs text-[var(--muted)]">
+            (<span id="tagsCount">0</span>/20)
           </div>
-          <textarea id="tagsInput" class="tags-input" placeholder="ใส่แท็ก แนวนิยาย (กด Enter เพื่อเพิ่ม หรือคั่นหลายคำด้วยเครื่องหมายจุลภาค , )"></textarea>
-          <div class="tag-chips" id="tagChips" aria-live="polite"></div>
-          <div class="tags-instruction">คำแนะนำ: ใช้คำสั้น กระชับ เช่น &quot;มหาลัย, ไอดอล, ดราม่า&quot;</div>
         </div>
 
-        <div class="actions">
-          <button type="submit" class="btn primary" id="submitBtn">บันทึก</button>
+        <div id="tagChips" class="flex flex-wrap gap-2 mb-2"></div>
+
+        <div class="flex gap-2">
+          <input
+            id="tagsInput"
+            class="input"
+            placeholder="พิมพ์แท็ก แล้วกด Enter หรือใส่หลายคำคั่นด้วย , " />
+          <button
+            id="addTagBtn"
+            type="button"
+            class="btn btn-dark px-4 py-2 rounded-xl text-sm">
+            เพิ่ม
+          </button>
         </div>
-      </form>
-    </section>
+
+        <p class="mt-1 text-xs text-[var(--muted)]">
+          ตัวอย่าง: <span class="opacity-90">มหาลัย, ไอดอล, ดราม่า</span>
+        </p>
+      </section>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-3 pt-2">
+        <button
+          type="submit"
+          id="submitBtn"
+          class="btn btn-primary px-5 py-2 rounded-full font-semibold text-sm">
+          สร้างนิยาย
+        </button>
+      </div>
+    </form>
   </main>
 
   <script>
-    // นับตัวอักษร
-    function bindCounter(id, outId){
-      const el = document.getElementById(id), out = document.getElementById(outId);
-      const update = ()=>{ out.textContent = el.value.length; out.style.color = el.value.length>el.maxLength*0.85 ? '#ffaa00' : '#999' };
-      el.addEventListener('input', update); update();
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    // ===== นับตัวอักษร title / synopsis =====
+    function bindCounter(inputId, counterId){
+      const el  = document.getElementById(inputId);
+      const out = document.getElementById(counterId);
+      if(!el || !out) return;
+      const update = () => {
+        const len = el.value.length;
+        out.textContent = len;
+      };
+      el.addEventListener('input', update);
+      update();
     }
-    bindCounter('title','titleCount'); bindCounter('synopsis','synopsisCount');
+    bindCounter('title','titleCount');
+    bindCounter('synopsis','synopsisCount');
 
-    // อัปโหลดรูป (preview)
-    const coverUpload=document.getElementById('coverUpload'), coverFile=document.getElementById('coverFile');
-    function selectFile(file){
-      if(!file.type.startsWith('image/')){alert('กรุณาเลือกไฟล์รูปภาพ');return}
-      const reader=new FileReader();
-      reader.onload=e=>{
-        coverUpload.innerHTML=`<img src="${e.target.result}" alt="cover" style="max-width:100%;max-height:260px;border-radius:8px;display:block;margin-bottom:8px;"/><div class="upload-text" style="opacity:.9">รูปปกที่เลือก (ยังไม่อัปโหลด)</div>`;
-      }; reader.readAsDataURL(file);
+    // ===== อัปโหลด/พรีวิวรูปปก (แบบเดียวกับ edit_novel) =====
+    const coverUpload = document.getElementById('coverUpload');
+    const coverInput  = document.getElementById('coverInput');
+
+    function openCoverPicker(){
+      coverInput?.click();
     }
-    coverUpload.addEventListener('click',()=>coverFile.click());
-    coverUpload.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();coverFile.click();}});
-    coverUpload.addEventListener('dragover',e=>{e.preventDefault();coverUpload.classList.add('dragover')});
-    coverUpload.addEventListener('dragleave',()=>coverUpload.classList.remove('dragover'));
-    coverUpload.addEventListener('drop',e=>{e.preventDefault();coverUpload.classList.remove('dragover');if(e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0])});
-    coverFile.addEventListener('change',e=>{if(e.target.files.length) selectFile(e.target.files[0])});
 
-    // === แท็ก (chips) ===
-    const tagsInput=document.getElementById('tagsInput'), tagsCount=document.getElementById('tagsCount'), tagChips=document.getElementById('tagChips');
-    let tags=[];
+    function previewCover(file){
+      if(!file) return;
+      if(!file.type || !file.type.startsWith('image/')){
+        alert('กรุณาเลือกไฟล์รูปภาพ');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        coverUpload.innerHTML = `<img src="${ev.target.result}" alt="ปกนิยายที่เลือก">`;
+      };
+      reader.readAsDataURL(file);
+    }
 
-    function renderChips(){
-      tagsCount.textContent=tags.length;
-      tagChips.innerHTML='';
-      tags.forEach((t,i)=>{
-        const s=document.createElement('span');
-        s.className='chip';
-        s.innerHTML=`<span>${t}</span><button type="button" aria-label="ลบแท็ก ${t}" data-i="${i}" tabindex="0">✕</button>`;
-        tagChips.appendChild(s);
+    coverUpload?.addEventListener('click', openCoverPicker);
+    coverUpload?.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        openCoverPicker();
+      }
+    });
+    coverInput?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      previewCover(file);
+    });
+
+    // ===== ระบบแท็ก (chips) =====
+    const tagsInput = document.getElementById('tagsInput');
+    const tagChips  = document.getElementById('tagChips');
+    const tagsCount = document.getElementById('tagsCount');
+    const addTagBtn = document.getElementById('addTagBtn');
+    let tags = [];
+
+    function renderTags(){
+      tagChips.innerHTML = '';
+      tagsCount.textContent = tags.length;
+      tags.forEach((t, i) => {
+        const span = document.createElement('span');
+        span.className = 'chip';
+        span.innerHTML =
+          `<span>${t}</span>`+
+          `<button type="button" data-i="${i}" aria-label="ลบแท็ก ${t}">×</button>`;
+        tagChips.appendChild(span);
       });
     }
-
-    // ลบแท็ก (คลิกหรือกด Enter/Space)
-    tagChips.addEventListener('click',e=>{
-      const b=e.target.closest('button[data-i]'); if(!b) return;
-      const i=Number(b.dataset.i);
-      if(!Number.isNaN(i)){ tags.splice(i,1); renderChips(); }
-    });
-    tagChips.addEventListener('keydown',e=>{
-      const b=e.target.closest('button[data-i]'); if(!b) return;
-      if(e.key==='Enter' || e.key===' '){
-        e.preventDefault();
-        const i=Number(b.dataset.i);
-        if(!Number.isNaN(i)){ tags.splice(i,1); renderChips(); }
-      }
-    });
-
     function hasTag(text){
-      const lowered=text.toLowerCase();
-      return tags.some(t=>t.toLowerCase()===lowered);
+      const lower = text.toLowerCase();
+      return tags.some(t => t.toLowerCase() === lower);
     }
     function addTag(text){
-      const t=text.trim();
+      const t = (text || '').trim();
       if(!t) return;
-      if(tags.length>=19){ alert('คุณใส่แท็กครบ 19 ข้อแล้ว'); return; }
+      if(tags.length >= 19){
+        alert('คุณใส่แท็กครบ 20 แล้ว');
+        return;
+      }
       if(hasTag(t)) return;
       tags.push(t);
-      renderChips();
+      renderTags();
     }
-
-    // กด Enter / , (จุลภาค) / Tab เพื่อเพิ่มแท็กจากช่อง
-    function tryCommitFromInput(){
-      const v=tagsInput.value.trim();
-      if(v){ addTag(v); tagsInput.value=''; }
-    }
-    tagsInput.addEventListener('keydown',e=>{
-      if(e.key==='Enter' || e.key===',' || (e.key==='Tab' && tagsInput.value.trim())){
-        e.preventDefault();
-        // รองรับหลายคำคั่นด้วย ,
-        const raw=tagsInput.value;
-        if(raw.includes(',')){
-          raw.split(',').map(s=>s.trim()).filter(Boolean).forEach(addTag);
-          tagsInput.value='';
-        }else{
-          tryCommitFromInput();
-        }
-      }
-    });
-    // พิมพ์ , เพื่อแยกเป็นหลายแท็ก (ทันที)
-    tagsInput.addEventListener('input',()=>{
-      const raw=tagsInput.value;
+    function commitFromInput(){
+      const raw = (tagsInput.value || '').trim();
+      if(!raw) return;
       if(raw.includes(',')){
-        raw.split(',').map(s=>s.trim()).filter(Boolean).forEach(addTag);
-        tagsInput.value='';
+        raw.split(',')
+           .map(s => s.trim())
+           .filter(Boolean)
+           .forEach(addTag);
+      }else{
+        addTag(raw);
+      }
+      tagsInput.value = '';
+    }
+
+    addTagBtn?.addEventListener('click', () => {
+      commitFromInput();
+    });
+
+    tagsInput?.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ',' || (e.key === 'Tab' && tagsInput.value.trim())){
+        e.preventDefault();
+        commitFromInput();
       }
     });
-    // อนุญาตวางข้อความคั่นด้วย ,
-    tagsInput.addEventListener('paste',e=>{
-      const text=(e.clipboardData||window.clipboardData).getData('text');
-      if(!text) return;
-      const parts=text.split(',').map(s=>s.trim()).filter(Boolean);
-      if(parts.length>1){ e.preventDefault(); parts.forEach(addTag); }
+    tagsInput?.addEventListener('input', () => {
+      const raw = tagsInput.value;
+      if(raw.includes(',')){
+        commitFromInput();
+      }
     });
-    // เมื่อออกจากช่อง ถ้ามีข้อความค้างอยู่ให้เพิ่มแท็ก
-    tagsInput.addEventListener('blur',()=>{ tryCommitFromInput(); });
+    tagsInput?.addEventListener('paste', (e) => {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if(!text) return;
+      const parts = text.split(',').map(s => s.trim()).filter(Boolean);
+      if(parts.length > 1){
+        e.preventDefault();
+        parts.forEach(addTag);
+      }
+    });
 
-    // === ส่งข้อมูล ===
-    const form=document.getElementById('novelForm'), msg=document.getElementById('formMsg'), submitBtn=document.getElementById('submitBtn');
-    function setMsg(t,ok=false){ msg.textContent=t||''; msg.className='msg '+(ok?'ok':'error'); }
-    form.addEventListener('submit',async(e)=>{
-      e.preventDefault(); setMsg('');
-      const title=document.getElementById('title').value.trim(); if(!title){ setMsg('กรุณากรอกชื่อเรื่อง'); return; }
-      const payload={ title, synopsis:document.getElementById('synopsis').value||'', penName:document.getElementById('penName').value||'', mainCategory:document.getElementById('mainCategory').value||'', tags };
+    tagChips?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-i]');
+      if(!btn) return;
+      const i = Number(btn.dataset.i);
+      if(!Number.isNaN(i)){
+        tags.splice(i,1);
+        renderTags();
+      }
+    });
 
-      submitBtn.disabled=true; submitBtn.textContent='กำลังบันทึก...';
+    // ===== ส่งข้อมูลไป /api/novels ของ new_novel blueprint =====
+    const form      = document.getElementById('novelForm');
+    const formMsg   = document.getElementById('formMsg');
+    const submitBtn = document.getElementById('submitBtn');
+
+    const apiCreateUrl   = "{{ url_for('new_novel.api_create_novel') }}";
+    const viewUrlTemplate = "{{ url_for('new_novel.view_novel', novels_id=0) }}"; // '/novels/0'
+
+    function setMsg(text, ok=false){
+      formMsg.textContent = text || '';
+      formMsg.className   = 'msg ' + (ok ? 'msg-ok' : 'msg-error');
+    }
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setMsg('');
+
+      const titleEl       = document.getElementById('title');
+      const synopsisEl    = document.getElementById('synopsis');
+      const mainCategoryEl= document.getElementById('mainCategory');
+      const penNameEl     = document.getElementById('penName');
+
+      const title   = (titleEl.value || '').trim();
+      const synopsis= synopsisEl.value || '';
+      const mainCat = (mainCategoryEl.value || '').trim();
+      const penName = penNameEl?.value || '';
+
+      if(!title){
+        setMsg('กรุณากรอกชื่อเรื่อง');
+        titleEl.focus();
+        return;
+      }
+      if(!mainCat){
+        setMsg('กรุณาเลือกหมวดหมู่');
+        mainCategoryEl.focus();
+        return;
+      }
+
+      const payload = {
+        title,
+        synopsis,
+        penName,
+        mainCategory: mainCat,
+        tags: tags.slice()
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'กำลังบันทึก...';
+
       try{
-        let resp, json={};
-        const hasCover = coverFile && coverFile.files && coverFile.files.length>0;
-        if(hasCover){
-          // ถ้า backend รองรับไฟล์ ใช้ FormData (ชื่อ field: cover)
+        let resp;
+        const file = coverInput?.files && coverInput.files[0];
+        if(file){
           const fd = new FormData();
           fd.append('title', payload.title);
           fd.append('synopsis', payload.synopsis);
           fd.append('penName', payload.penName);
           fd.append('mainCategory', payload.mainCategory);
           fd.append('tags', JSON.stringify(payload.tags));
-          fd.append('cover', coverFile.files[0]);
-          resp = await fetch('/api/novels',{ method:'POST', body: fd });
-        }else{
-          // เดิม: ส่ง JSON ปกติ
-          resp = await fetch('/api/novels',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-        }
-        json=await resp.json().catch(()=>({}));
-        if(!resp.ok || !json.ok) throw new Error(json.error||'บันทึกไม่สำเร็จ');
-        setMsg('สร้างนิยายใหม่เรียบร้อย!',true); window.location.href=`/novels/${json.novels_id}`;
-      }catch(err){ setMsg(err.message||'เกิดข้อผิดพลาด'); }
-      finally{ submitBtn.disabled=false; submitBtn.textContent='บันทึก'; }
-    });
+          fd.append('cover', file);
 
-     // --- sync mainCategory (cate_id) จาก datalist ---
-     const cateInput  = document.getElementById('cateSearch');
-     const cateHidden = document.getElementById('mainCategory');
-     const cateList   = document.getElementById('categoriesList');
- 
-     function syncCategoryId(){
-       const v = (cateInput.value || '').trim().toLowerCase();
-       let id = '';
-       if (v) {
-         const opt = Array.from(cateList.options).find(o => o.value.toLowerCase() === v);
-         if (opt) id = opt.dataset.id || opt.getAttribute('data-id');
-       }
-       cateHidden.value = id; // ว่างถ้ายังไม่เลือกตรงกับรายการ
-     }
-     cateInput.addEventListener('input',  syncCategoryId);
-     cateInput.addEventListener('change', syncCategoryId);
-     
- 
+          resp = await fetch(apiCreateUrl, {
+            method:'POST',
+            headers:{ 'X-CSRFToken': csrfToken },
+            body: fd
+          });
+        }else{
+          resp = await fetch(apiCreateUrl, {
+            method:'POST',
+            headers:{
+              'Content-Type':'application/json',
+              'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const json = await resp.json().catch(() => ({}));
+        if(!resp.ok || !json.ok){
+          throw new Error(json.error || 'บันทึกไม่สำเร็จ');
+        }
+
+        setMsg('สร้างนิยายใหม่เรียบร้อย!', true);
+
+        const viewUrl = viewUrlTemplate.replace('0', json.novels_id);
+        window.location.href = viewUrl;
+
+      }catch(err){
+        setMsg(err.message || 'เกิดข้อผิดพลาด');
+      }finally{
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'สร้างนิยาย';
+      }
+    });
   </script>
 </body>
 </html>

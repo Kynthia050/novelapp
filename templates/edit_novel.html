@@ -354,7 +354,7 @@
 <body>
 
   <!-- Header -->
-  <header class="sticky top-0 z-30 backdrop-blur bg-black/40 border-b border-[var(--line)]">
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
     {% include 'header.html' %}
   </header>
 
@@ -441,7 +441,7 @@
       </div>
 
       <!-- TAGS -->
-      <section class="panel p-4 md:p-5">
+      <section class="panel p-4 md:p-5 mt-5">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-semibold tracking-wide">แท็กของเรื่องนี้</h2>
           <div class="text-sm text-[var(--muted)]">เพิ่ม/ลบได้อิสระ</div>
@@ -469,129 +469,129 @@
       </section>
 
       <!-- CHAPTERS (Accordion + Sort) -->
-      <section class="panel p-4 md:p-5">
+      <section class="panel p-4 md:p-5 mt-5">
         <div class="chapters-header">
           <h2 class="chapters-heading">ตอนทั้งหมด</h2>
           <div class="flex items-center gap-3">
-            <!-- ปุ่มสลับเรียง -->
-            <button type="button"
-                    id="chapterSortToggle"
-                    class="chapters-sort-toggle"
-                    data-direction="asc">
-              <span class="chapters-sort-label">เก่าไปใหม่</span>
-              <span class="chapters-sort-icon">▾</span>
-            </button>
+        <!-- ปุ่มสลับเรียง -->
+        <button type="button"
+            id="chapterSortToggle"
+            class="chapters-sort-toggle"
+            data-direction="asc">
+          <span class="chapters-sort-label">เก่าไปใหม่</span>
+          <span class="chapters-sort-icon">▾</span>
+        </button>
 
-            <!-- ปุ่มเพิ่มตอน -->
-            <a href="{{ url_for('writing.writing_form', novels_id=novel.novels_id) }}"
-               class="btn btn-dark px-4 py-2 rounded-full">
-              + เพิ่มตอน
-            </a>
+        <!-- ปุ่มเพิ่มตอน -->
+        <a href="{{ url_for('writing.writing_form', novels_id=novel.novels_id) }}"
+           class="btn btn-dark px-4 py-2 rounded-full">
+          + เพิ่มตอน
+        </a>
           </div>
         </div>
 
         {% if chapters and chapters|length %}
         <section class="chapters-section">
           <div class="chapters-accordion" id="chaptersAccordion">
-            {# แบ่งกลุ่มละ 50 ตอน: 1–50, 51–100, ... #}
-            {% set group_size = 50 %}
-            {% for start in range(1, chapters|length + 1, group_size) %}
-              {% set group_slice = chapters[start-1:start-1+group_size] %}
-              {% set first_ch = group_slice[0] %}
-              {% set last_ch  = group_slice[-1] %}
+        {# แบ่งกลุ่มละ 50 ตอน: 1–50, 51–100, ... #}
+        {% set group_size = 50 %}
+        {% for start in range(1, chapters|length + 1, group_size) %}
+          {% set group_slice = chapters[start-1:start-1+group_size] %}
+          {% set first_ch = group_slice[0] %}
+          {% set last_ch  = group_slice[-1] %}
 
-              <div class="chapter-group{% if loop.first %} is-open{% endif %}"
-                   data-range-start="{{ first_ch.chapter_no }}">
-                <button type="button" class="chapter-group-header">
-                  <span class="chapter-group-title">
-                    ตอนที่ {{ first_ch.chapter_no }} – {{ last_ch.chapter_no }}
-                  </span>
-                  <span class="chapter-group-meta">
-                    <span class="chapter-group-count">
-                      {{ group_slice|length }} ตอน
-                    </span>
-                    <span class="chapter-group-caret">▾</span>
-                  </span>
-                </button>
+          <div class="chapter-group{% if loop.first %} is-open{% endif %}"
+           data-range-start="{{ first_ch.chapter_no }}">
+            <button type="button" class="chapter-group-header">
+          <span class="chapter-group-title">
+            ตอนที่ {{ first_ch.chapter_no }} – {{ last_ch.chapter_no }}
+          </span>
+          <span class="chapter-group-meta">
+            <span class="chapter-group-count">
+              {{ group_slice|length }} ตอน
+            </span>
+            <span class="chapter-group-caret">▾</span>
+          </span>
+            </button>
 
-                <div class="chapter-group-body">
-                  <ul class="chapters-list">
-                    {% for ch in group_slice %}
-                    <li class="chapter-row" data-chapter-no="{{ ch.chapter_no }}">
-                      <div class="chapter-row-inner">
-                        <!-- คลิกชื่อเพื่อไปแก้ไขตอน -->
-                        <a href="{{ url_for('writing.writing_form',
-                                            novels_id=novel.novels_id,
-                                            chapter_id=ch.chapters_id) }}"
-                           class="chapter-main">
-                          <span class="chapter-label">ตอนที่ {{ ch.chapter_no }}</span>
-                          <span class="chapter-title">{{ ch.title }}</span>
-                        </a>
+            <div class="chapter-group-body">
+          <ul class="chapters-list">
+            {% for ch in group_slice %}
+            <li class="chapter-row" data-chapter-no="{{ ch.chapter_no }}">
+              <div class="chapter-row-inner">
+            <!-- คลิกชื่อเพื่อไปแก้ไขตอน -->
+            <a href="{{ url_for('writing.writing_form',
+                    novels_id=novel.novels_id,
+                    chapter_id=ch.chapters_id) }}"
+               class="chapter-main">
+              <span class="chapter-label">ตอนที่ {{ ch.chapter_no }}</span>
+              <span class="chapter-title">{{ ch.title }}</span>
+            </a>
 
-                        <div class="chapter-meta">
-                          <span class="hidden sm:inline">
-                            อัปเดต {{ ch.updated_at or ch.created_at }}
-                          </span>
+            <div class="chapter-meta">
+              <span class="hidden sm:inline">
+                อัปเดต {{ ch.updated_at or ch.created_at }}
+              </span>
 
-                          <div class="chapter-actions">
-                          <!-- ปุ่มเลือกสถานะ (มองเห็นได้) -->
-                          <div class="status-select-wrapper">
-                            <select
-                              class="status-select"
-                              data-chapter-id="{{ ch.chapters_id }}"
-                              onchange="submitChapterStatus(this)">
-                              <option value="draft"
-                                      {% if ch.status == 'draft' %}selected{% endif %}>
-                                แบบร่าง
-                              </option>
-                              <option value="published"
-                                      {% if ch.status == 'published' %}selected{% endif %}>
-                                เผยแพร่
-                              </option>
-                            </select>
-                          </div>
+              <div class="chapter-actions">
+              <!-- ปุ่มเลือกสถานะ (มองเห็นได้) -->
+              <div class="status-select-wrapper">
+                <select
+              class="status-select"
+              data-chapter-id="{{ ch.chapters_id }}"
+              onchange="submitChapterStatus(this)">
+              <option value="draft"
+                  {% if ch.status == 'draft' %}selected{% endif %}>
+                แบบร่าง
+              </option>
+              <option value="published"
+                  {% if ch.status == 'published' %}selected{% endif %}>
+                เผยแพร่
+              </option>
+                </select>
+              </div>
 
-                          <!-- ฟอร์มจริงสำหรับส่งค่า (ซ่อน) -->
-                          <form id="chapter-status-form-{{ ch.chapters_id }}"
-                                class="chapter-status-form"
-                                method="post"
-                                action="{{ url_for('editnovel.update_chapter_status',
-                                                  novels_id=novel.novels_id,
-                                                  chapter_id=ch.chapters_id) }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="status" value="{{ ch.status }}">
-                          </form>
+              <!-- ฟอร์มจริงสำหรับส่งค่า (ซ่อน) -->
+              <form id="chapter-status-form-{{ ch.chapters_id }}"
+                class="chapter-status-form"
+                method="post"
+                action="{{ url_for('editnovel.update_chapter_status',
+                      novels_id=novel.novels_id,
+                      chapter_id=ch.chapters_id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="{{ ch.status }}">
+              </form>
         
 
 
-                            <!-- ปุ่มแก้ไข -->
-                            <a href="{{ url_for('writing.writing_form',
-                                                novels_id=novel.novels_id,
-                                                chapter_id=ch.chapters_id) }}"
-                               class="btn btn-dark">
-                              แก้ไข
-                            </a>
+                <!-- ปุ่มแก้ไข -->
+                <a href="{{ url_for('writing.writing_form',
+                    novels_id=novel.novels_id,
+                    chapter_id=ch.chapters_id) }}"
+               class="btn btn-dark">
+              แก้ไข
+                </a>
 
-                            <!-- ปุ่มลบ -->
-                            <form method="post"
-                                  action="{{ url_for('editnovel.delete_chapter_page',
-                                                    novels_id=novel.novels_id,
-                                                    chapter_id=ch.chapters_id) }}"
-                                  onsubmit="return confirm('ต้องการลบตอนนี้หรือไม่?');">
-                              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                              <button type="submit" class="btn btn-dark">
-                                ลบ
-                              </button>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                    {% endfor %}
-                  </ul>
-                </div>
+                <!-- ปุ่มลบ -->
+                <form method="post"
+                  action="{{ url_for('editnovel.delete_chapter_page',
+                        novels_id=novel.novels_id,
+                        chapter_id=ch.chapters_id) }}"
+                  onsubmit="return confirm('ต้องการลบตอนนี้หรือไม่?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-dark">
+                ลบ
+              </button>
+                </form>
               </div>
+            </div>
+              </div>
+            </li>
             {% endfor %}
+          </ul>
+            </div>
+          </div>
+        {% endfor %}
           </div>
         </section>
         {% else %}

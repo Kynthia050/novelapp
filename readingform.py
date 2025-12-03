@@ -109,25 +109,6 @@ def read_chapter(novels_id: int, chapter_no: int):
                 html_content = None
                 paragraphs = split_paragraphs(content or "")
 
-            # ---- นับไลก์ ----
-            like_count = 0
-            if "like_count" in ccols:
-                cur.execute(
-                    "SELECT like_count FROM chapters WHERE chapters_id=%s",
-                    (row["chapters_id"],),
-                )
-                like_count = int((cur.fetchone() or {}).get("like_count") or 0)
-            elif _table_exists(cur, "chapter_likes"):
-                lcols = _columns(cur, "chapter_likes")
-                fk = "chapters_id" if "chapters_id" in lcols else (
-                    "chapter_id" if "chapter_id" in lcols else None
-                )
-                if fk:
-                    cur.execute(
-                        f"SELECT COUNT(*) AS c FROM chapter_likes WHERE {fk}=%s",
-                        (row["chapters_id"],),
-                    )
-                    like_count = int((cur.fetchone() or {}).get("c") or 0)
 
             # ---- ปุ่มก่อนหน้า/ถัดไป ----
             cur.execute(
@@ -181,7 +162,6 @@ def read_chapter(novels_id: int, chapter_no: int):
             chapter_no=row.get("chapter_no"),
             author_name=row.get("author_name") or "Unknown",
             created_at=row.get("created_at"),
-            like_count=like_count,
             paragraphs=paragraphs,
             html_content=html_content,
             prev_url=prev_url,

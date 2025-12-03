@@ -66,20 +66,9 @@
   </style>
 </head>
 <body>
-  <header>
-    <div class="nav">
-      <div class="nav-left">
-        <a class="btn outline small" href="/" aria-label="กลับหน้าแรก">← หน้าแรก</a>
-      </div>
-      <div class="brand">MY SHELF</div>
-      <div class="nav-ctls">
-        <!-- Logout as POST to prevent CSRF-able GET logout -->
-        <form id="logoutForm" method="post" action="{{ url_for('auth.logout') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <button class="btn small" type="submit" title="ออกจากระบบ">🚪 ออกจากระบบ</button>
-        </form>
-      </div>
-    </div>
+  <!-- Header -->
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
+    {% include 'header.html' %}
   </header>
 
   <main class="site">

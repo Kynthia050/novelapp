@@ -18,30 +18,58 @@
     .chapter-subtitle{font-size:1.1rem;margin-bottom:.25rem;opacity:.85}
     .author-name{font-size:1rem;opacity:.7}
 
-    .chapter-content{border-radius:6px;padding:2rem;font-size:1.1rem;margin-bottom:2rem;transition:background .3s}
+    .chapter-content{border-radius:6px;padding:2rem;font-size:1.1rem;margin-bottom:2rem;transition:background .3s;overflow:hidden;white-space:pre-wrap;max-height:calc(100vh - 12rem);overflow-y:auto;overflow-x:hidden}
     body.dark-mode .chapter-content{background:#333}
     body.light-mode .chapter-content{background:#f1f1f1}
 
-    .content-paragraph{margin-bottom:1.5rem}
+    /* Custom scrollbar styling */
+    .chapter-content::-webkit-scrollbar{width:8px}
+    .chapter-content::-webkit-scrollbar-track{background:transparent}
+    body.dark-mode .chapter-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
+    body.dark-mode .chapter-content::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.4)}
+    body.light-mode .chapter-content::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:4px}
+    body.light-mode .chapter-content::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.4)}
+    
+    /* Firefox scrollbar */
+    .chapter-content{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+    body.light-mode .chapter-content{scrollbar-color:rgba(0,0,0,.2) transparent}
+
+    .content-paragraph{margin-bottom:1.5rem;overflow-wrap:anywhere;word-break:break-word;font-family:"Georgia",serif;line-height:1.8}
     .content-paragraph:last-child{margin-bottom:0}
 
-    .navigation-controls{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:1.5rem}
+    /* Make images and embedded media responsive and never exceed the content box */
+    .chapter-content img,
+    .chapter-content picture,
+    .chapter-content video,
+    .chapter-content iframe,
+    .chapter-content embed,
+    .chapter-content svg {
+      max-width:100%;
+      height:auto;
+      display:block;
+      margin:0.6rem auto;
+    }
+
+    .navigation-controls{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:1.5rem;transition:opacity .3s,visibility .3s}
+    .navigation-controls.hidden{opacity:0;visibility:hidden}
     .nav-arrow{width:45px;height:45px;background:#ddd;border:none;border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .3s}
     .nav-arrow[disabled]{opacity:.5;cursor:not-allowed}
     .nav-arrow:hover{background:#bbb}
     .back-to-cover-btn{background:#ddd;border:none;padding:.6rem 1.5rem;border-radius:20px;font-size:.95rem;cursor:pointer;transition:background .3s}
     .back-to-cover-btn:hover{background:#bbb}
 
-    .theme-toggle{position:fixed;top:1rem;right:1rem;background:transparent;border:none;font-size:1.5rem;cursor:pointer;transition:transform .3s}
+    .theme-toggle{position:fixed;top:1rem;right:1rem;background:transparent;border:none;font-size:1.5rem;cursor:pointer;transition:transform .3s,opacity .3s,visibility .3s}
     .theme-toggle:hover{transform:rotate(20deg)}
+    .theme-toggle.hidden{opacity:0;visibility:hidden}
 
     /* Progress pill */
     .progress-pill{
       position:fixed;top:1rem;left:1rem;z-index:50;
       background:rgba(0,0,0,.5);color:#fff;padding:.35rem .7rem;border-radius:999px;
-      font-size:.9rem;backdrop-filter:blur(4px)
+      font-size:.9rem;backdrop-filter:blur(4px);transition:opacity .3s,visibility .3s
     }
     body.light-mode .progress-pill{background:rgba(0,0,0,.6)}
+    .progress-pill.hidden{opacity:0;visibility:hidden}
     /* Progress bar at bottom */
     .progress-bar{
       position:fixed;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.15)
@@ -63,6 +91,11 @@
 <body class="dark-mode"
       data-novels-id="{{ novels_id }}"
       data-chapters-id="{{ chapters_id }}">
+  
+  <!-- Header -->
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
+    {% include 'header.html' %}
+  </header>
 
   <!-- Theme toggle -->
   <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
@@ -100,20 +133,13 @@
       {% else %}
         <p class="content-paragraph" style="opacity:.7">ยังไม่มีเนื้อหาสำหรับตอนนี้</p>
       {% endif %}
-      
-      <!-- แสดง like count -->
-      {% if like_count and like_count > 0 %}
-        <div style="margin-top: 2rem; text-align: center; opacity: 0.7;">
-          <span>❤️ {{ like_count }} คนชอบ</span>
-        </div>
-      {% endif %}
     </div>
   </main>
 
   <!-- Navigation -->
     <div class="navigation-controls">
     <button class="nav-arrow"
-            {% if not prev_url %}disabled{% endif %}
+            {% if not prev_url or is_preview %}disabled{% endif %}
             onclick="if(this.hasAttribute('disabled')) return; window.location='{{ prev_url }}'">◀</button>
 
     <button class="back-to-cover-btn"
@@ -126,7 +152,7 @@
   </button>
 
     <button class="nav-arrow"
-            {% if not next_url %}disabled{% endif %}
+            {% if not next_url or is_preview %}disabled{% endif %}
             onclick="if(this.hasAttribute('disabled')) return; window.location='{{ next_url }}'">▶</button>
   </div>
 
@@ -142,6 +168,7 @@
     const pill = document.getElementById("progress-pill");
     const fill = document.getElementById("progress-fill");
     const content = document.getElementById("reader-content");
+    const navControls = document.querySelector(".navigation-controls");
 
     // restore theme from localStorage
     (function () {
@@ -220,21 +247,64 @@
 }
 
 
-    function onScrollOrResize(){
+    // ===== Hide/Show Navigation Controls =====
+    let lastScrollY = 0;
+    let scrollTimeout = null;
+    let isScrollingDown = false;
+
+    function updateUIVisibility(){
+      const rect = content.getBoundingClientRect();
+      const viewportH = window.innerHeight || document.documentElement.clientHeight;
+      
+      // Show if at top (content top near viewport top)
+      const atTop = rect.top <= 100;
+      // Show if at bottom (content bottom near viewport bottom)
+      const atBottom = rect.bottom >= viewportH - 100;
+      
+      // Hide if scrolling down and not at top/bottom
+      if (isScrollingDown && !atTop && !atBottom) {
+        navControls.classList.add("hidden");
+        toggleBtn.classList.add("hidden");
+        pill.classList.add("hidden");
+      } else {
+        navControls.classList.remove("hidden");
+        toggleBtn.classList.remove("hidden");
+        pill.classList.remove("hidden");
+      }
+    }
+
+    function onScroll(){
+      const currentScrollY = window.scrollY;
+      isScrollingDown = currentScrollY > lastScrollY;
+      lastScrollY = currentScrollY;
+      
+      updateUIVisibility();
+      
+      // Show UI temporarily when scrolling
+      navControls.classList.remove("hidden");
+      toggleBtn.classList.remove("hidden");
+      pill.classList.remove("hidden");
+      
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        updateUIVisibility();
+      }, 1500);
+      
+      // Original progress tracking
       const pct = getContentProgressPercent();
       renderProgress(pct);
       sendProgress(pct);
     }
 
-    // initial
-    onScrollOrResize();
-    addEventListener("scroll", onScrollOrResize, { passive: true });
-    addEventListener("resize", onScrollOrResize);
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll);
 
+    // initial
+    onScroll();
     // กันกรณีเนื้อหาภายในเปลี่ยนขนาดหลังโหลด (ภาพ/ฟอนต์)
     let rafId = null;
     function tick(){
-      onScrollOrResize();
+      onScroll();
       rafId = requestAnimationFrame(tick);
     }
     rafId = requestAnimationFrame(tick);

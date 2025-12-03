@@ -25,10 +25,8 @@
 </head>
 <body class="min-h-screen text-zinc-100 font-sans selection:bg-white/20 selection:text-zinc-100">
   <!-- HEADER -->
-  <header class="sticky top-0 z-30 border-b border-white/10 bg-neutral-900/70 backdrop-blur">
-    <div class="max-w-6xl mx-auto px-5 py-4 flex justify-center">
-      <h1 class="font-serif tracking-[0.25em] text-2xl md:text-3xl text-zinc-100">MY SHELF</h1>
-    </div>
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
+    {% include 'header.html' %}
   </header>
 
   <main class="max-w-6xl mx-auto p-5" data-writer-id="{{ writer_id }}">
