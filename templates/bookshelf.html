@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>My Shelf — Bookshelf</title>
+{# templates/novelcover.html หรือ bookshelf.html แล้วแต่ที่คุณใช้ #}
+{% extends "base.html" %}
 
-  {# ถ้าหน้านี้ยังไม่ได้โหลด Tailwind แบบเดียวกับหน้าอื่น ให้ใช้ CDN ชั่วคราว #}
+{% block title %}My Shelf — Bookshelf{% endblock %}
+
+{% block extra_head %}
+  {# โหลด Tailwind (ใช้ร่วมกับ header.html ด้วย) #}
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -15,18 +14,13 @@
             bg:    '#1f1f21',
             textc: '#f5f5f7',
             muted: '#9f9fa5',
-          },
-          fontFamily: {
-            sans: ['Noto Sans Thai','system-ui','-apple-system','Segoe UI','Roboto','Arial','sans-serif'],
-          },
+          }
         },
       },
     };
   </script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap');
-
     :root{
       --bg:#222;
       --text:#eee;
@@ -46,7 +40,7 @@
     html,body{height:100%}
     body{
       margin:0;
-      font-family:'Noto Sans Thai',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+      /* ไม่กำหนด font-family ที่นี่ เพื่อให้ใช้ Niramit จาก global.css */
       background: var(--bg) url('/static/img/bg-login.jpg') center/cover fixed no-repeat;
       color:var(--text);
       line-height:1.6;
@@ -75,6 +69,7 @@
       justify-content:center;
     }
     .bs-fav-title{
+      /* ถ้าไม่อยากใช้ Georgia ก็ลบบรรทัดนี้ได้ */
       font-family: Georgia, 'Times New Roman', serif;
       letter-spacing:.35em;
       font-size:clamp(20px,3vw,32px);
@@ -203,13 +198,9 @@
 
     .muted{color:var(--muted);font-size:.9rem;}
   </style>
-</head>
-<body class="bg-bg text-textc">
+{% endblock %}
 
-  {# ใช้ header.html ตรง ๆ ไม่ต้องมี <header> ซ้อนเพิ่ม #}
-  {% include 'header.html' %}
-
-  {% block content %}
+{% block content %}
   <main class="bs-site">
     <!-- Title -->
     <div class="bs-fav-head">
@@ -288,7 +279,4 @@
       </div>
     </section>
   </main>
-  {% endblock %}
-
-</body>
-</html>
+{% endblock %}

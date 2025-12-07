@@ -1,15 +1,8 @@
-<!DOCTYPE html>
-<html lang="th" class="h-full">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>จัดการงานเขียน — MY SHELF</title>
+{% extends "base.html" %}
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+{% block title %}จัดการงานเขียน — MY SHELF{% endblock %}
 
+{% block extra_head %}
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -26,7 +19,6 @@
           boxShadow: { soft: '0 10px 24px rgba(0,0,0,.45)' },
           borderRadius: { xl2: '16px' },
           fontFamily: {
-            thai: ['Noto Sans Thai', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Arial', 'sans-serif'],
             brand: ['Georgia', 'Times New Roman', 'serif']
           },
           letterSpacing: { brand: '.25em', title: '.20em' }
@@ -36,166 +28,300 @@
   </script>
 
   <style>
-    .bg-hero { background-image: url('{{ url_for("static", filename="img/bg-login.jpg") }}'); background-size: cover; background-position: center; background-attachment: fixed; }
-    .select-reset { appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: none; }
+    .bg-hero {
+      background-image: url('{{ url_for("static", filename="img/bg-login.jpg") }}');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
+    .select-reset {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: none;
+    }
 
     /* ปรับ .menu-item เป็น CSS ปกติ (ไม่ใช้ @apply เพื่อรองรับ CDN) */
-    .menu-item{ display:flex; align-items:center; gap:.5rem; width:100%; text-align:left; padding:.5rem .75rem; border-radius:.5rem; }
-    .menu-item:hover{ background: rgba(255,255,255,.05); }
+    .menu-item{
+      display:flex;
+      align-items:center;
+      gap:.5rem;
+      width:100%;
+      text-align:left;
+      padding:.5rem .75rem;
+      border-radius:.5rem;
+    }
+    .menu-item:hover{
+      background: rgba(255,255,255,.05);
+    }
 
     /* iframe modal */
-    #remoteFrame { width: 100%; height: min(78vh, 900px); border: 0; border-radius: 12px; background: transparent; }
+    #remoteFrame {
+      width: 100%;
+      height: min(78vh, 900px);
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+    }
+
     /* loading state */
     .is-loading .loading-bar{ display:flex; }
-    .loading-bar{ display:none; align-items:center; gap:.5rem; position:absolute; right:1rem; top:.75rem; padding:.25rem .5rem; border-radius:.5rem; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); font-size:.85rem; }
-    .spinner{ width:18px; height:18px; border:3px solid rgba(255,255,255,.25); border-top-color: rgba(255,255,255,.85); border-radius:50%; animation:spin 1s linear infinite; }
+    .loading-bar{
+      display:none;
+      align-items:center;
+      gap:.5rem;
+      position:absolute;
+      right:1rem;
+      top:.75rem;
+      padding:.25rem .5rem;
+      border-radius:.5rem;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.1);
+      font-size:.85rem;
+    }
+    .spinner{
+      width:18px;
+      height:18px;
+      border:3px solid rgba(255,255,255,.25);
+      border-top-color: rgba(255,255,255,.85);
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+    }
     @keyframes spin{ to{ transform: rotate(360deg); } }
   </style>
-</head>
-<body class="h-full font-thai text-white bg-bg">
-  <!-- Header -->
-  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
-    {% include 'header.html' %}
-  </header>
+{% endblock %}
 
-  <!-- Background layer -->
-  <div class="bg-hero fixed inset-0 -z-10"></div>
-  <div class="fixed inset-0 -z-10 bg-black/50 backdrop-blur-sm"></div>
+{% block content %}
+  <div class="min-h-screen text-white bg-bg relative">
+    <!-- Background layer -->
+    <div class="bg-hero fixed inset-0 -z-10"></div>
+    <div class="fixed inset-0 -z-10 bg-black/50 backdrop-blur-sm"></div>
 
-  <!-- Main -->
-  <main class="mx-auto max-w-6xl px-5 py-6">
-    <!-- Page Bar -->
-    <div class="flex items-center justify-between gap-3 mb-4">
-      <h1 class="font-brand tracking-title text-[clamp(22px,3.2vw,34px)]">จัดการงานเขียน</h1>
-      <!-- ลิงก์ไป new_novel.html แต่จะเปิดเป็นโมดอลด้วย JS -->
-      <a id="addBtn" href="/new_novel" class="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-bold text-[#0b0b0b] shadow-soft hover:brightness-95 active:brightness-90 transition" role="button">
-        <span class="text-lg">＋</span> เพิ่มงานเขียน
-      </a>
-    </div>
+    <!-- Main -->
+    <main class="mx-auto max-w-6xl px-5 py-6">
+      <!-- Page Bar -->
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <h1 class="text-[clamp(22px,3.2vw,34px)] font-semibold">
+          จัดการงานเขียน
+      </h1>
 
-    <!-- Controls -->
-    <div class="flex flex-wrap items-center justify-between gap-3 my-3">
-      <div class="flex items-center gap-3">
-        <input id="checkAll" type="checkbox" class="h-5 w-5 rounded-md border border-white/20 bg-chip/70 text-accent focus:ring-2 focus:ring-accent/50" />
-        <label for="checkAll" class="select-none">เลือกทั้งหมด</label>
+        <!-- ลิงก์ไป new_novel.html แต่จะเปิดเป็นโมดอลด้วย JS -->
+        <a
+          id="addBtn"
+          href="/new_novel"
+          class="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-bold text-[#0b0b0b] shadow-soft hover:brightness-95 active:brightness-90 transition"
+          role="button"
+        >
+          <span class="text-lg">＋</span> เพิ่มงานเขียน
+        </a>
+      </div>
 
-        <div class="relative">
-            <button id="manageBtn" class="rounded-xl border border-line bg-chip/80 px-4 py-2 hover:bg-chip/60 transition">จัดการ ▾</button>
-            <div id="manageMenu" class="absolute left-0 mt-2 hidden min-w-56 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20">
-            <button data-action="publish" class="menu-item">เผยแพร่ที่เลือก</button>
-            <button data-action="complete" class="menu-item">ทำเป็นจบแล้ว</button>
-            <button data-action="draft" class="menu-item">ทำเป็นแบบร่าง</button>
-            <div class="my-1 border-t border-white/10"></div>
-            <button data-action="delete" class="menu-item" style="color:#fca5a5">ลบที่เลือก</button>
+      <!-- Controls -->
+      <div class="flex flex-wrap items-center justify-between gap-3 my-3">
+        <div class="flex items-center gap-3">
+          <input
+            id="checkAll"
+            type="checkbox"
+            class="h-5 w-5 rounded-md border border-white/20 bg-chip/70 text-accent focus:ring-2 focus:ring-accent/50"
+          />
+          <label for="checkAll" class="select-none">เลือกทั้งหมด</label>
+
+          <div class="relative">
+            <button
+              id="manageBtn"
+              class="rounded-xl border border-line bg-chip/80 px-4 py-2 hover:bg-chip/60 transition"
+            >
+              จัดการ ▾
+            </button>
+            <div
+              id="manageMenu"
+              class="absolute left-0 mt-2 hidden min-w-56 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20"
+            >
+              <button data-action="publish" class="menu-item">เผยแพร่ที่เลือก</button>
+              <button data-action="complete" class="menu-item">ทำเป็นจบแล้ว</button>
+              <button data-action="draft" class="menu-item">ทำเป็นแบบร่าง</button>
+              <div class="my-1 border-t border-white/10"></div>
+              <button data-action="delete" class="menu-item" style="color:#fca5a5">
+                ลบที่เลือก
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <button
+              id="filterBtn"
+              class="rounded-xl border border-line bg-chip/80 px-4 py-2 hover:bg-chip/60 transition"
+            >
+              <span id="filterLabel">ทั้งหมด ({{ total_works }})</span> ▾
+            </button>
+            <div
+              id="filterMenu"
+              class="absolute right-0 mt-2 hidden min-w-44 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20"
+            >
+              <button data-filter="ทั้งหมด" class="menu-item">ทั้งหมด</button>
+              <button data-filter="เผยแพร่" class="menu-item">เผยแพร่</button>
+              <button data-filter="จบแล้ว" class="menu-item">จบแล้ว</button>
+              <button data-filter="แบบร่าง" class="menu-item">แบบร่าง</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-white/70">
           </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <div class="relative">
-          <button id="filterBtn" class="rounded-xl border border-line bg-chip/80 px-4 py-2 hover:bg-chip/60 transition">
-            <span id="filterLabel">ทั้งหมด ({{ total_works }})</span> ▾
-          </button>
-          <div id="filterMenu" class="absolute right-0 mt-2 hidden min-w-44 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20">
-            <button data-filter="ทั้งหมด" class="menu-item">ทั้งหมด</button>
-            <button data-filter="เผยแพร่" class="menu-item">เผยแพร่</button>
-            <button data-filter="จบแล้ว" class="menu-item">จบแล้ว</button>
-            <button data-filter="แบบร่าง" class="menu-item">แบบร่าง</button>
-          </div>
+      <!-- List -->
+      <section id="list" class="grid gap-3">
+        {% if works %}
+          {% for w in works %}
+            <article
+              class="relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl border border-line bg-card/95 p-4 shadow-soft"
+              data-id="{{ w.novels_id }}"
+              data-status="{{ w.status or 'แบบร่าง' }}"
+              data-detail="{{ w.detail_url }}"
+            >
+              <!-- left group -->
+              <div class="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  class="itemChk h-5 w-5 rounded-md border border-white/20 bg-chip/70 text-accent focus:ring-2 focus:ring-accent/50"
+                  value="{{ w.novels_id }}"
+                />
+                <img
+                  class="h-16 w-16 rounded-lg border border-white/10 object-cover"
+                  src="{{ w.cover_url }}"
+                  alt="{{ w.title }}"
+                />
+                <div class="min-w-0">
+                  <div class="text-[1.05rem] font-bold tracking-[.02em] truncate">
+                    <a
+                      href="{{ url_for('editnovel.edit_novel', novels_id=w.novels_id) }}"
+                      class="no-underline text-white hover:text-accent transition"
+                    >
+                      {{ w.title }}
+                    </a>
+                  </div>
+                  <div class="mt-0.5 flex flex-wrap items-center gap-3 text-white/70 text-[.92rem]">
+                    <span>{{ w.category_name }}</span>
+                    <span>•</span>
+                    <span class="rounded-full border border-white/10 bg-[#35363a] px-2 py-0.5">
+                      {{ w.author_username }}
+                    </span>
+                  </div>
+                  <div class="mt-1 flex flex-wrap items-center gap-4 text-white/60 text-[.9rem]">
+                    <span>📚 {{ w.chapters }}</span>
+                    <span>👁️ {{ "{:,.0f}".format(w.views) }}</span>
+                    <span>💬 {{ "{:,.0f}".format(w.comments) }}</span>
+                    <span>❤ {{ "{:,.0f}".format(w.favorites) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- right column -->
+              <div class="md:col-start-3 md:row-start-1 grid justify-items-end gap-2">
+                <div class="text-white/60 text-sm">
+                  {% if w.edited_at %}
+                    แก้ไข {{ w.edited_at.strftime('%d %b %Y %H:%M น.') }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
+                <div class="relative status flex items-center gap-2" data-status="{{ w.status }}">
+                  {% set s = (w.status or 'แบบร่าง') %}
+                  <span
+                    class="dot inline-block h-2.5 w-2.5 rounded-full {{ 'bg-gray-400' if s in ['เผยแพร่','จบแล้ว'] else 'bg-gray-600' }}"
+                  ></span>
+                  <div class="relative">
+                    <select
+                      name="status"
+                      data-id="{{ w.novels_id }}"
+                      class="statusSel select-reset rounded-lg border border-line bg-chip/90 px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    >
+                      <option value="แบบร่าง"  {{ 'selected' if s == 'แบบร่าง'  else '' }}>แบบร่าง</option>
+                      <option value="เผยแพร่"   {{ 'selected' if s == 'เผยแพร่'   else '' }}>เผยแพร่</option>
+                      <option value="จบแล้ว"    {{ 'selected' if s == 'จบแล้ว'    else '' }}>จบแล้ว</option>
+                    </select>
+                    <div class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/60">
+                      ▾
+                    </div>
+                  </div>
+                  <button
+                    class="more ml-1 text-xl text-white/60 hover:text-white transition"
+                    title="ตัวเลือก"
+                  >
+                    ⋯
+                  </button>
+                  <div
+                    class="moreMenu absolute right-0 top-10 hidden min-w-44 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20"
+                  >
+                    <button class="menu-item" data-cmd="view">ดูผลงาน</button>
+                    <button class="menu-item" data-cmd="edit">แก้ไข</button>
+                    <button class="menu-item" data-cmd="copy">คัดลอกลิงก์</button>
+                    <div class="my-1 border-t border-white/10"></div>
+                    <button class="menu-item" style="color:#fca5a5" data-cmd="delete">ลบ</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        {% else %}
+          <p class="opacity-70">คุณยังไม่มีงานเขียน</p>
+        {% endif %}
+      </section>
+    </main>
+
+    <!-- REMOTE MODAL: โหลด new_novel.html ภายใน iframe ให้หน้าดูเหมือน modal -->
+    <div id="remoteModal" class="fixed inset-0 z-40 hidden items-center justify-center">
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-close="1"></div>
+      <div
+        id="remoteShell"
+        class="relative w-full max-w-3xl rounded-2xl border border-line bg-card p-0 shadow-soft"
+      >
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <h2 class="text-lg font-bold">เพิ่มงานเขียน</h2>
+          <button id="remoteClose" class="text-xl text-white/70 hover:text-white">✕</button>
         </div>
-        <div class="flex items-center gap-2 text-white/70">
+        <div class="p-4">
+          <iframe id="remoteFrame" src="about:blank" allowtransparency="true"></iframe>
         </div>
       </div>
     </div>
 
-    <!-- List -->
-    <section id="list" class="grid gap-3">
-      {% if works %}
-        {% for w in works %}
-          <article class="relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl border border-line bg-card/95 p-4 shadow-soft" data-id="{{ w.novels_id }}" data-status="{{ w.status or 'แบบร่าง' }}" data-detail="{{ w.detail_url }}">
-            <!-- left group -->
-            <div class="flex items-center gap-3">
-              <input type="checkbox" class="itemChk h-5 w-5 rounded-md border border-white/20 bg-chip/70 text-accent focus:ring-2 focus:ring-accent/50" value="{{ w.novels_id }}" />
-              <img class="h-16 w-16 rounded-lg border border-white/10 object-cover" src="{{ w.cover_url }}" alt="{{ w.title }}" />
-              <div class="min-w-0">
-                <div class="text-[1.05rem] font-bold tracking-[.02em] truncate">
-                  <a href="{{ url_for('editnovel.edit_novel', novels_id=w.novels_id) }}" class="no-underline text-white hover:text-accent transition">{{ w.title }}</a>
-                </div>
-                <div class="mt-0.5 flex flex-wrap items-center gap-3 text-white/70 text-[.92rem]">
-                  <span>{{ w.category_name }}</span>
-                  <span>•</span>
-                  <span class="rounded-full border border-white/10 bg-[#35363a] px-2 py-0.5">{{ w.author_username }}</span>
-                </div>
-                <div class="mt-1 flex flex-wrap items-center gap-4 text-white/60 text-[.9rem]">
-                  <span>📚 {{ w.chapters }}</span>
-                  <span>👁️ {{ "{:,.0f}".format(w.views) }}</span>
-                  <span>💬 {{ "{:,.0f}".format(w.comments) }}</span>
-                  <span>❤ {{ "{:,.0f}".format(w.favorites) }}</span>
-                </div>
-              </div>
-            </div>
+    <script>
+      // ========= Utilities =========
+      const $ = (sel, el=document) => el.querySelector(sel);
+      const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
 
-            <!-- right column -->
-            <div class="md:col-start-3 md:row-start-1 grid justify-items-end gap-2">
-              <div class="text-white/60 text-sm">{% if w.edited_at %}แก้ไข {{ w.edited_at.strftime('%d %b %Y %H:%M น.') }}{% else %}-{% endif %}</div>
-              <div class="relative status flex items-center gap-2" data-status="{{ w.status }}">
-                {% set s = (w.status or 'แบบร่าง') %}
-                <span class="dot inline-block h-2.5 w-2.5 rounded-full {{ 'bg-gray-400' if s in ['เผยแพร่','จบแล้ว'] else 'bg-gray-600' }}"></span>
-                <div class="relative">
-                  <select name="status" data-id="{{ w.novels_id }}" class="statusSel select-reset rounded-lg border border-line bg-chip/90 px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50">
-                    <option value="แบบร่าง"  {{ 'selected' if s == 'แบบร่าง'  else '' }}>แบบร่าง</option>
-                    <option value="เผยแพร่"   {{ 'selected' if s == 'เผยแพร่'   else '' }}>เผยแพร่</option>
-                    <option value="จบแล้ว"    {{ 'selected' if s == 'จบแล้ว'    else '' }}>จบแล้ว</option>
-                  </select>
-                  <div class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/60">▾</div>
-                </div>
-                <button class="more ml-1 text-xl text-white/60 hover:text-white transition" title="ตัวเลือก">⋯</button>
-                <div class="moreMenu absolute right-0 top-10 hidden min-w-44 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20">
-                  <button class="menu-item" data-cmd="view">ดูผลงาน</button>
-                  <button class="menu-item" data-cmd="edit">แก้ไข</button>
-                  <button class="menu-item" data-cmd="copy">คัดลอกลิงก์</button>
-                  <div class="my-1 border-t border-white/10"></div>
-                  <button class="menu-item" style="color:#fca5a5" data-cmd="delete">ลบ</button>
-                </div>
-              </div>
-            </div>
-          </article>
-        {% endfor %}
-      {% else %}
-        <p class="opacity-70">คุณยังไม่มีงานเขียน</p>
-      {% endif %}
-    </section>
-  </main>
+      function toast(msg, ok=true){
+        const box = document.createElement('div');
+        box.className = `fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] rounded-xl border ${
+          ok ? 'border-white/10 bg-white/10' : 'border-red-400/40 bg-red-400/20'
+        } backdrop-blur px-4 py-2 text-sm`;
+        box.textContent = msg;
+        document.body.appendChild(box);
+        setTimeout(()=> box.remove(), 2000);
+      }
 
-  <!-- REMOTE MODAL: โหลด new_novel.html ภายใน iframe ให้หน้าดูเหมือน modal -->
-  <div id="remoteModal" class="fixed inset-0 z-40 hidden items-center justify-center">
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-close="1"></div>
-    <div id="remoteShell" class="relative w-full max-w-3xl rounded-2xl border border-line bg-card p-0 shadow-soft">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <h2 class="text-lg font-bold">เพิ่มงานเขียน</h2>
-        <button id="remoteClose" class="text-xl text-white/70 hover:text-white">✕</button>
-      </div>
-      <div class="p-4">
-        <iframe id="remoteFrame" src="about:blank" allowtransparency="true"></iframe>
-      </div>
-    </div>
-  </div>
+      function closeAllMenus(){
+        $('#manageMenu')?.classList.add('hidden');
+        $('#filterMenu')?.classList.add('hidden');
+        $$('.moreMenu').forEach(m => m.classList.add('hidden'));
+      }
 
-  <script>
-  // ========= Utilities =========
-  const $ = (sel, el=document) => el.querySelector(sel);
-  const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
-  function toast(msg, ok=true){
-    const box = document.createElement('div');
-    box.className = `fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] rounded-xl border ${ok? 'border-white/10 bg-white/10':'border-red-400/40 bg-red-400/20'} backdrop-blur px-4 py-2 text-sm`;
-    box.textContent = msg; document.body.appendChild(box); setTimeout(()=> box.remove(), 2000);
-  }
-  function closeAllMenus(){ $('#manageMenu')?.classList.add('hidden'); $('#filterMenu')?.classList.add('hidden'); $$('.moreMenu').forEach(m => m.classList.add('hidden')); }
-  function visibleCount(){ const n = $$('#list article').filter(a => !a.classList.contains('hidden')).length; const label = $('#filterLabel'); if (label) label.textContent = label.textContent.replace(/\(.+?\)/, `(${n.toLocaleString()})`).replace(/ทั้งหมด|เผยแพร่|จบแล้ว|แบบร่าง/, currentFilter); }
+      function visibleCount(){
+        const n = $$('#list article').filter(a => !a.classList.contains('hidden')).length;
+        const label = $('#filterLabel');
+        if (!label) return;
+        const txt = label.textContent;
+        label.textContent = txt
+          .replace(/\(.+?\)/, `(${n.toLocaleString()})`)
+          .replace(/ทั้งหมด|เผยแพร่|จบแล้ว|แบบร่าง/, currentFilter);
+      }
 
-  // ========= List helpers =========
-  function articleFromData(d){
-    const html = `
+      // ========= List helpers =========
+      function articleFromData(d){
+        const html = `
     <article class="relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl border border-line bg-card/95 p-4 shadow-soft" data-id="${d.novels_id}" data-status="${d.status || 'แบบร่าง'}" data-detail="${d.detail_url || '#'}">
       <div class="flex items-center gap-3">
         <input type="checkbox" class="itemChk h-5 w-5 rounded-md border border-white/20 bg-chip/70 text-accent focus:ring-2 focus:ring-accent/50" value="${d.novels_id}" />
@@ -240,127 +366,260 @@
         </div>
       </div>
     </article>`;
-    const tpl = document.createElement('template'); tpl.innerHTML = html.trim(); return tpl.content.firstElementChild;
-  }
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html.trim();
+        return tpl.content.firstElementChild;
+      }
 
- // ========= Global handlers (เดิม) =========
-  let currentFilter = 'ทั้งหมด';
-  document.addEventListener('click', (e)=>{ if (!e.target.closest('#manageBtn') && !e.target.closest('#manageMenu') && !e.target.closest('#filterBtn') && !e.target.closest('#filterMenu') && !e.target.closest('.more') && !e.target.closest('.moreMenu')){ closeAllMenus(); } });
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeAllMenus(); if(!$('#remoteModal')?.classList.contains('hidden')) closeRemoteModal(); } });
+      // ========= Global handlers =========
+      let currentFilter = 'ทั้งหมด';
 
-  // Select all
-  $('#checkAll')?.addEventListener('change', (e)=>{ const on = e.target.checked; $$('.itemChk').forEach(c=> c.checked = on); });
+      document.addEventListener('click', (e)=>{
+        if (
+          !e.target.closest('#manageBtn') &&
+          !e.target.closest('#manageMenu') &&
+          !e.target.closest('#filterBtn') &&
+          !e.target.closest('#filterMenu') &&
+          !e.target.closest('.more') &&
+          !e.target.closest('.moreMenu')
+        ){
+          closeAllMenus();
+        }
+      });
 
-  // Manage dropdown
-  $('#manageBtn')?.addEventListener('click', ()=>{ $('#manageMenu')?.classList.toggle('hidden'); $('#filterMenu')?.classList.add('hidden'); });
-  $('#manageMenu')?.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('[data-action]'); if(!btn) return; const action = btn.dataset.action; closeAllMenus();
-    const ids = $$('.itemChk:checked').map(i => i.value); if (ids.length===0) return toast('ยังไม่ได้เลือกรายการ', false);
-    ids.forEach(id=>{ const art = document.querySelector(`article[data-id="${id}"]`); if (!art) return; if (action==='delete'){ art.remove(); } else { const st = action==='publish' ? 'เผยแพร่' : action==='complete' ? 'จบแล้ว' : 'แบบร่าง'; art.dataset.status = st; const sel = art.querySelector('.statusSel'); sel.value = st; sel.setAttribute('data-prev', st); const dot = art.querySelector('.dot'); dot.style.background = (st==='เผยแพร่' || st==='จบแล้ว') ? '#9ca3af' : '#6b6b6b'; }});
-    visibleCount();
-    try{ const res = await fetch('/api/mywrite/bulk', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ids, action})}); if(!res.ok) throw new Error('HTTP '+res.status); const out = await res.json(); if (!out.ok) throw new Error(out.message || 'ไม่สำเร็จ'); toast('ดำเนินการเรียบร้อย'); }catch(err){ toast('ไม่สามารถบันทึกการเปลี่ยนแปลง: '+err.message, false); }
-  });
+      document.addEventListener('keydown', (e)=>{
+        if(e.key==='Escape'){
+          closeAllMenus();
+          if(!$('#remoteModal')?.classList.contains('hidden')) closeRemoteModal();
+        }
+      });
 
-  // Filter dropdown
-  $('#filterBtn')?.addEventListener('click', ()=>{ $('#filterMenu')?.classList.toggle('hidden'); $('#manageMenu')?.classList.add('hidden'); });
-  $('#filterMenu')?.addEventListener('click', (e)=>{
-    const b = e.target.closest('[data-filter]'); if(!b) return; currentFilter = b.dataset.filter; $('#filterLabel').textContent = currentFilter; const arts = $$('#list article'); arts.forEach(a=>{ const st = a.dataset.status || 'แบบร่าง'; a.classList.toggle('hidden', currentFilter!=='ทั้งหมด' && st!==currentFilter); }); closeAllMenus(); visibleCount();
-  });
+      // Select all
+      $('#checkAll')?.addEventListener('change', (e)=>{
+        const on = e.target.checked;
+        $$('.itemChk').forEach(c=> c.checked = on);
+      });
 
-  // Per-item status change
-  function attachStatusHandlers(){ $$('.statusSel').forEach(sel => { sel.addEventListener('change', async () => { const s = sel.value; const id = sel.dataset.id; const dot = sel.closest('.status').querySelector('.dot'); dot.style.background = (s === 'เผยแพร่' || s === 'จบแล้ว') ? '#9ca3af' : '#6b6b6b'; sel.closest('article').dataset.status = s; try { const res = await fetch(`/api/mywrite/${id}/status`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status: s }) }); const out = await res.json(); if (!res.ok || !out.ok) throw new Error(out.message || out.error || 'save failed'); sel.setAttribute('data-prev', s); toast('อัปเดตสถานะแล้ว'); } catch (err) { toast('บันทึกสถานะไม่สำเร็จ: '+ err.message, false); sel.value = sel.getAttribute('data-prev') || 'แบบร่าง'; const s0 = sel.value; dot.style.background = (s0==='เผยแพร่'||s0==='จบแล้ว') ? '#9ca3af' : '#6b6b6b'; } visibleCount(); }); }); }
-  attachStatusHandlers();
+      // Manage dropdown
+      $('#manageBtn')?.addEventListener('click', ()=>{
+        $('#manageMenu')?.classList.toggle('hidden');
+        $('#filterMenu')?.classList.add('hidden');
+      });
 
-  // Per-item menu actions
-  $('#list').addEventListener('click', async (e)=>{
-    const moreBtn = e.target.closest('.more'); if (moreBtn){ const card = moreBtn.closest('article'); closeAllMenus(); card.querySelector('.moreMenu').classList.toggle('hidden'); return; }
-    const cmdBtn = e.target.closest('.moreMenu [data-cmd]'); if (!cmdBtn) return; const card = cmdBtn.closest('article'); const id = card.dataset.id; const url = card.dataset.detail || '#'; const cmd = cmdBtn.dataset.cmd; closeAllMenus();
-    if (cmd==='view') return location.href = url;
-    if (cmd==='edit') return location.href = `/edit_novel/${id}`;
-    if (cmd==='copy'){ await navigator.clipboard.writeText(url); return toast('คัดลอกลิงก์แล้ว'); }
-    if (cmd==='delete'){ const ok = confirm('ยืนยันการลบผลงานนี้?'); if(!ok) return; card.remove(); visibleCount(); try{ const res = await fetch(`/api/mywrite/${id}`, {method:'DELETE'}); if(!res.ok) throw new Error('HTTP '+res.status); } catch(err){ toast('ลบไม่สำเร็จบนเซิร์ฟเวอร์: '+err.message, false); } }
-  });
+      $('#manageMenu')?.addEventListener('click', async (e)=>{
+        const btn = e.target.closest('[data-action]');
+        if(!btn) return;
+        const action = btn.dataset.action;
+        closeAllMenus();
 
-  // ========= Remote modal (new_novel.html) =========
-  const remoteModal = $('#remoteModal');
-  const remoteFrame = $('#remoteFrame');
-  const remoteShell = $('#remoteShell');
+        const ids = $$('.itemChk:checked').map(i => i.value);
+        if (ids.length===0) return toast('ยังไม่ได้เลือกรายการ', false);
 
-  const defaultNewUrl =
-    $('#addBtn')?.getAttribute('data-new-url') ||
-    $('#addBtn')?.getAttribute('href') ||
-    '/new_novel';
+        ids.forEach(id=>{
+          const art = document.querySelector(`article[data-id="${id}"]`);
+          if (!art) return;
+          if (action==='delete'){
+            art.remove();
+          } else {
+            const st = action==='publish'
+              ? 'เผยแพร่'
+              : action==='complete'
+                ? 'จบแล้ว'
+                : 'แบบร่าง';
+            art.dataset.status = st;
+            const sel = art.querySelector('.statusSel');
+            sel.value = st;
+            sel.setAttribute('data-prev', st);
+            const dot = art.querySelector('.dot');
+            dot.style.background = (st==='เผยแพร่' || st==='จบแล้ว') ? '#9ca3af' : '#6b6b6b';
+          }
+        });
+        visibleCount();
 
-  function openRemoteModal(url){
-    if (!remoteModal || !remoteFrame) return;
+        try{
+          const res = await fetch('/api/mywrite/bulk', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ids, action})
+          });
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          const out = await res.json();
+          if (!out.ok) throw new Error(out.message || 'ไม่สำเร็จ');
+          toast('ดำเนินการเรียบร้อย');
+        }catch(err){
+          toast('ไม่สามารถบันทึกการเปลี่ยนแปลง: '+err.message, false);
+        }
+      });
 
-    const target = url || defaultNewUrl;
+      // Filter dropdown
+      $('#filterBtn')?.addEventListener('click', ()=>{
+        $('#filterMenu')?.classList.toggle('hidden');
+        $('#manageMenu')?.classList.add('hidden');
+      });
 
-    // เริ่มสถานะโหลด
-    remoteShell?.classList.add('is-loading');
-    remoteModal.classList.remove('hidden');
-    remoteModal.classList.add('flex');
+      $('#filterMenu')?.addEventListener('click', (e)=>{
+        const b = e.target.closest('[data-filter]');
+        if(!b) return;
+        currentFilter = b.dataset.filter;
+        $('#filterLabel').textContent = currentFilter;
+        const arts = $$('#list article');
+        arts.forEach(a=>{
+          const st = a.dataset.status || 'แบบร่าง';
+          a.classList.toggle('hidden', currentFilter!=='ทั้งหมด' && st!==currentFilter);
+        });
+        closeAllMenus();
+        visibleCount();
+      });
 
-    let finished = false;
-    const finish = () => {
-      if (finished) return;          // กันไม่ให้เรียกซ้ำ
-      finished = true;
-      remoteShell?.classList.remove('is-loading');
-    };
+      // Per-item status change
+      function attachStatusHandlers(){
+        $$('.statusSel').forEach(sel => {
+          sel.addEventListener('change', async () => {
+            const s = sel.value;
+            const id = sel.dataset.id;
+            const dot = sel.closest('.status').querySelector('.dot');
+            dot.style.background = (s === 'เผยแพร่' || s === 'จบแล้ว') ? '#9ca3af' : '#6b6b6b';
+            sel.closest('article').dataset.status = s;
 
-    remoteFrame.onload = () => {
-      // ถ้าโหลดเสร็จแล้ว และยังไม่ปิด modal ให้เคลียร์สถานะโหลด
-      finish();
-    };
+            try {
+              const res = await fetch(`/api/mywrite/${id}/status`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ status: s })
+              });
+              const out = await res.json();
+              if (!res.ok || !out.ok) throw new Error(out.message || out.error || 'save failed');
+              sel.setAttribute('data-prev', s);
+              toast('อัปเดตสถานะแล้ว');
+            } catch (err) {
+              toast('บันทึกสถานะไม่สำเร็จ: '+ err.message, false);
+              sel.value = sel.getAttribute('data-prev') || 'แบบร่าง';
+              const s0 = sel.value;
+              dot.style.background = (s0==='เผยแพร่'||s0==='จบแล้ว') ? '#9ca3af' : '#6b6b6b';
+            }
+            visibleCount();
+          });
+        });
+      }
+      attachStatusHandlers();
 
-    remoteFrame.onerror = () => {
-      if (finished) return;
-      finish();
-      // ถ้าโหลดใน modal ไม่ได้ → เปิดหน้าเต็มแทน
-      window.location.href = target;
-    };
+      // Per-item menu actions
+      $('#list').addEventListener('click', async (e)=>{
+        const moreBtn = e.target.closest('.more');
+        if (moreBtn){
+          const card = moreBtn.closest('article');
+          closeAllMenus();
+          card.querySelector('.moreMenu').classList.toggle('hidden');
+          return;
+        }
 
-    remoteFrame.src = target;
-  }
+        const cmdBtn = e.target.closest('.moreMenu [data-cmd]');
+        if (!cmdBtn) return;
+        const card = cmdBtn.closest('article');
+        const id = card.dataset.id;
+        const url = card.dataset.detail || '#';
+        const cmd = cmdBtn.dataset.cmd;
+        closeAllMenus();
 
-  function closeRemoteModal(){
-    if (!remoteModal || !remoteFrame) return;
+        if (cmd==='view') return location.href = url;
+        if (cmd==='edit') return location.href = `/edit_novel/${id}`;
+        if (cmd==='copy'){
+          await navigator.clipboard.writeText(url);
+          return toast('คัดลอกลิงก์แล้ว');
+        }
+        if (cmd==='delete'){
+          const ok = confirm('ยืนยันการลบผลงานนี้?');
+          if(!ok) return;
+          card.remove();
+          visibleCount();
+          try{
+            const res = await fetch(`/api/mywrite/${id}`, {method:'DELETE'});
+            if(!res.ok) throw new Error('HTTP '+res.status);
+          } catch(err){
+            toast('ลบไม่สำเร็จบนเซิร์ฟเวอร์: '+err.message, false);
+          }
+        }
+      });
 
-    remoteModal.classList.remove('flex');
-    remoteModal.classList.add('hidden');
+      // ========= Remote modal (new_novel.html) =========
+      const remoteModal = $('#remoteModal');
+      const remoteFrame = $('#remoteFrame');
+      const remoteShell = $('#remoteShell');
 
-    remoteShell?.classList.remove('is-loading');
+      const defaultNewUrl =
+        $('#addBtn')?.getAttribute('data-new-url') ||
+        $('#addBtn')?.getAttribute('href') ||
+        '/new_novel';
 
-    // เคลียร์ handler เพื่อไม่ให้ onload ของ about:blank ดึง modal กลับมาอีก
-    remoteFrame.onload = null;
-    remoteFrame.onerror = null;
-    remoteFrame.src = 'about:blank';
-  }
+      function openRemoteModal(url){
+        if (!remoteModal || !remoteFrame) return;
 
-  $('#addBtn')?.addEventListener('click', (e)=>{
-    if (e.metaKey || e.ctrlKey || e.button === 1) return; // เปิดแท็บใหม่ตามปกติ
-    e.preventDefault();
-    openRemoteModal();
-  });
+        const target = url || defaultNewUrl;
 
-  $('#remoteClose')?.addEventListener('click', (e)=>{
-    e.preventDefault();
-    closeRemoteModal();
-  });
+        // เริ่มสถานะโหลด
+        remoteShell?.classList.add('is-loading');
+        remoteModal.classList.remove('hidden');
+        remoteModal.classList.add('flex');
 
-  // ปิดเมื่อคลิก backdrop
-  remoteModal?.addEventListener('mousedown', (e)=>{
-    if (e.target && e.target.getAttribute && e.target.getAttribute('data-close') === '1') {
-      closeRemoteModal();
-    }
-  });
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          remoteShell?.classList.remove('is-loading');
+        };
 
-  // ให้หน้า new_novel ภายใน iframe ส่ง postMessage('close-modal') เพื่อสั่งปิดจากข้างในได้
-  window.addEventListener('message', (ev)=>{
-    if (ev?.data === 'close-modal') closeRemoteModal();
-  });
+        remoteFrame.onload = () => {
+          finish();
+        };
 
-  visibleCount();
-  </script>
-</body>
-</html>
+        remoteFrame.onerror = () => {
+          if (finished) return;
+          finish();
+          // ถ้าโหลดใน modal ไม่ได้ → เปิดหน้าเต็มแทน
+          window.location.href = target;
+        };
+
+        remoteFrame.src = target;
+      }
+
+      function closeRemoteModal(){
+        if (!remoteModal || !remoteFrame) return;
+
+        remoteModal.classList.remove('flex');
+        remoteModal.classList.add('hidden');
+
+        remoteShell?.classList.remove('is-loading');
+
+        // เคลียร์ handler
+        remoteFrame.onload = null;
+        remoteFrame.onerror = null;
+        remoteFrame.src = 'about:blank';
+      }
+
+      $('#addBtn')?.addEventListener('click', (e)=>{
+        if (e.metaKey || e.ctrlKey || e.button === 1) return; // เปิดแท็บใหม่ตามปกติ
+        e.preventDefault();
+        openRemoteModal();
+      });
+
+      $('#remoteClose')?.addEventListener('click', (e)=>{
+        e.preventDefault();
+        closeRemoteModal();
+      });
+
+      // ปิดเมื่อคลิก backdrop
+      remoteModal?.addEventListener('mousedown', (e)=>{
+        if (e.target && e.target.getAttribute && e.target.getAttribute('data-close') === '1') {
+          closeRemoteModal();
+        }
+      });
+
+      // iframe ข้างในส่ง postMessage('close-modal') มาได้
+      window.addEventListener('message', (ev)=>{
+        if (ev?.data === 'close-modal') closeRemoteModal();
+      });
+
+      visibleCount();
+    </script>
+  </div>
+{% endblock %}

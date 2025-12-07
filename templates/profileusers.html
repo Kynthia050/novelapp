@@ -1,85 +1,181 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>My Profile — MY SHELF</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&display=swap');
+{% extends "base.html" %}
 
-    :root{
-      --bg:#222; --text:#eee; --muted:#bbb; --panel:rgba(34,34,34,.9);
-      --line:rgba(255,255,255,.12); --soft:#444; --brand:#fff; --accent:#00c4b4;
-      --radius:16px; --shadow:0 10px 24px rgba(0,0,0,.45);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;line-height:1.6;
-      font-family:'Noto Sans Thai',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
-      background:var(--bg) url('{{ url_for("static", filename="img/bg-login.jpg") }}') center/cover fixed no-repeat;
-      color:var(--text);
-    }
+{% block title %}My Profile — MY SHELF{% endblock %}
 
-    /* Header */
-    header{position:sticky;top:0;z-index:30;background:rgba(34,34,34,.85);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
-    .nav{max-width:1200px;margin:0 auto;padding:10px 20px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
-    .brand{font-family:Georgia,'Times New Roman',serif;font-size:1.6rem;letter-spacing:.25em;font-weight:700;text-align:center}
-    .nav-ctls{display:flex;gap:10px;justify-content:flex-end}
-    .btn{padding:10px 14px;border-radius:12px;border:1px solid var(--soft);background:#111214;color:#eee;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem}
-    .btn:hover{filter:brightness(1.05)}
-    .btn:active{transform:translateY(1px)}
-    .btn.small{padding:8px 12px;border-radius:10px;font-size:.95rem}
-    .btn.primary{background:var(--brand);color:#000;border-color:var(--brand)}
-    .btn.outline{background:transparent}
+{# CSS เฉพาะหน้าดูโปรไฟล์ #}
+{% block extra_head %}
+<style>
+  /* พื้นหลังเฉพาะส่วนเนื้อหาโปรไฟล์ ไม่ไปยุ่งกับ header */
+  .profile-bg{
+    min-height:100vh;
+    background:#222 url('{{ url_for("static", filename="img/bg-login.jpg") }}') center/cover fixed no-repeat;
+  }
 
-    /* Layout */
-    .site{max-width:1000px;margin:0 auto;padding:24px}
-    .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+  .profile-page{
+    max-width:1000px;
+    margin:0 auto;
+    padding:24px;
+    color:#eee;
+  }
 
-    .grid{display:grid;grid-template-columns:260px 1fr;gap:26px;align-items:start}
-    @media (max-width: 900px){.grid{grid-template-columns:1fr}}
+  .profile-page .profile-panel{
+    background:rgba(34,34,34,.9);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:16px;
+    box-shadow:0 10px 24px rgba(0,0,0,.45);
+    padding:22px;
+  }
 
-    .avatar-wrap{display:grid;place-items:center;gap:14px}
-    .avatar{width:220px;height:220px;border-radius:50%;background:#d9d9dc;border:1px solid var(--line);object-fit:cover;display:block}
-    .avatar-ctls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .profile-page .profile-grid{
+    display:grid;
+    grid-template-columns:260px 1fr;
+    gap:26px;
+    align-items:start;
+  }
+  @media (max-width:900px){
+    .profile-page .profile-grid{grid-template-columns:1fr}
+  }
 
-    .form{display:grid;gap:14px}
-    .field{display:grid;gap:8px}
-    .label{color:var(--muted)}
-    .input, .select{width:100%;background:#ddd;color:#111;border:0;border-radius:14px;padding:12px 14px;font-size:1rem}
-    .pwd-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-    .toggle{padding:10px 12px;border-radius:12px;border:1px solid var(--soft);background:#111214;color:#eee;cursor:pointer}
+  .profile-page .avatar-wrap{
+    display:grid;
+    place-items:center;
+    gap:14px;
+  }
+  .profile-page .avatar{
+    width:220px;
+    height:220px;
+    border-radius:50%;
+    background:#d9d9dc;
+    border:1px solid rgba(255,255,255,.12);
+    object-fit:cover;
+    display:block;
+  }
+  .profile-page .avatar-ctls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
 
-    .gender-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    @media (max-width: 600px){.gender-row{grid-template-columns:1fr}}
+  .profile-page .form{
+    display:grid;
+    gap:14px;
+  }
+  .profile-page .field{
+    display:grid;
+    gap:8px;
+  }
+  .profile-page .label{
+    color:#bbb;
+  }
+  .profile-page .input,
+  .profile-page .select{
+    width:100%;
+    background:#ddd;
+    color:#111;
+    border:0;
+    border-radius:14px;
+    padding:12px 14px;
+    font-size:1rem;
+  }
 
-    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
-    .muted{color:var(--muted)}
+  .profile-page .pwd-row{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:8px;
+    align-items:center;
+  }
+  .profile-page .toggle{
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid #444;
+    background:#111214;
+    color:#eee;
+    cursor:pointer;
+  }
 
-    .hint{font-size:.9rem;color:var(--muted)}
-    .meter{height:8px;border-radius:999px;background:#333;border:1px solid var(--line);overflow:hidden}
-    .bar{height:100%;width:0;background:#ffcc00;transition:width .25s}
+  .profile-page .gender-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    align-items:start;
+  }
+  @media (max-width:600px){
+    .profile-page .gender-row{grid-template-columns:1fr}
+  }
 
-    /* Utility */
-    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-  </style>
-</head>
-<body>
-  <!-- Header -->
-  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
-    {% include 'header.html' %}
-  </header>
+  .profile-page .actions{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:8px;
+  }
 
-  <main class="site">
-    <section class="panel">
+  .profile-page .btn{
+    padding:10px 14px;
+    border-radius:12px;
+    border:1px solid #444;
+    background:#111214;
+    color:#eee;
+    cursor:pointer;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    gap:.4rem;
+  }
+  .profile-page .btn:hover{filter:brightness(1.05)}
+  .profile-page .btn:active{transform:translateY(1px)}
+  .profile-page .btn.primary{
+    background:#fff;
+    color:#000;
+    border-color:#fff;
+  }
+
+  .profile-page .hint{
+    font-size:.9rem;
+    color:#bbb;
+  }
+
+  .profile-page .meter{
+    height:8px;
+    border-radius:999px;
+    background:#333;
+    border:1px solid rgba(255,255,255,.12);
+    overflow:hidden;
+    margin-top:4px;
+  }
+  .profile-page .bar{
+    height:100%;
+    width:0;
+    background:#ffcc00;
+    transition:width .25s, background .25s;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-bg">
+  <div class="profile-page">
+    <section class="profile-panel">
       <h1 style="margin:0 0 14px;font-size:1.6rem">โปรไฟล์ของฉัน</h1>
 
-      <form id="profileForm" class="grid" method="post" action="{{ url_for('profile.profileusers') }}" enctype="multipart/form-data">
+      <form
+        id="profileForm"
+        class="profile-grid"
+        method="post"
+        action="{{ url_for('profile.profileusers') }}"
+        enctype="multipart/form-data"
+      >
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
         <!-- LEFT: Avatar -->
         <div class="avatar-wrap">
-          <img id="avatarPreview" class="avatar" src="{{ user.avatar_url or url_for('static', filename='profile/default.png') }}" alt="avatar">
+          <img
+            id="avatarPreview"
+            class="avatar"
+            src="{{ user.avatar_url or url_for('static', filename='profile/default.png') }}"
+            alt="avatar"
+          >
           <div class="avatar-ctls">
             <label class="btn" for="avatarInput">📷 เปลี่ยนรูปโปรไฟล์</label>
             <input id="avatarInput" type="file" name="avatar" accept="image/*" hidden>
@@ -93,13 +189,29 @@
         <div class="form">
           <div class="field">
             <label class="label" for="username">ชื่อผู้ใช้</label>
-            <input id="username" class="input" type="text" name="username" value="{{ user.username }}" placeholder="ชื่อผู้ใช้" autocomplete="username">
+            <input
+              id="username"
+              class="input"
+              type="text"
+              name="username"
+              value="{{ user.username }}"
+              placeholder="ชื่อผู้ใช้"
+              autocomplete="username"
+            >
             <div class="hint">ชื่อผู้ใช้ที่แสดงในระบบ</div>
           </div>
 
           <div class="field">
             <label class="label" for="email">อีเมล</label>
-            <input id="email" class="input" type="email" name="email" value="{{ user.email or '' }}" placeholder="your@email.com" autocomplete="email">
+            <input
+              id="email"
+              class="input"
+              type="email"
+              name="email"
+              value="{{ user.email or '' }}"
+              placeholder="your@email.com"
+              autocomplete="email"
+            >
           </div>
 
           <!-- Gender field -->
@@ -119,7 +231,14 @@
           <div class="field">
             <label class="label" for="pwdCurrent">รหัสผ่านปัจจุบัน</label>
             <div class="pwd-row">
-              <input class="input" type="password" id="pwdCurrent" name="password_current" placeholder="รหัสผ่านเดิม" autocomplete="current-password">
+              <input
+                class="input"
+                type="password"
+                id="pwdCurrent"
+                name="password_current"
+                placeholder="รหัสผ่านเดิม"
+                autocomplete="current-password"
+              >
               <button class="toggle" type="button" data-target="pwdCurrent">แสดง</button>
             </div>
           </div>
@@ -127,15 +246,32 @@
           <div class="field">
             <label class="label" for="pwdNew">รหัสผ่านใหม่</label>
             <div class="pwd-row">
-              <input class="input" type="password" id="pwdNew" name="password_new" placeholder="อย่างน้อย 8 ตัวอักษร" autocomplete="new-password">
+              <input
+                class="input"
+                type="password"
+                id="pwdNew"
+                name="password_new"
+                placeholder="อย่างน้อย 8 ตัวอักษร"
+                autocomplete="new-password"
+              >
               <button class="toggle" type="button" data-target="pwdNew">แสดง</button>
+            </div>
+            <div class="meter" aria-hidden="true">
+              <div class="bar" id="strengthBar"></div>
             </div>
           </div>
 
           <div class="field">
             <label class="label" for="pwdConfirm">ยืนยันรหัสผ่านใหม่</label>
             <div class="pwd-row">
-              <input class="input" type="password" id="pwdConfirm" name="password_confirm" placeholder="พิมพ์ซ้ำรหัสผ่านใหม่" autocomplete="new-password">
+              <input
+                class="input"
+                type="password"
+                id="pwdConfirm"
+                name="password_confirm"
+                placeholder="พิมพ์ซ้ำรหัสผ่านใหม่"
+                autocomplete="new-password"
+              >
               <button class="toggle" type="button" data-target="pwdConfirm">แสดง</button>
             </div>
             <div class="hint" id="matchHint"></div>
@@ -150,108 +286,117 @@
 
           <div class="actions">
             <button class="btn primary" type="submit">บันทึกการเปลี่ยนแปลง</button>
-            <button class="btn" type="submit">ยกเลิก</button>
+            <button class="btn" type="button" onclick="window.history.back()">ยกเลิก</button>
           </div>
         </div>
       </form>
     </section>
-  </main>
+  </div>
+</div>
 
-  <script>
-    // Preview avatar
-    const avatarInput = document.getElementById('avatarInput');
-    const avatarPreview = document.getElementById('avatarPreview');
-    const removeBtn = document.getElementById('removeAvatar');
-    const removeFlag = document.getElementById('removeFlag');
+<script>
+  const profileRoot = document.querySelector('.profile-page');
 
+  // Preview avatar
+  const avatarInput   = profileRoot ? profileRoot.querySelector('#avatarInput')   : null;
+  const avatarPreview = profileRoot ? profileRoot.querySelector('#avatarPreview') : null;
+  const removeBtn     = profileRoot ? profileRoot.querySelector('#removeAvatar')  : null;
+  const removeFlag    = profileRoot ? profileRoot.querySelector('#removeFlag')    : null;
+
+  if (avatarInput && avatarPreview) {
     avatarInput.addEventListener('change', (e)=>{
       const file = e.target.files && e.target.files[0];
-      if(!file) return;
-      if(!file.type.startsWith('image/')) return alert('กรุณาเลือกรูปภาพ');
-      if(file.size > 2*1024*1024) return alert('ไฟล์ใหญ่เกินไป (จำกัด 2MB)');
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        alert('กรุณาเลือกรูปภาพ');
+        return;
+      }
+      if (file.size > 2*1024*1024) {
+        alert('ไฟล์ใหญ่เกินไป (จำกัด 2MB)');
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = ev => avatarPreview.src = ev.target.result;
+      reader.onload = ev => {
+        avatarPreview.src = ev.target.result;
+      };
       reader.readAsDataURL(file);
-      removeFlag.value = ''; // มีไฟล์ใหม่ ไม่ต้องลบ
+      if (removeFlag) removeFlag.value = ''; // มีไฟล์ใหม่ ไม่ต้องลบ
     });
+  }
 
+  if (removeBtn && avatarPreview) {
     removeBtn.addEventListener('click', ()=>{
       avatarPreview.src = '{{ url_for("static", filename="profile/default.png") }}';
-      avatarInput.value = '';
-      removeFlag.value = '1'; // แจ้ง backend ให้ลบรูป
+      if (avatarInput) avatarInput.value = '';
+      if (removeFlag) removeFlag.value = '1'; // แจ้ง backend ให้ลบรูป
     });
+  }
 
-    // Toggle password visibility
-    document.querySelectorAll('.toggle').forEach(btn=>{
-      btn.addEventListener('click',()=>{
+  // Toggle password visibility (จำกัดใน profile-page เท่านั้น)
+  if (profileRoot) {
+    profileRoot.querySelectorAll('.toggle').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
         const id = btn.getAttribute('data-target');
-        const input = document.getElementById(id);
-        if(!input) return;
+        const input = profileRoot.querySelector('#'+id);
+        if (!input) return;
         input.type = input.type === 'password' ? 'text' : 'password';
         btn.textContent = input.type === 'password' ? 'แสดง' : 'ซ่อน';
       });
     });
+  }
 
-    // Password strength
-    const pwdNew = document.getElementById('pwdNew');
-    const bar = document.getElementById('strengthBar');
-    function strength(s){
-      let score = 0;
-      if(s.length>=8) score+=25;
-      if(/[A-Z]/.test(s)) score+=25;
-      if(/[0-9]/.test(s)) score+=25;
-      if(/[^A-Za-z0-9]/.test(s)) score+=25;
-      return score;
-    }
-    pwdNew.addEventListener('input',()=>{
-      const sc = strength(pwdNew.value);
-      bar.style.width = sc+'%';
-      bar.style.background = sc>75? '#15c975' : sc>50? '#ffcc00' : '#ff7b7b';
+  const pwdNew     = profileRoot ? profileRoot.querySelector('#pwdNew')      : null;
+  const pwdConfirm = profileRoot ? profileRoot.querySelector('#pwdConfirm')  : null;
+  const matchHint  = profileRoot ? profileRoot.querySelector('#matchHint')   : null;
+  const bar        = profileRoot ? profileRoot.querySelector('#strengthBar') : null;
+
+  function strength(s){
+    let score = 0;
+    if (s.length >= 8) score += 25;
+    if (/[A-Z]/.test(s)) score += 25;
+    if (/[0-9]/.test(s)) score += 25;
+    if (/[^A-Za-z0-9]/.test(s)) score += 25;
+    return score;
+  }
+
+  function updateStrength(){
+    if (!bar || !pwdNew) return;
+    const sc = strength(pwdNew.value || '');
+    bar.style.width = sc + '%';
+    bar.style.background = sc > 75 ? '#15c975' : sc > 50 ? '#ffcc00' : '#ff7b7b';
+  }
+
+  function checkMatch(){
+    if (!pwdNew || !pwdConfirm || !matchHint) return true;
+    const ok = pwdNew.value && pwdNew.value === pwdConfirm.value;
+    matchHint.textContent = ok
+      ? 'รหัสผ่านตรงกัน'
+      : (pwdConfirm.value ? 'รหัสผ่านไม่ตรงกัน' : '');
+    matchHint.style.color = ok ? '#15c975' : '#ffb3b3';
+    return ok;
+  }
+
+  if (pwdNew) {
+    pwdNew.addEventListener('input', ()=>{
+      updateStrength();
+      checkMatch();
     });
-
-    // Match hint
-    const pwdConfirm = document.getElementById('pwdConfirm');
-    const matchHint = document.getElementById('matchHint');
-    function checkMatch(){
-      const ok = pwdNew.value && pwdNew.value === pwdConfirm.value;
-      matchHint.textContent = ok ? 'รหัสผ่านตรงกัน' : (pwdConfirm.value? 'รหัสผ่านไม่ตรงกัน' : '');
-      matchHint.style.color = ok? '#15c975' : '#ffb3b3';
-      return ok;
-    }
-    pwdNew.addEventListener('input', checkMatch);
+  }
+  if (pwdConfirm) {
     pwdConfirm.addEventListener('input', checkMatch);
+  }
 
-    // Gender: enable/disable other field
-    const gender = document.getElementById('gender');
-    const genderOther = document.getElementById('genderOther');
-    function syncGenderOther(){
-      const isOther = gender.value === 'other';
-      genderOther.disabled = !isOther;
-      if(isOther){
-        genderOther.focus();
-      } else {
-        genderOther.value = '';
-      }
-    }
-    gender.addEventListener('change', syncGenderOther);
-    syncGenderOther();
-
-    // Validate before submit
-    document.getElementById('profileForm').addEventListener('submit',(e)=>{
-      // If password fields provided, ensure they match
-      if(pwdNew.value || pwdConfirm.value){
-        if(!checkMatch()){
+  // Validate before submit
+  const profileForm = profileRoot ? profileRoot.querySelector('#profileForm') : null;
+  if (profileForm) {
+    profileForm.addEventListener('submit', (e)=>{
+      if ((pwdNew && pwdNew.value) || (pwdConfirm && pwdConfirm.value)){
+        if (!checkMatch()){
           e.preventDefault();
           alert('กรุณาตรวจสอบรหัสผ่านใหม่และการยืนยันให้ตรงกัน');
-          return;
         }
       }
-      // If other gender selected, require text
-      if(gender.value === 'other' && !genderOther.value.trim()){
-        e.preventDefault();
-        alert('โปรดระบุเพศในช่อง "อื่น ๆ"');
-      }
     });
-  </script>
-</body>
-</html>
+  }
+</script>
+{% endblock %}

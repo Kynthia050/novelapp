@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="csrf-token" content="{{ csrf_token() }}">
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Edit Novel — MY SHELF</title>
+{% extends "base.html" %}
 
+{% block title %}Edit Novel — MY SHELF{% endblock %}
+
+{% block extra_head %}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -41,41 +39,96 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{ margin:0; background: var(--bg); color:var(--text); }
+    body{
+      margin:0;
+      /* ไม่กำหนด font-family เพื่อให้ใช้ Niramit จาก global.css */
+      background: var(--bg);
+      color:var(--text);
+    }
+
     .site{max-width:1100px;margin:0 auto;padding:20px}
-    .panel{background:rgba(24,25,27,.96);border:1px solid var(--line);border-radius:var(--radius)}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem}
-    .btn-primary{background:#f3f4f6;color:#111827;border:1px solid #d1d5db}
-    .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
-    .btn-dark{background:#0f0f10;border:1px solid #2b2c30;color:#e5e7eb}
-    .btn:disabled{opacity:.5;pointer-events:none}
-    .input, .select, .textarea{
-      width:100%;padding:.65rem .8rem;border:1px solid var(--line);border-radius:12px;
-      background:#0f1012;color:var(--text);outline:none
+    .panel{
+      background:rgba(24,25,27,.96);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+    }
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.5rem;
+    }
+    .btn-primary{
+      background:#f3f4f6;
+      color:#111827;
+      border:1px solid #d1d5db;
+    }
+    .btn-ghost{
+      background:transparent;
+      border:1px solid var(--line);
+      color:var(--text);
+    }
+    .btn-dark{
+      background:#0f0f10;
+      border:1px solid #2b2c30;
+      color:#e5e7eb;
+    }
+    .btn:disabled{
+      opacity:.5;
+      pointer-events:none;
+    }
+    .input,
+    .select,
+    .textarea{
+      width:100%;
+      padding:.65rem .8rem;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#0f1012;
+      color:var(--text);
+      outline:none;
     }
 
     .textarea-description{
-      min-height: 170px;   /* สูงเท่านี้ตลอด */
+      min-height: 170px;
       max-height: 170px;
-      resize: none;        /* ไม่ให้ลากย่อ-ขยาย */
+      resize: none;
     }
-
 
     .select{
       appearance:none;
       background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23a1a1aa%22 d=%22M6 8L0 0h12z%22/%3E%3C/svg%3E');
-      background-repeat:no-repeat;background-position:right .8rem center;background-size:12px 8px
+      background-repeat:no-repeat;
+      background-position:right .8rem center;
+      background-size:12px 8px;
     }
     .chip{
-      display:inline-flex;align-items:center;gap:.5rem;
-      padding:.35rem .6rem;border:1px solid var(--line);
-      border-radius:999px;background:rgba(255,255,255,.03)
+      display:inline-flex;
+      align-items:center;
+      gap:.5rem;
+      padding:.35rem .6rem;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:rgba(255,255,255,.03);
     }
     .chip button{opacity:.6}
     .chip button:hover{opacity:1}
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none}
-    .modal{position:fixed;inset:0;display:none;place-items:center}
-    .modal.open,.modal-backdrop.open{display:grid}
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.6);
+      display:none;
+    }
+    .modal{
+      position:fixed;
+      inset:0;
+      display:none;
+      place-items:center;
+    }
+    .modal.open,
+    .modal-backdrop.open{
+      display:grid;
+    }
 
     /* กล่องอัปโหลดปกแบบสี่เหลี่ยมจัตุรัส */
     .cover-upload{
@@ -84,20 +137,31 @@
       border:2px dashed var(--line);
       border-radius:16px;
       background:#0f1012;
-      display:flex; flex-direction:column;
-      align-items:center; justify-content:center;
-      gap:6px; cursor:pointer;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      cursor:pointer;
     }
-    .cover-upload:focus{outline:2px dashed #4b5563; outline-offset:2px}
+    .cover-upload:focus{
+      outline:2px dashed #4b5563;
+      outline-offset:2px;
+    }
     .cover-upload img{
-      width:100%; height:100%;
+      width:100%;
+      height:100%;
       object-fit:cover;
       border-radius:16px;
       display:block;
     }
     .upload-icon{opacity:.85;font-size:26px}
     .upload-text{color:var(--text)}
-    .upload-guidelines,.upload-dimensions{color:var(--muted);font-size:12px}
+    .upload-guidelines,
+    .upload-dimensions{
+      color:var(--muted);
+      font-size:12px;
+    }
 
     /* กลุ่มปุ่มในแถวตอน */
     .chapter-actions{
@@ -105,8 +169,6 @@
       align-items:center;
       gap:.5rem;
     }
-
-
 
     /* ซ่อนสามเหลี่ยม dropdown ของ datalist ในช่องแท็ก */
     #tagInput::-webkit-calendar-picker-indicator{
@@ -125,11 +187,9 @@
       appearance:none;
       -webkit-appearance:none;
       -moz-appearance:none;
-
       background:#0f0f10;
       border:1px solid #2b2c30;
       border-radius:999px;
-
       padding:.5rem 1.25rem;
       font-size:0.875rem;
       color:#f9fafb;
@@ -142,7 +202,6 @@
       box-shadow:0 0 0 2px rgba(148,163,184,.6);
     }
 
-    /* ลูกศร dropdown อยู่ด้านใน */
     .status-select-wrapper::after{
       content:"▾";
       position:absolute;
@@ -160,7 +219,7 @@
       border-radius:999px;
     }
 
-    /* --------- CHAPTER LIST (แบบ Accordion 1–50, 51–100 ...) ---------- */
+    /* --------- CHAPTER LIST (Accordion 1–50, 51–100 ...) ---------- */
 
     .chapters-section{
       margin-top:32px;
@@ -332,7 +391,6 @@
       white-space:nowrap;
     }
 
-    /* รองรับหน้าจอเล็ก */
     @media (max-width: 640px){
       .chapter-row-inner{
         flex-direction:column;
@@ -346,19 +404,13 @@
 
     /* เว้นช่องว่างระหว่าง section (แท็ก / ตอนทั้งหมด) กับบล็อกด้านบน */
     #novelForm > section.panel{
-      margin-top: 32px;  /* ปรับเลขได้ถ้าอยากห่างมากหรือน้อยลง */
+      margin-top: 32px;
     }
-
   </style>
-</head>
-<body>
+{% endblock %}
 
-  <!-- Header -->
-  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
-    {% include 'header.html' %}
-  </header>
-
-  <main class="site">
+{% block content %}
+  <div class="site">
     <!-- ฟอร์มหลัก: ปก + ข้อมูลนิยาย -->
     <form
       id="novelForm"
@@ -375,7 +427,10 @@
           <label class="block text-sm text-[var(--muted)]">รูปปก</label>
 
           <!-- กล่องอัปโหลด/พรีวิว -->
-          <div id="coverUpload" class="cover-upload" tabindex="0" role="button"
+          <div id="coverUpload"
+               class="cover-upload"
+               tabindex="0"
+               role="button"
                aria-label="อัปโหลดรูปปก (รองรับ .jpg .png .webp)">
             {% if novel.cover_url %}
               <img src="{{ novel.cover_url }}" alt="ปกนิยาย">
@@ -395,14 +450,21 @@
         <div class="grid gap-4">
           <div>
             <label class="block text-sm text-[var(--muted)] mb-1">ชื่อเรื่อง</label>
-            <input name="title" required value="{{ novel.title or '' }}" class="input" placeholder="ใส่ชื่อเรื่อง" />
+            <input name="title"
+                   required
+                   value="{{ novel.title or '' }}"
+                   class="input"
+                   placeholder="ใส่ชื่อเรื่อง" />
           </div>
 
           <div>
             <label class="block text-sm text-[var(--muted)] mb-1">หมวดหมู่</label>
             <select name="cate_id" class="select" required>
               {% for c in categories %}
-                <option value="{{ c.cate_id }}" {{ 'selected' if c.cate_id == novel.cate_id else '' }}>{{ c.name }}</option>
+                <option value="{{ c.cate_id }}"
+                        {{ 'selected' if c.cate_id == novel.cate_id else '' }}>
+                  {{ c.name }}
+                </option>
               {% endfor %}
             </select>
           </div>
@@ -416,26 +478,24 @@
               class="textarea textarea-description"
               placeholder="สรุปเรื่องย่อ (ไม่เกิน 1,000 ตัวอักษร)"
             >{{ novel.description or '' }}</textarea>
-            
+
             <p class="mt-0.5 text-xs text-[var(--muted)] text-right">
-             <span id="descriptionCount">0</span>/1000
+              <span id="descriptionCount">0</span>/1000
             </p>
           </div>
-
 
           <div class="flex gap-3 items-center">
             <button class="btn btn-primary px-5 py-2 rounded-full font-semibold">
               บันทึกการแก้ไข
             </button>
 
-            <form method="post"
-                  action="{{ url_for('editnovel.delete_novel_page', novels_id=novel.novels_id) }}"
-                  onsubmit="return confirm('ต้องการลบงานเขียนนี้หรือไม่?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-ghost px-5 py-2 rounded-full">
-                ลบงานเขียนนี้
-              </button>
-            </form>
+            {# ปุ่มลบงานเขียนนี้ ผูกกับฟอร์ม deleteNovelForm ด้านล่าง (เลี่ยงฟอร์มซ้อน) #}
+            <button type="submit"
+                    form="deleteNovelForm"
+                    class="btn btn-ghost px-5 py-2 rounded-full"
+                    onclick="return confirm('ต้องการลบงานเขียนนี้หรือไม่?');">
+              ลบงานเขียนนี้
+            </button>
           </div>
         </div>
       </div>
@@ -462,9 +522,13 @@
         <div class="flex gap-2">
           <input id="tagInput" class="input" list="allTags" placeholder="พิมพ์ชื่อแท็ก แล้วกด เพิ่ม" />
           <datalist id="allTags">
-            {% for at in all_tags %}<option value="{{ at.name }}"></option>{% endfor %}
+            {% for at in all_tags %}
+              <option value="{{ at.name }}"></option>
+            {% endfor %}
           </datalist>
-          <button id="addTagBtn" type="button" class="btn btn-dark px-4 rounded-xl">เพิ่ม</button>
+          <button id="addTagBtn" type="button" class="btn btn-dark px-4 rounded-xl">
+            เพิ่ม
+          </button>
         </div>
       </section>
 
@@ -473,370 +537,361 @@
         <div class="chapters-header">
           <h2 class="chapters-heading">ตอนทั้งหมด</h2>
           <div class="flex items-center gap-3">
-        <!-- ปุ่มสลับเรียง -->
-        <button type="button"
-            id="chapterSortToggle"
-            class="chapters-sort-toggle"
-            data-direction="asc">
-          <span class="chapters-sort-label">เก่าไปใหม่</span>
-          <span class="chapters-sort-icon">▾</span>
-        </button>
+            <!-- ปุ่มสลับเรียง -->
+            <button type="button"
+                    id="chapterSortToggle"
+                    class="chapters-sort-toggle"
+                    data-direction="asc">
+              <span class="chapters-sort-label">เก่าไปใหม่</span>
+              <span class="chapters-sort-icon">▾</span>
+            </button>
 
-        <!-- ปุ่มเพิ่มตอน -->
-        <a href="{{ url_for('writing.writing_form', novels_id=novel.novels_id) }}"
-           class="btn btn-dark px-4 py-2 rounded-full">
-          + เพิ่มตอน
-        </a>
+            <!-- ปุ่มเพิ่มตอน -->
+            <a href="{{ url_for('writing.writing_form', novels_id=novel.novels_id) }}"
+               class="btn btn-dark px-4 py-2 rounded-full">
+              + เพิ่มตอน
+            </a>
           </div>
         </div>
 
         {% if chapters and chapters|length %}
-        <section class="chapters-section">
-          <div class="chapters-accordion" id="chaptersAccordion">
-        {# แบ่งกลุ่มละ 50 ตอน: 1–50, 51–100, ... #}
-        {% set group_size = 50 %}
-        {% for start in range(1, chapters|length + 1, group_size) %}
-          {% set group_slice = chapters[start-1:start-1+group_size] %}
-          {% set first_ch = group_slice[0] %}
-          {% set last_ch  = group_slice[-1] %}
+          <section class="chapters-section">
+            <div class="chapters-accordion" id="chaptersAccordion">
+              {# แบ่งกลุ่มละ 50 ตอน: 1–50, 51–100, ... #}
+              {% set group_size = 50 %}
+              {% for start in range(1, chapters|length + 1, group_size) %}
+                {% set group_slice = chapters[start-1:start-1+group_size] %}
+                {% set first_ch = group_slice[0] %}
+                {% set last_ch  = group_slice[-1] %}
 
-          <div class="chapter-group{% if loop.first %} is-open{% endif %}"
-           data-range-start="{{ first_ch.chapter_no }}">
-            <button type="button" class="chapter-group-header">
-          <span class="chapter-group-title">
-            ตอนที่ {{ first_ch.chapter_no }} – {{ last_ch.chapter_no }}
-          </span>
-          <span class="chapter-group-meta">
-            <span class="chapter-group-count">
-              {{ group_slice|length }} ตอน
-            </span>
-            <span class="chapter-group-caret">▾</span>
-          </span>
-            </button>
+                <div class="chapter-group{% if loop.first %} is-open{% endif %}"
+                     data-range-start="{{ first_ch.chapter_no }}">
+                  <button type="button" class="chapter-group-header">
+                    <span class="chapter-group-title">
+                      ตอนที่ {{ first_ch.chapter_no }} – {{ last_ch.chapter_no }}
+                    </span>
+                    <span class="chapter-group-meta">
+                      <span class="chapter-group-count">
+                        {{ group_slice|length }} ตอน
+                      </span>
+                      <span class="chapter-group-caret">▾</span>
+                    </span>
+                  </button>
 
-            <div class="chapter-group-body">
-          <ul class="chapters-list">
-            {% for ch in group_slice %}
-            <li class="chapter-row" data-chapter-no="{{ ch.chapter_no }}">
-              <div class="chapter-row-inner">
-            <!-- คลิกชื่อเพื่อไปแก้ไขตอน -->
-            <a href="{{ url_for('writing.writing_form',
-                    novels_id=novel.novels_id,
-                    chapter_id=ch.chapters_id) }}"
-               class="chapter-main">
-              <span class="chapter-label">ตอนที่ {{ ch.chapter_no }}</span>
-              <span class="chapter-title">{{ ch.title }}</span>
-            </a>
+                  <div class="chapter-group-body">
+                    <ul class="chapters-list">
+                      {% for ch in group_slice %}
+                        <li class="chapter-row" data-chapter-no="{{ ch.chapter_no }}">
+                          <div class="chapter-row-inner">
+                            <!-- คลิกชื่อเพื่อไปแก้ไขตอน -->
+                            <a href="{{ url_for('writing.writing_form',
+                                                novels_id=novel.novels_id,
+                                                chapter_id=ch.chapters_id) }}"
+                               class="chapter-main">
+                              <span class="chapter-label">ตอนที่ {{ ch.chapter_no }}</span>
+                              <span class="chapter-title">{{ ch.title }}</span>
+                            </a>
 
-            <div class="chapter-meta">
-              <span class="hidden sm:inline">
-                อัปเดต {{ ch.updated_at or ch.created_at }}
-              </span>
+                            <div class="chapter-meta">
+                              <span class="hidden sm:inline">
+                                อัปเดต {{ ch.updated_at or ch.created_at }}
+                              </span>
 
-              <div class="chapter-actions">
-              <!-- ปุ่มเลือกสถานะ (มองเห็นได้) -->
-              <div class="status-select-wrapper">
-                <select
-              class="status-select"
-              data-chapter-id="{{ ch.chapters_id }}"
-              onchange="submitChapterStatus(this)">
-              <option value="draft"
-                  {% if ch.status == 'draft' %}selected{% endif %}>
-                แบบร่าง
-              </option>
-              <option value="published"
-                  {% if ch.status == 'published' %}selected{% endif %}>
-                เผยแพร่
-              </option>
-                </select>
-              </div>
+                              <div class="chapter-actions">
+                                <!-- ปุ่มเลือกสถานะ -->
+                                <div class="status-select-wrapper">
+                                  <select
+                                    class="status-select"
+                                    data-chapter-id="{{ ch.chapters_id }}"
+                                    onchange="submitChapterStatus(this)">
+                                    <option value="draft"
+                                            {% if ch.status == 'draft' %}selected{% endif %}>
+                                      แบบร่าง
+                                    </option>
+                                    <option value="published"
+                                            {% if ch.status == 'published' %}selected{% endif %}>
+                                      เผยแพร่
+                                    </option>
+                                  </select>
+                                </div>
 
-              <!-- ฟอร์มจริงสำหรับส่งค่า (ซ่อน) -->
-              <form id="chapter-status-form-{{ ch.chapters_id }}"
-                class="chapter-status-form"
-                method="post"
-                action="{{ url_for('editnovel.update_chapter_status',
-                      novels_id=novel.novels_id,
-                      chapter_id=ch.chapters_id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="status" value="{{ ch.status }}">
-              </form>
-        
+                                <!-- ฟอร์มจริงสำหรับส่งค่า (ซ่อน) -->
+                                <form id="chapter-status-form-{{ ch.chapters_id }}"
+                                      class="chapter-status-form"
+                                      method="post"
+                                      action="{{ url_for('editnovel.update_chapter_status',
+                                                         novels_id=novel.novels_id,
+                                                         chapter_id=ch.chapters_id) }}">
+                                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                  <input type="hidden" name="status" value="{{ ch.status }}">
+                                </form>
 
+                                <!-- ปุ่มแก้ไข -->
+                                <a href="{{ url_for('writing.writing_form',
+                                                    novels_id=novel.novels_id,
+                                                    chapter_id=ch.chapters_id) }}"
+                                   class="btn btn-dark">
+                                  แก้ไข
+                                </a>
 
-                <!-- ปุ่มแก้ไข -->
-                <a href="{{ url_for('writing.writing_form',
-                    novels_id=novel.novels_id,
-                    chapter_id=ch.chapters_id) }}"
-               class="btn btn-dark">
-              แก้ไข
-                </a>
-
-                <!-- ปุ่มลบ -->
-                <form method="post"
-                  action="{{ url_for('editnovel.delete_chapter_page',
-                        novels_id=novel.novels_id,
-                        chapter_id=ch.chapters_id) }}"
-                  onsubmit="return confirm('ต้องการลบตอนนี้หรือไม่?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-dark">
-                ลบ
-              </button>
-                </form>
-              </div>
+                                <!-- ปุ่มลบ -->
+                                <form method="post"
+                                      action="{{ url_for('editnovel.delete_chapter_page',
+                                                         novels_id=novel.novels_id,
+                                                         chapter_id=ch.chapters_id) }}"
+                                      onsubmit="return confirm('ต้องการลบตอนนี้หรือไม่?');">
+                                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                  <button type="submit" class="btn btn-dark">
+                                    ลบ
+                                  </button>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              {% endfor %}
             </div>
-              </div>
-            </li>
-            {% endfor %}
-          </ul>
-            </div>
-          </div>
-        {% endfor %}
-          </div>
-        </section>
+          </section>
         {% else %}
           <div class="text-[var(--muted)]">ยังไม่มีตอน</div>
         {% endif %}
       </section>
     </form>
-  </main>
+
+    {# ฟอร์มจริงสำหรับลบงานเขียน (ใช้กับปุ่ม form="deleteNovelForm") #}
+    <form id="deleteNovelForm"
+          method="post"
+          action="{{ url_for('editnovel.delete_novel_page', novels_id=novel.novels_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+  </div>
 
   <script>
+    const $  = (s, sc=document) => sc.querySelector(s);
+    const $$ = (s, sc=document) => Array.from(sc.querySelectorAll(s));
 
-        /* ==== DESCRIPTION: limit 1000 chars + counter ==== */
-    const descField   = document.getElementById('descriptionField');
-    const descCountEl = document.getElementById('descriptionCount');
-    const descMax     = 1000;
+    // ฟังก์ชันส่งฟอร์มเปลี่ยนสถานะตอน (ให้เป็น global สำหรับใช้ใน onchange="")
+    function submitChapterStatus(selectEl){
+      const chapterId = selectEl.dataset.chapterId;
+      const form = document.getElementById('chapter-status-form-' + chapterId);
+      if (!form) return;
 
-    function updateDescriptionCount(){
-      if (!descField || !descCountEl) return;
-      const len = descField.value.length;
-      descCountEl.textContent = len;
+      const statusInput = form.querySelector('input[name="status"]');
+      if (statusInput) {
+        statusInput.value = selectEl.value;
+      }
+      form.submit();
     }
 
-    if (descField) {
-      // อัปเดตตอนโหลดหน้า (กรณีมีข้อความเดิมใน DB)
-      updateDescriptionCount();
+    document.addEventListener('DOMContentLoaded', () => {
+      const novelsId  = Number('{{ novel.novels_id }}');
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-      // อัปเดตทุกครั้งที่พิมพ์
-      descField.addEventListener('input', () => {
-        // กันเผื่อ browser แปลก ๆ ที่ไม่สน maxlength
-        if (descField.value.length > descMax) {
-          descField.value = descField.value.slice(0, descMax);
-        }
+      /* ==== DESCRIPTION: limit 1000 chars + counter ==== */
+      const descField   = document.getElementById('descriptionField');
+      const descCountEl = document.getElementById('descriptionCount');
+      const descMax     = 1000;
+
+      function updateDescriptionCount(){
+        if (!descField || !descCountEl) return;
+        const len = descField.value.length;
+        descCountEl.textContent = len;
+      }
+
+      if (descField) {
         updateDescriptionCount();
-      });
-    }
-
-
-  const $  = (s, sc=document) => sc.querySelector(s);
-  const $$ = (s, sc=document) => Array.from(sc.querySelectorAll(s));
-
-  document.addEventListener('DOMContentLoaded', () => {
-    /* แก้บรรทัดนี้ให้ไม่ชนกับตัว parser ของ VS Code */
-    const novelsId = Number('{{ novel.novels_id }}');
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-    const tagList  = $('#tagList');
-    const tagInput = $('#tagInput');
-    const addTagBtn= $('#addTagBtn');
-
-    const apiBaseNovel   = `/api/novels/${novelsId}`;
-    const apiBaseChapter = `/api/chapters`;
-
-    const routes = {
-      addTag:        `${apiBaseNovel}/tags`,
-      removeTag:     (tagId) => `${apiBaseNovel}/tags/${tagId}`,
-      createChapter: `${apiBaseNovel}/chapters`,
-      getChapter:    (id) => `${apiBaseChapter}/${id}`,
-      updateChapter: (id) => `${apiBaseChapter}/${id}`
-    };
-
-    /* ==== COVER: เปิดไฟล์ + พรีวิว ==== */
-    const coverUpload = document.getElementById('coverUpload');
-    const coverInput  = document.getElementById('coverInput');
-
-    const openPicker = () => coverInput.click();
-    coverUpload.addEventListener('click', openPicker);
-    coverUpload.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
-    });
-
-    coverInput.addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      if (!file.type || !file.type.startsWith('image/')) {
-        alert('กรุณาเลือกไฟล์รูปภาพ'); return;
-      }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        coverUpload.innerHTML = `<img src="${ev.target.result}" alt="ปกพรีวิว">`;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    /* ==== TAGS ==== */
-    addTagBtn?.addEventListener('click', async () => {
-      const name = (tagInput.value || '').trim();
-      if (!name) return;
-      try {
-        const res = await fetch(routes.addTag, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-          },
-          body: JSON.stringify({ name })
+        descField.addEventListener('input', () => {
+          if (descField.value.length > descMax) {
+            descField.value = descField.value.slice(0, descMax);
+          }
+          updateDescriptionCount();
         });
-        if (!res.ok) throw new Error();
-        const tag = await res.json(); // {tag_id, name}
-        tagInput.value = '';
-        appendTagChip(tag.tag_id, tag.name);
-      } catch {
-        alert('เพิ่มแท็กล้มเหลว');
       }
-    });
 
-    tagList?.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-action="remove-tag"]');
-      if (!btn) return;
-      const chip = btn.closest('.chip');
-      const tagId = chip?.dataset.tagId;
-      if (!tagId) return;
-      try {
-        const res = await fetch(routes.removeTag(tagId), {
-          method: 'DELETE',
-          credentials: 'same-origin',
-          headers: {
-            'X-CSRFToken': csrfToken
+      /* ==== API routes (แท็ก/ตอน) ==== */
+      const tagList   = $('#tagList');
+      const tagInput  = $('#tagInput');
+      const addTagBtn = $('#addTagBtn');
+
+      const apiBaseNovel   = `/api/novels/${novelsId}`;
+      const apiBaseChapter = `/api/chapters`;
+
+      const routes = {
+        addTag:        `${apiBaseNovel}/tags`,
+        removeTag:     (tagId) => `${apiBaseNovel}/tags/${tagId}`,
+        createChapter: `${apiBaseNovel}/chapters`,
+        getChapter:    (id) => `${apiBaseChapter}/${id}`,
+        updateChapter: (id) => `${apiBaseChapter}/${id}`
+      };
+
+      /* ==== COVER: เปิดไฟล์ + พรีวิว ==== */
+      const coverUpload = document.getElementById('coverUpload');
+      const coverInput  = document.getElementById('coverInput');
+
+      const openPicker = () => coverInput && coverInput.click();
+
+      if (coverUpload && coverInput) {
+        coverUpload.addEventListener('click', openPicker);
+        coverUpload.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openPicker();
           }
         });
-        if (!res.ok) throw new Error();
-        chip.remove();
-      } catch {
-        alert('ลบแท็กล้มเหลว');
+
+        coverInput.addEventListener('change', (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          if (!file.type || !file.type.startsWith('image/')) {
+            alert('กรุณาเลือกไฟล์รูปภาพ');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            coverUpload.innerHTML = `<img src="${ev.target.result}" alt="ปกพรีวิว">`;
+          };
+          reader.readAsDataURL(file);
+        });
       }
-    });
 
-    function appendTagChip(tagId, name){
-      const span = document.createElement('span');
-      span.className = 'chip';
-      span.dataset.tagId = tagId; span.dataset.tagName = name;
-      span.innerHTML =
-        `<svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60"><path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/></svg>`+
-        `<span>${name}</span>`+
-        `<button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">×</button>`;
-      tagList.appendChild(span);
-    }
-
-   /* ==== CHAPTERS: Accordion + Sort ==== */  
-    const accordionEl = document.getElementById('chaptersAccordion');
-    const sortToggle  = document.getElementById('chapterSortToggle');
-
-    // toggle เปิด/ปิด group
-    if (accordionEl) {
-      accordionEl.addEventListener('click', (e) => {
-        const header = e.target.closest('.chapter-group-header');
-        if (!header) return;
-        const group = header.closest('.chapter-group');
-        if (!group) return;
-        group.classList.toggle('is-open');
-      });
-    }
-
-    // ฟังก์ชันจัดเรียงตอน (ทั้งระดับ group และตอนใน group)
-    function applyChapterSort(direction) {
-      if (!accordionEl) return;
-
-      const groups = Array.from(accordionEl.querySelectorAll('.chapter-group'));
-
-      // จัดเรียงลำดับกลุ่มก่อน
-      groups.sort((a, b) => {
-        const aStart = Number(a.dataset.rangeStart || '0');
-        const bStart = Number(b.dataset.rangeStart || '0');
-        return direction === 'asc' ? aStart - bStart : bStart - aStart;
+      /* ==== TAGS ==== */
+      addTagBtn?.addEventListener('click', async () => {
+        const name = (tagInput.value || '').trim();
+        if (!name) return;
+        try {
+          const res = await fetch(routes.addTag, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ name })
+          });
+          if (!res.ok) throw new Error();
+          const tag = await res.json(); // {tag_id, name}
+          tagInput.value = '';
+          appendTagChip(tag.tag_id, tag.name);
+        } catch {
+          alert('เพิ่มแท็กล้มเหลว');
+        }
       });
 
-      groups.forEach((group, index) => {
-        const listEl = group.querySelector('.chapters-list');
-        if (!listEl) return;
+      tagList?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action="remove-tag"]');
+        if (!btn) return;
+        const chip = btn.closest('.chip');
+        const tagId = chip?.dataset.tagId;
+        if (!tagId) return;
+        try {
+          const res = await fetch(routes.removeTag(tagId), {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: {
+              'X-CSRFToken': csrfToken
+            }
+          });
+          if (!res.ok) throw new Error();
+          chip.remove();
+        } catch {
+          alert('ลบแท็กล้มเหลว');
+        }
+      });
 
-        // ดึง li ทุกตัวในกลุ่มแล้ว sort ตาม chapter_no
-        const rows = Array.from(listEl.querySelectorAll('.chapter-row'));
-        if (!rows.length) return;
+      function appendTagChip(tagId, name){
+        if (!tagList) return;
+        const span = document.createElement('span');
+        span.className = 'chip';
+        span.dataset.tagId = tagId;
+        span.dataset.tagName = name;
+        span.innerHTML =
+          `<svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60">
+             <path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/>
+           </svg>`+
+          `<span>${name}</span>`+
+          `<button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">×</button>`;
+        tagList.appendChild(span);
+      }
 
-        rows.sort((a, b) => {
-          const aNo = Number(a.dataset.chapterNo || '0');
-          const bNo = Number(b.dataset.chapterNo || '0');
-          return direction === 'asc' ? aNo - bNo : bNo - aNo;
+      /* ==== CHAPTERS: Accordion + Sort ==== */
+      const accordionEl = document.getElementById('chaptersAccordion');
+      const sortToggle  = document.getElementById('chapterSortToggle');
+
+      if (accordionEl) {
+        accordionEl.addEventListener('click', (e) => {
+          const header = e.target.closest('.chapter-group-header');
+          if (!header) return;
+          const group = header.closest('.chapter-group');
+          if (!group) return;
+          group.classList.toggle('is-open');
+        });
+      }
+
+      function applyChapterSort(direction) {
+        if (!accordionEl) return;
+
+        const groups = Array.from(accordionEl.querySelectorAll('.chapter-group'));
+
+        groups.sort((a, b) => {
+          const aStart = Number(a.dataset.rangeStart || '0');
+          const bStart = Number(b.dataset.rangeStart || '0');
+          return direction === 'asc' ? aStart - bStart : bStart - aStart;
         });
 
-        // ใส่กลับเข้า ul ตามลำดับใหม่
-        rows.forEach(row => listEl.appendChild(row));
+        groups.forEach((group, index) => {
+          const listEl = group.querySelector('.chapters-list');
+          if (!listEl) return;
 
-        // อัปเดตหัวข้อกลุ่ม (ตอนที่ X – Y) + rangeStart ใหม่
-        const firstNo = rows[0].dataset.chapterNo || '';
-        const lastNo  = rows[rows.length - 1].dataset.chapterNo || '';
-        const titleEl = group.querySelector('.chapter-group-title');
+          const rows = Array.from(listEl.querySelectorAll('.chapter-row'));
+          if (!rows.length) return;
 
-        if (titleEl) {
-          titleEl.textContent = `ตอนที่ ${firstNo} – ${lastNo}`;
-        }
-        group.dataset.rangeStart = firstNo;
+          rows.sort((a, b) => {
+            const aNo = Number(a.dataset.chapterNo || '0');
+            const bNo = Number(b.dataset.chapterNo || '0');
+            return direction === 'asc' ? aNo - bNo : bNo - aNo;
+          });
 
-        // จัดลำดับกลุ่มใหม่ใน accordion
-        accordionEl.appendChild(group);
+          rows.forEach(row => listEl.appendChild(row));
 
-        // ให้กลุ่มแรกเปิดอยู่เสมอ (ถ้าอยาก)
-        if (index === 0) {
-          group.classList.add('is-open');
-        }
-      });
-    }
+          const firstNo = rows[0].dataset.chapterNo || '';
+          const lastNo  = rows[rows.length - 1].dataset.chapterNo || '';
+          const titleEl = group.querySelector('.chapter-group-title');
 
-    // ปุ่มสลับเรียง (เก่า→ใหม่ / ใหม่→เก่า)
-    if (sortToggle && accordionEl) {
-      sortToggle.addEventListener('click', () => {
-        const current = sortToggle.getAttribute('data-direction') || 'asc';
-        const next = current === 'asc' ? 'desc' : 'asc';
+          if (titleEl) {
+            titleEl.textContent = `ตอนที่ ${firstNo} – ${lastNo}`;
+          }
+          group.dataset.rangeStart = firstNo;
 
-        sortToggle.setAttribute('data-direction', next);
-        sortToggle.classList.toggle('desc', next === 'desc');
+          accordionEl.appendChild(group);
 
-        const labelEl = sortToggle.querySelector('.chapters-sort-label');
-        if (labelEl) {
-          labelEl.textContent = next === 'asc' ? 'เก่าไปใหม่' : 'ใหม่ไปเก่า';
-        }
+          if (index === 0) {
+            group.classList.add('is-open');
+          }
+        });
+      }
 
-        applyChapterSort(next);
-      });
+      if (sortToggle && accordionEl) {
+        sortToggle.addEventListener('click', () => {
+          const current = sortToggle.getAttribute('data-direction') || 'asc';
+          const next    = current === 'asc' ? 'desc' : 'asc';
 
-      // จัดเรียงให้ถูกต้องครั้งแรกตอนโหลดหน้า
-      applyChapterSort(sortToggle.getAttribute('data-direction') || 'asc');
-    }
+          sortToggle.setAttribute('data-direction', next);
+          sortToggle.classList.toggle('desc', next === 'desc');
 
-  // ฟังก์ชันส่งฟอร์มเปลี่ยนสถานะตอน
-  function submitChapterStatus(selectEl){
-    const chapterId = selectEl.dataset.chapterId;
-    const form = document.getElementById('chapter-status-form-' + chapterId);
-    if (!form) return;
+          const labelEl = sortToggle.querySelector('.chapters-sort-label');
+          if (labelEl) {
+            labelEl.textContent = next === 'asc' ? 'เก่าไปใหม่' : 'ใหม่ไปเก่า';
+          }
 
-    // ใส่ค่าที่เลือกลง hidden input แล้วค่อย submit
-    const statusInput = form.querySelector('input[name="status"]');
-    if (statusInput) {
-      statusInput.value = selectEl.value;
-    }
+          applyChapterSort(next);
+        });
 
-    form.submit();
-  }
-
-  // ... โค้ด JS เดิมของคุณตามปกติ ...
-
-
-
-  });
+        applyChapterSort(sortToggle.getAttribute('data-direction') || 'asc');
+      }
+    });
   </script>
-
-</body>
-</html>
+{% endblock %}

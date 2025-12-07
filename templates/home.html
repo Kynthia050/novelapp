@@ -1,12 +1,9 @@
-<!DOCTYPE html> 
-<html lang="th">
-<head>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Myshelf — Home</title>
+{% extends "base.html" %}
 
-  <!-- Tailwind CDN -->
+{% block title %}Myshelf — Home{% endblock %}
+
+{% block extra_head %}
+  {# Tailwind CDN #}
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -30,27 +27,29 @@
       }
     }
   </script>
-  <style>
 
-    /* === Novel Card styles ported from test.html (scoped-safe) === */
+  <style>
+    /* === Novel Card styles (ปรับให้ไม่ทับ font-family ของ global.css) === */
     :root{
-      --bg:#232323;           
-      --card:#2a2a2a;         
-      --muted:#cfcfcf;        
-      --text:#f5f5f5;         
-      --ink:#ffffff;          
-      --placeholder:#d9d9d9;  
+      --bg:#232323;
+      --card:#2a2a2a;
+      --muted:#cfcfcf;
+      --text:#f5f5f5;
+      --ink:#ffffff;
+      --placeholder:#d9d9d9;
       --shadow:0 10px 24px rgba(0,0,0,.35);
     }
+
     *{box-sizing:border-box}
     html,body{height:100%}
+
     body{
       margin:0;
       background:var(--bg);
       color:var(--text);
-      font-family:"Playfair Display", ui-serif, Georgia, serif;
       -webkit-font-smoothing:antialiased;
       -moz-osx-font-smoothing:grayscale;
+      /* ไม่กำหนด font-family ที่นี่ เพื่อให้ใช้ Niramit จาก global.css */
     }
 
     /* ชั้นวางการ์ดแบบแนวนอน (อิงจากภาพตัวอย่าง) */
@@ -91,8 +90,11 @@
       font-size:20px;
     }
     .writer{
-      font: 600 14px/1.2 Inter, ui-sans-serif;
-      opacity:.9;color:var(--text);
+      font-weight:600;
+      font-size:14px;
+      line-height:1.2;
+      opacity:.9;
+      color:var(--text);
     }
     .writer span{opacity:.7}
     .tagline{
@@ -123,86 +125,95 @@
     #track{-ms-overflow-style:none; scrollbar-width:none;}
     #track::-webkit-scrollbar{display:none;}
   </style>
-</head>
-<body class="min-h-screen bg-bg text-textc font-serif">
+{% endblock %}
 
-  {# Header รวมจากไฟล์ header.html #}
-  {% include 'header.html' %}
+{% block content %}
+  <div class="min-h-screen bg-bg text-textc">
+    <div class="mx-auto max-w-[1200px] px-4 md:px-6 pb-16">
+      <!-- Top 10 -->
+      <section class="pt-7 relative" aria-labelledby="top10-title">
+        <h2 id="top10-title"
+            class="text-[clamp(18px,2vw,24px)] tracking-[.15em] font-bold mb-4">
+          {{ month_label|default('อัปเดตล่าสุด') }}
+        </h2>
 
-  <main class="mx-auto max-w-[1200px] px-4 md:px-6 pb-16">
-    <!-- Top 10 -->
-    <section class="pt-7 relative" aria-labelledby="top10-title">
-      <h2 id="top10-title"
-          class="text-[clamp(18px,2vw,24px)] tracking-[.15em] font-bold mb-4">
-        {{ month_label|default('อัปเดตล่าสุด') }}
-      </h2>
-    
-      {% set items = top10 if top10 is defined and top10 else novels %}
-    
-      {% if items %}
-      <div class="relative">
-        <!-- ปุ่มเลื่อนแบบวงกลม -->
-        <button id="prevBtn"
-          class="absolute top-1/2 -translate-y-1/2 left-2 z-10 grid place-items-center
-                 h-11 w-11 rounded-full bg-white/90 text-zinc-800 border border-black/10
-                 shadow-xl hover:bg-white focus:outline-none focus:ring-2 focus:ring-black/5
-                 disabled:opacity-40 disabled:cursor-not-allowed"
-          aria-label="ก่อนหน้า">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-               class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 18l-6-6 6-6"/>
-          </svg>
-        </button>
-    
-        <button id="nextBtn"
-          class="absolute top-1/2 -translate-y-1/2 right-2 z-10 grid place-items-center
-                 h-11 w-11 rounded-full bg-white/90 text-zinc-800 border border-black/10
-                 shadow-xl hover:bg-white focus:outline-none focus:ring-2 focus:ring-black/5
-                 disabled:opacity-40 disabled:cursor-not-allowed"
-          aria-label="ถัดไป">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-               class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
-    
-        <!-- แทร็กคารูเซล -->
-        <div id="track"
-             class="no-scrollbar snap-x snap-mandatory overflow-x-auto scroll-smooth flex gap-8 pb-2"
-             tabindex="0" aria-label="Top 10 carousel">
-          {% for n in items %}
-          <article class="card min-w-[85%] sm:min-w-[60%] md:min-w-[32%] snap-center" role="article">
-            <div class="card-inner">
-              <a class="cover" href="{{ url_for('novel.detail', novels_id=n.novels_id) }}" aria-label="เปิดดูรายละเอียดนิยาย">
-                {% if n.cover %}<img src="{{ n.cover }}" alt="{{ n.title }}" loading="lazy" />{% endif %}
-              </a>
-              <h3 class="title">{{ n.title }}</h3>
-              <div class="writer"><span>Writer:</span> <strong>{{ n.author_username or n.author_name or "ไม่ทราบ" }}</strong></div>
-              <p class="tagline">{{ (n.description or "")|striptags|trim|truncate(140, True, "...") }}</p>
-              {% set display_rate = (n.user_rating or 0) if n.user_rating else (n.avg_rating or 0) %}
-              {% set rounded = (display_rate|round(0, "common")) %}
-              <div class="rating">
-                <span class="sr-only">เรตติ้ง {{ display_rate|round(1) }} จาก 5 ดาว</span>
-                <div class="stars">
-                  {% for i in range(1,6) %}
-                    <span class="star {{ "" if i <= rounded else "dim" }}" aria-hidden="true">★</span>
-                  {% endfor %}
+        {# ถ้า top10 ไม่มี ให้ fallback เป็น novels #}
+        {% set items = top10 if top10 is defined and top10 else novels %}
+
+        {% if items %}
+        <div class="relative">
+          <!-- ปุ่มเลื่อนแบบวงกลม -->
+          <button id="prevBtn"
+            class="absolute top-1/2 -translate-y-1/2 left-2 z-10 grid place-items-center
+                   h-11 w-11 rounded-full bg-white/90 text-zinc-800 border border-black/10
+                   shadow-xl hover:bg-white focus:outline-none focus:ring-2 focus:ring-black/5
+                   disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="ก่อนหน้า">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+
+          <button id="nextBtn"
+            class="absolute top-1/2 -translate-y-1/2 right-2 z-10 grid place-items-center
+                   h-11 w-11 rounded-full bg-white/90 text-zinc-800 border border-black/10
+                   shadow-xl hover:bg-white focus:outline-none focus:ring-2 focus:ring-black/5
+                   disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="ถัดไป">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                 class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+
+          <!-- แทร็กคารูเซล -->
+          <div id="track"
+               class="no-scrollbar snap-x snap-mandatory overflow-x-auto scroll-smooth flex gap-8 pb-2"
+               tabindex="0" aria-label="Top 10 carousel">
+            {% for n in items %}
+            <article class="card min-w-[85%] sm:min-w-[60%] md:min-w-[32%] snap-center" role="article">
+              <div class="card-inner">
+                <a class="cover" href="{{ url_for('novel.detail', novels_id=n.novels_id) }}" aria-label="เปิดดูรายละเอียดนิยาย">
+                  {% if n.cover %}
+                    <img src="{{ n.cover }}" alt="{{ n.title }}" loading="lazy" />
+                  {% endif %}
+                </a>
+                <h3 class="title">{{ n.title }}</h3>
+                <div class="writer">
+                  <span>Writer:</span>
+                  <strong>{{ n.author_username or n.author_name or "ไม่ทราบ" }}</strong>
+                </div>
+                <p class="tagline">
+                  {{ (n.description or "")|striptags|trim|truncate(140, True, "...") }}
+                </p>
+
+                {% set display_rate = (n.user_rating or 0) if n.user_rating else (n.avg_rating or 0) %}
+                {% set rounded = (display_rate|round(0, "common")) %}
+
+                <div class="rating">
+                  <span class="sr-only">เรตติ้ง {{ display_rate|round(1) }} จาก 5 ดาว</span>
+                  <div class="stars">
+                    {% for i in range(1,6) %}
+                      <span class="star {{ "" if i <= rounded else "dim" }}" aria-hidden="true">★</span>
+                    {% endfor %}
+                  </div>
                 </div>
               </div>
-            </div>
-          </article>
-          {% endfor %}
+            </article>
+            {% endfor %}
+          </div>
         </div>
-      </div>
-      {% else %}
-        <p class="opacity-70">ยังไม่มีรายการในช่วงนี้</p>
-      {% endif %}
-    </section>
-  </main>
+        {% else %}
+          <p class="opacity-70">ยังไม่มีรายการในช่วงนี้</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
 
-  <!-- Hidden template for star styling -->
+  <!-- Hidden template for star styling (ไว้เผื่อใช้ต่อ) -->
   <template class="hidden">
     <span class="text-yellow-400"></span>
   </template>
@@ -248,5 +259,4 @@
       track.addEventListener('focusout', start);
     })();
   </script>
-</body>
-</html>
+{% endblock %}

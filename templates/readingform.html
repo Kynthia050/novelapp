@@ -6,9 +6,20 @@
   <title>
     {{ (novel_title ~ ' — ตอน ' ~ chapter_no ~ (chapter_title and (': ' ~ chapter_title) or '')) if novel_title else 'Novel Reader - MYSHELF' }}
   </title>
+
+  <!-- ใช้ global.css เป็นตัวจัดการ font และ base style -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
+
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:"Georgia",serif;line-height:1.8;min-height:100vh;display:flex;flex-direction:column;transition:background .3s,color .3s}
+    body{
+      /* font-family เอาไปใช้จาก global.css แทน */
+      line-height:1.8;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      transition:background .3s,color .3s;
+    }
     body.dark-mode{background:#222;color:#eee}
     body.light-mode{background:#fdfdfd;color:#222}
 
@@ -18,7 +29,18 @@
     .chapter-subtitle{font-size:1.1rem;margin-bottom:.25rem;opacity:.85}
     .author-name{font-size:1rem;opacity:.7}
 
-    .chapter-content{border-radius:6px;padding:2rem;font-size:1.1rem;margin-bottom:2rem;transition:background .3s;overflow:hidden;white-space:pre-wrap;max-height:calc(100vh - 12rem);overflow-y:auto;overflow-x:hidden}
+    .chapter-content{
+      border-radius:6px;
+      padding:2rem;
+      font-size:1.1rem;
+      margin-bottom:2rem;
+      transition:background .3s;
+      overflow:hidden;
+      white-space:pre-wrap;
+      max-height:calc(100vh - 12rem);
+      overflow-y:auto;
+      overflow-x:hidden;
+    }
     body.dark-mode .chapter-content{background:#333}
     body.light-mode .chapter-content{background:#f1f1f1}
 
@@ -34,7 +56,14 @@
     .chapter-content{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
     body.light-mode .chapter-content{scrollbar-color:rgba(0,0,0,.2) transparent}
 
-    .content-paragraph{margin-bottom:1.5rem;overflow-wrap:anywhere;word-break:break-word;font-family:"Georgia",serif;line-height:1.8}
+    .content-paragraph{
+      margin-bottom:1.5rem;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      line-height:1.8;
+      /* ใช้ฟอนต์ตาม global.css */
+      font-family:inherit;
+    }
     .content-paragraph:last-child{margin-bottom:0}
 
     /* Make images and embedded media responsive and never exceed the content box */
@@ -50,15 +79,53 @@
       margin:0.6rem auto;
     }
 
-    .navigation-controls{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:1.5rem;transition:opacity .3s,visibility .3s}
+    .navigation-controls{
+      position:fixed;
+      bottom:1.5rem;
+      left:50%;
+      transform:translateX(-50%);
+      display:flex;
+      align-items:center;
+      gap:1.5rem;
+      transition:opacity .3s,visibility .3s;
+    }
     .navigation-controls.hidden{opacity:0;visibility:hidden}
-    .nav-arrow{width:45px;height:45px;background:#ddd;border:none;border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .3s}
+    .nav-arrow{
+      width:45px;
+      height:45px;
+      background:#ddd;
+      border:none;
+      border-radius:50%;
+      font-size:1.2rem;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:background .3s;
+    }
     .nav-arrow[disabled]{opacity:.5;cursor:not-allowed}
     .nav-arrow:hover{background:#bbb}
-    .back-to-cover-btn{background:#ddd;border:none;padding:.6rem 1.5rem;border-radius:20px;font-size:.95rem;cursor:pointer;transition:background .3s}
+    .back-to-cover-btn{
+      background:#ddd;
+      border:none;
+      padding:.6rem 1.5rem;
+      border-radius:20px;
+      font-size:.95rem;
+      cursor:pointer;
+      transition:background .3s;
+    }
     .back-to-cover-btn:hover{background:#bbb}
 
-    .theme-toggle{position:fixed;top:1rem;right:1rem;background:transparent;border:none;font-size:1.5rem;cursor:pointer;transition:transform .3s,opacity .3s,visibility .3s}
+    .theme-toggle{
+      position:fixed;
+      top:1rem;
+      right:1rem;
+      background:transparent;
+      border:none;
+      font-size:1.5rem;
+      cursor:pointer;
+      transition:transform .3s,opacity .3s,visibility .3s;
+    }
     .theme-toggle:hover{transform:rotate(20deg)}
     .theme-toggle.hidden{opacity:0;visibility:hidden}
 
@@ -66,13 +133,13 @@
     .progress-pill{
       position:fixed;top:1rem;left:1rem;z-index:50;
       background:rgba(0,0,0,.5);color:#fff;padding:.35rem .7rem;border-radius:999px;
-      font-size:.9rem;backdrop-filter:blur(4px);transition:opacity .3s,visibility .3s
+      font-size:.9rem;backdrop-filter:blur(4px);transition:opacity .3s,visibility .3s;
     }
     body.light-mode .progress-pill{background:rgba(0,0,0,.6)}
     .progress-pill.hidden{opacity:0;visibility:hidden}
     /* Progress bar at bottom */
     .progress-bar{
-      position:fixed;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.15)
+      position:fixed;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.15);
     }
     .progress-bar__fill{height:100%;width:0%}
     body.dark-mode .progress-bar__fill{background:#69d}
@@ -91,11 +158,6 @@
 <body class="dark-mode"
       data-novels-id="{{ novels_id }}"
       data-chapters-id="{{ chapters_id }}">
-  
-  <!-- Header -->
-  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
-    {% include 'header.html' %}
-  </header>
 
   <!-- Theme toggle -->
   <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
@@ -137,25 +199,24 @@
   </main>
 
   <!-- Navigation -->
-    <div class="navigation-controls">
+  <div class="navigation-controls">
     <button class="nav-arrow"
             {% if not prev_url or is_preview %}disabled{% endif %}
             onclick="if(this.hasAttribute('disabled')) return; window.location='{{ prev_url }}'">◀</button>
 
     <button class="back-to-cover-btn"
-          onclick="window.location='{% if is_preview and writing_url %}{{ writing_url }}{% else %}{{ back_url }}{% endif %}'">
-    {% if is_preview and writing_url %}
-      Back to editor
-    {% else %}
-      Back to cover
-    {% endif %}
-  </button>
+            onclick="window.location='{% if is_preview and writing_url %}{{ writing_url }}{% else %}{{ back_url }}{% endif %}'">
+      {% if is_preview and writing_url %}
+        Back to editor
+      {% else %}
+        Back to cover
+      {% endif %}
+    </button>
 
     <button class="nav-arrow"
             {% if not next_url or is_preview %}disabled{% endif %}
             onclick="if(this.hasAttribute('disabled')) return; window.location='{{ next_url }}'">▶</button>
   </div>
-
 
   <!-- Bottom progress bar -->
   <div class="progress-bar" aria-hidden="true">
@@ -219,33 +280,32 @@
     }
 
     async function sendProgress(pct){
-  if (!novelsId || !chaptersId) return;
+      if (!novelsId || !chaptersId) return;
 
-  const now = Date.now();
-  if (pct < lastSentPct + 5) return;
-  if (now - lastSentAt < 5000) return;
+      const now = Date.now();
+      if (pct < lastSentPct + 5) return;
+      if (now - lastSentAt < 5000) return;
 
-  try{
-    const resp = await fetch("{{ url_for('reading.save_reading_progress') }}", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-      body: new URLSearchParams({
-        novels_id: String(novelsId),
-        chapters_id: String(chaptersId),
-        progress: String(pct)
-      })
-    });
-    if (!resp.ok) {
-      console.debug("progress save skipped:", resp.status);
-    } else {
-      lastSentPct = pct;
-      lastSentAt = now;
+      try{
+        const resp = await fetch("{{ url_for('reading.save_reading_progress') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: new URLSearchParams({
+            novels_id: String(novelsId),
+            chapters_id: String(chaptersId),
+            progress: String(pct)
+          })
+        });
+        if (!resp.ok) {
+          console.debug("progress save skipped:", resp.status);
+        } else {
+          lastSentPct = pct;
+          lastSentAt = now;
+        }
+      }catch(err){
+        console.debug("progress save failed:", err);
+      }
     }
-  }catch(err){
-    console.debug("progress save failed:", err);
-  }
-}
-
 
     // ===== Hide/Show Navigation Controls =====
     let lastScrollY = 0;

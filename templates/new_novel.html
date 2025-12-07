@@ -1,10 +1,9 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
+{% extends "base.html" %}
+
+{% block title %}สร้างนิยายใหม่ — MYSHELF{% endblock %}
+
+{% block extra_head %}
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>สร้างนิยายใหม่ — MYSHELF</title>
 
   <!-- Tailwind (ใช้ config แบบเดียวกับ edit_novel) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -177,13 +176,9 @@
     .msg-error{color:#f87171;}
     .msg-ok{color:#4ade80;}
   </style>
-</head>
-<body>
+{% endblock %}
 
-  <!-- Header แบบเดียวกับ edit_novel -->
-  <header >
-  </header>
-
+{% block content %}
   <main class="site">
     <!-- ฟอร์มสร้างนิยายใหม่ ใช้ดีไซน์ panel เดียวกับ edit_novel -->
     <form id="novelForm" class="panel p-5 md:p-6 space-y-6" novalidate>
@@ -337,7 +332,9 @@
   </main>
 
   <script>
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const csrfToken = document
+      .querySelector('meta[name="csrf-token"]')
+      ?.getAttribute('content') || '';
 
     // ===== นับตัวอักษร title / synopsis =====
     function bindCounter(inputId, counterId){
@@ -476,7 +473,7 @@
     const formMsg   = document.getElementById('formMsg');
     const submitBtn = document.getElementById('submitBtn');
 
-    const apiCreateUrl   = "{{ url_for('new_novel.api_create_novel') }}";
+    const apiCreateUrl    = "{{ url_for('new_novel.api_create_novel') }}";
     const viewUrlTemplate = "{{ url_for('new_novel.view_novel', novels_id=0) }}"; // '/novels/0'
 
     function setMsg(text, ok=false){
@@ -488,10 +485,10 @@
       e.preventDefault();
       setMsg('');
 
-      const titleEl       = document.getElementById('title');
-      const synopsisEl    = document.getElementById('synopsis');
-      const mainCategoryEl= document.getElementById('mainCategory');
-      const penNameEl     = document.getElementById('penName');
+      const titleEl        = document.getElementById('title');
+      const synopsisEl     = document.getElementById('synopsis');
+      const mainCategoryEl = document.getElementById('mainCategory');
+      const penNameEl      = document.getElementById('penName');
 
       const title   = (titleEl.value || '').trim();
       const synopsis= synopsisEl.value || '';
@@ -566,5 +563,4 @@
       }
     });
   </script>
-</body>
-</html>
+{% endblock %}

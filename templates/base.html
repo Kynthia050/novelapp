@@ -1,0 +1,27 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>{% block title %}MY SHELF{% endblock %}</title>
+
+  {# โหลด Tailwind ให้ใช้ได้ทุกหน้า (header ใช้คลาส Tailwind) #}
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  {# CSS กลาง: ฟอนต์ Niramit และ theme หลัก #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
+
+  {# ถ้าหน้าไหนมี CSS/JS เพิ่มเติม ให้ใส่ใน block นี้ #}
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% include "header.html" %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>
