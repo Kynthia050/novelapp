@@ -239,7 +239,6 @@
                 placeholder="รหัสผ่านเดิม"
                 autocomplete="current-password"
               >
-              <button class="toggle" type="button" data-target="pwdCurrent">แสดง</button>
             </div>
           </div>
 
@@ -254,7 +253,6 @@
                 placeholder="อย่างน้อย 8 ตัวอักษร"
                 autocomplete="new-password"
               >
-              <button class="toggle" type="button" data-target="pwdNew">แสดง</button>
             </div>
             <div class="meter" aria-hidden="true">
               <div class="bar" id="strengthBar"></div>
@@ -272,7 +270,6 @@
                 placeholder="พิมพ์ซ้ำรหัสผ่านใหม่"
                 autocomplete="new-password"
               >
-              <button class="toggle" type="button" data-target="pwdConfirm">แสดง</button>
             </div>
             <div class="hint" id="matchHint"></div>
           </div>
@@ -286,7 +283,7 @@
 
           <div class="actions">
             <button class="btn primary" type="submit">บันทึกการเปลี่ยนแปลง</button>
-            <button class="btn" type="button" onclick="window.history.back()">ยกเลิก</button>
+            <a class="btn" href="{{ url_for('auth.logout') }}">ออกจากระบบ</a>
           </div>
         </div>
       </form>
