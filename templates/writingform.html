@@ -10,7 +10,6 @@
   <!-- Quill (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill/dist/quill.snow.css">
 
-  <!-- สไตล์เฉพาะหน้าสำหรับตัว editor นี้ -->
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -18,7 +17,6 @@
     body {
       margin: 0;
       min-height: 100vh;
-      /* ใช้ theme จาก global.css ถ้ามี ถ้าไม่มีก็ใช้ fallback ด้านหลัง */
       background:
         var(--bg, #222)
         url('{{ url_for("static", filename="img/bg-login.jpg") }}')
@@ -27,7 +25,6 @@
       line-height: 1.6;
     }
 
-    /* ถ้ามี header จาก template อื่นมาใช้ จะยังได้ sticky header ปกติ */
     header {
       position: sticky;
       top: 0;
@@ -49,7 +46,7 @@
 
     .brand {
       font-size: 2rem;
-      letter-spacing: .25em;
+      letter-spacing: 0.0 em;
       font-weight: 700;
     }
 
@@ -69,7 +66,7 @@
 
     .title-display {
       font-size: clamp(22px, 3.2vw, 40px);
-      letter-spacing: .25em;
+      letter-spacing: 0.0 em;
       margin-bottom: 22px;
     }
 
@@ -83,7 +80,7 @@
 
     .label {
       font-size: clamp(16px, 1.4vw, 22px);
-      letter-spacing: .25em;
+      letter-spacing: 0.0 em;
     }
 
     .pill {
@@ -107,25 +104,17 @@
       font-size: 1rem;
     }
 
-    .editor-wrap {
-      margin-top: 12px;
-    }
+    .editor-wrap { margin-top: 12px; }
 
     .editor-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px; /* gap ก่อน toolbar/editor */
+      margin-bottom: 8px;
     }
 
-    .editor-label {
-      font-weight: 700;
-      margin-bottom: 0;
-    }
-
-    .preview-bar {
-      margin-bottom: 0;
-    }
+    .editor-label { font-weight: 700; margin-bottom: 0; }
+    .preview-bar { margin-bottom: 0; }
 
     .actions {
       display: flex;
@@ -150,23 +139,14 @@
       border-color: var(--brand, #fff);
     }
 
-    .btn:hover {
-      filter: brightness(.95);
-    }
+    .btn:hover { filter: brightness(.95); }
 
     @media (max-width: 720px) {
-      .fields {
-        grid-template-columns: 1fr;
-      }
-      .label {
-        text-align: left;
-      }
+      .fields { grid-template-columns: 1fr; }
+      .label { text-align: left; }
     }
 
-    .prose img {
-      max-width: 100%;
-      height: auto;
-    }
+    .prose img { max-width: 100%; height: auto; }
 
     /* Quill: ปรับสไตล์ให้เข้ากับธีม */
     .ql-toolbar.ql-snow {
@@ -176,7 +156,6 @@
       color: #111;
     }
 
-    /* ปุ่ม undo / redo ให้หน้าตากลืนกับ toolbar */
     .ql-toolbar .ql-undo,
     .ql-toolbar .ql-redo {
       color: inherit;
@@ -213,19 +192,23 @@
       max-height: calc(100vh - 380px);
     }
 
-    .ql-editor {
-      /* เนื้อเรื่องใช้ฟอนต์ serif ให้ฟีลนิยาย แต่ global.css จะจัดฟอนต์หลักทั้งระบบ */
-      font-family: var(--font-body, inherit);
+    /* ให้ Quill ใช้ฟอนต์เดียวกับทั้งระบบจาก global.css */
+    .ql-editor{
+      font-family: var(--content-font-family, var(--font-body, inherit));
       font-size: 1.1rem;
       line-height: 1.8;
       min-height: 360px;
       padding: 2rem;
     }
 
-    /* Scrollbar styling */
-    .ql-container::-webkit-scrollbar {
-      width: 10px;
+    .ql-container,
+    .ql-toolbar,
+    .ql-tooltip{
+      font-family: var(--content-font-family, var(--font-body, inherit));
     }
+
+    /* Scrollbar styling */
+    .ql-container::-webkit-scrollbar { width: 10px; }
     .ql-container::-webkit-scrollbar-track {
       background: #f1f1f1;
       border-radius: 4px;
@@ -234,15 +217,9 @@
       background: #999;
       border-radius: 4px;
     }
-    .ql-container::-webkit-scrollbar-thumb:hover {
-      background: #666;
-    }
+    .ql-container::-webkit-scrollbar-thumb:hover { background: #666; }
 
-    /* Firefox scrollbar */
-    .ql-container {
-      scrollbar-color: #999 #f1f1f1;
-      scrollbar-width: thin;
-    }
+    .ql-container { scrollbar-color: #999 #f1f1f1; scrollbar-width: thin; }
 
     .ql-undo::before { content: '↶'; }
     .ql-redo::before { content: '↷'; }
@@ -422,7 +399,7 @@
           }
         }
       },
-      formats: ['header','bold','italic','list','align','indent','image','clean','underline','italic']
+      formats: ['header','bold','italic','underline','list','align','indent','image','clean']
     });
 
     // โหลดเนื้อหาเดิม (HTML)
@@ -449,7 +426,6 @@
         const fd = new FormData();
         fd.append('file', file);
 
-        // แนบ CSRF token (ถ้าใช้งาน CSRFProtect)
         const csrfEl = document.querySelector('input[name="csrf_token"]');
         const csrf = csrfEl ? csrfEl.value : '';
         if (csrf) fd.append('csrf_token', csrf);
@@ -482,9 +458,15 @@
     let autoSaving = false;
     let dirty = false;   // ใช้ร่วมกับ beforeunload
 
+    // ✅ กันไม่ให้ขึ้นการ์ดเตือน Leave site ตอนที่เรา "สั่ง" ให้ออกจากหน้าเอง
+    let allowUnload = false;
+    function permitUnloadOnce(){
+      allowUnload = true;
+      setTimeout(() => { allowUnload = false; }, 0);
+    }
+
     function scheduleAutoSave() {
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
-      // ตั้งเป็น 5 นาที (300000 ms) หลังหยุดพิมพ์ ก่อนจะ autosave
       autoSaveTimer = setTimeout(() => runAutoSave(false), 300000);
     }
 
@@ -498,11 +480,9 @@
       const textOnly = html.replace(/<[^>]*>/g,'').replace(/&nbsp;|\s/g,'');
       const hasImage = /<img\b/i.test(html);
 
-      // ยังไม่กรอกอะไรเลย / ไม่มีเนื้อหา → ไม่ต้อง autosave
       if (part < 1) return;
       if (!textOnly && !hasImage) return;
 
-      // ถ้าไม่บังคับ และ HTML เหมือนกับ lastAutoSavedHtml (แล้วมี chapter_id) → ข้าม
       if (!force && html === lastAutoSavedHtml && currentChapterId) return;
       if (autoSaving) return;
 
@@ -514,9 +494,7 @@
         fd.append('csrf_token', csrfEl.value);
       }
       fd.append('novels_id', String(NOVELS_ID));
-      if (currentChapterId) {
-        fd.append('chapter_id', String(currentChapterId));
-      }
+      if (currentChapterId) fd.append('chapter_id', String(currentChapterId));
       fd.append('part', String(part));
       fd.append('epName', epName);
       fd.append('content_html', html);
@@ -531,7 +509,6 @@
         if (!res.ok) throw new Error('status ' + res.status);
         const data = await res.json();
         if (data && data.success) {
-          // ถ้าเป็นการสร้างตอนใหม่ → backend จะส่ง chapters_id กลับมา เก็บไว้ใช้ต่อ
           if (data.chapters_id && !currentChapterId) {
             currentChapterId = data.chapters_id;
             let hidden = document.querySelector('input[name="chapter_id"]');
@@ -545,7 +522,7 @@
             hidden.value = String(data.chapters_id);
           }
           lastAutoSavedHtml = html;
-          dirty = false;  // ถือว่าข้อมูลล่าสุดถูกบันทึกแล้ว
+          dirty = false;
         }
       } catch (e) {
         console.debug('auto save failed', e);
@@ -570,21 +547,19 @@
       scheduleAutoSave();
     });
 
-    // ออกจากหน้า ถ้ายังมีของที่ยังไม่ save ให้เตือน
+    // ✅ เตือนเฉพาะตอนปิดแท็บ/รีเฟรชเอง (ไม่เตือนตอนกดปุ่มในหน้า)
     window.addEventListener('beforeunload', (e) => {
-      if (dirty) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
+      if (!dirty) return;
+      if (allowUnload) return;
+      e.preventDefault();
+      e.returnValue = '';
     });
 
     // ===== ปุ่ม Cancel =====
     document.getElementById('cancelBtn').addEventListener('click', async () => {
-      // ถ้ามีการแก้ไข (dirty) ให้ยืนยันแล้วคืนค่าไปเป็น snapshot ก่อนแก้ไข
       if (dirty) {
         if (!confirm('ยกเลิกการแก้ไขตอนนี้และคืนค่ากลับเป็นเดิมหรือไม่?')) return;
 
-        // คืนค่า input และ editor เป็นค่าก่อนเริ่มแก้ไข
         try {
           document.getElementById('part').value = initialPart;
           document.getElementById('epName').value = initialEpName;
@@ -597,18 +572,17 @@
         dirty = false;
         lastAutoSavedHtml = initialHtml || '';
 
-        try {
-          await runAutoSave(true);
-        } catch (e) {
-          console.debug('forced save after cancel failed', e);
-        }
-
+        try { await runAutoSave(true); } catch (e) { console.debug('forced save after cancel failed', e); }
         return;
       }
 
-      // ถ้าไม่มีการแก้ไข → พฤติกรรมเดิม: กลับหน้า referrer/history หรือ fallback
       const prev = document.referrer || "";
       const isPreviewReferrer = prev.includes("preview=1");
+
+      // ✅ ไม่ให้ขึ้นการ์ดเตือนตอนออกจากหน้านี้
+      permitUnloadOnce();
+      dirty = false;
+
       if (!isPreviewReferrer) {
         if (prev && new URL(prev, location.href).origin === location.origin) {
           location.href = prev;
@@ -633,7 +607,13 @@
           alert('กรุณากรอกลำดับตอนที่ถูกต้อง');
           return;
         }
+
         const previewUrl = PREVIEW_TEMPLATE.replace(/999999$/, String(part)) + '?preview=1';
+
+        // ✅ ไม่ให้ขึ้นการ์ดเตือนตอนออกจากหน้า
+        permitUnloadOnce();
+        dirty = false;
+
         window.location.href = previewUrl;
       });
     }
@@ -667,6 +647,11 @@
 
       try {
         const form = document.getElementById('chapter-form');
+
+        // ✅ ไม่ให้ขึ้นการ์ดเตือนตอน submit
+        permitUnloadOnce();
+        dirty = false;
+
         if (form.requestSubmit) form.requestSubmit();
         else form.submit();
       } catch (e) {

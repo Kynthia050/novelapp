@@ -4,8 +4,6 @@
 
 {% block extra_head %}
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -437,7 +435,7 @@
             {% else %}
               <div class="upload-icon">⬆️</div>
               <div class="upload-text">อัปโหลดรูปปก</div>
-              <div class="upload-guidelines">รองรับ .jpg .png .webp</div>
+              <div class="upload-guidelines">รองรับ .jpg .png</div>
               <div class="upload-dimensions">(800×800 px)</div>
             {% endif %}
           </div>
@@ -453,8 +451,12 @@
             <input name="title"
                    required
                    value="{{ novel.title or '' }}"
+                   maxlength="120"
                    class="input"
                    placeholder="ใส่ชื่อเรื่อง" />
+
+                   <p class="mt-0.5 text-xs text-[var(--muted)] text-right">
+                     <span id="titleCount">0</span>/120 ตัวอักษร</p>
           </div>
 
           <div>
@@ -474,13 +476,13 @@
             <textarea
               id="descriptionField"
               name="description"
-              maxlength="1000"
+              maxlength="200"
               class="textarea textarea-description"
-              placeholder="สรุปเรื่องย่อ (ไม่เกิน 1,000 ตัวอักษร)"
+              placeholder="ใส่คำอธิบายสั้นๆ เกี่ยวกับเรื่องนี้"
             >{{ novel.description or '' }}</textarea>
 
             <p class="mt-0.5 text-xs text-[var(--muted)] text-right">
-              <span id="descriptionCount">0</span>/1000
+              <span id="descriptionCount">0</span>/200 ตัวอักษร
             </p>
           </div>
 
@@ -499,6 +501,7 @@
           </div>
         </div>
       </div>
+    </form>
 
       <!-- TAGS -->
       <section class="panel p-4 md:p-5 mt-5">
@@ -660,7 +663,6 @@
           <div class="text-[var(--muted)]">ยังไม่มีตอน</div>
         {% endif %}
       </section>
-    </form>
 
     {# ฟอร์มจริงสำหรับลบงานเขียน (ใช้กับปุ่ม form="deleteNovelForm") #}
     <form id="deleteNovelForm"
@@ -671,227 +673,288 @@
   </div>
 
   <script>
-    const $  = (s, sc=document) => sc.querySelector(s);
-    const $$ = (s, sc=document) => Array.from(sc.querySelectorAll(s));
+  const $  = (s, sc=document) => sc.querySelector(s);
+  const $$ = (s, sc=document) => Array.from(sc.querySelectorAll(s));
 
-    // ฟังก์ชันส่งฟอร์มเปลี่ยนสถานะตอน (ให้เป็น global สำหรับใช้ใน onchange="")
-    function submitChapterStatus(selectEl){
-      const chapterId = selectEl.dataset.chapterId;
-      const form = document.getElementById('chapter-status-form-' + chapterId);
-      if (!form) return;
+  function _getCsrfToken(){
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || document.querySelector('input[name="csrf_token"]')?.value
+        || '';
+  }
+  // นับจำนวนตัวอักษรในช่องชื่อเรื่อง  
+  (function () {
+    const titleInput = document.querySelector('input[name="title"]');
+    const titleCount = document.getElementById('titleCount');
+    if (!titleInput || !titleCount) return;
 
-      const statusInput = form.querySelector('input[name="status"]');
-      if (statusInput) {
-        statusInput.value = selectEl.value;
+    const update = () => {
+      titleCount.textContent = String(titleInput.value.length);
+    };
+
+    titleInput.addEventListener('input', update);
+    titleInput.addEventListener('change', update);
+
+    // ให้ถูกตั้งแต่โหลดหน้า (รองรับค่า value ที่มาจาก Jinja)
+    update();
+  })();
+
+
+  // ฟังก์ชันส่งฟอร์มเปลี่ยนสถานะตอน (ไม่ refresh) — global สำหรับ onchange=""
+  async function submitChapterStatus(selectEl){
+    const chapterId = selectEl.dataset.chapterId;
+    const form = document.getElementById('chapter-status-form-' + chapterId);
+    if (!form) return;
+
+    const statusInput = form.querySelector('input[name="status"]');
+    const prevStatus  = statusInput ? statusInput.value : selectEl.value;
+
+    const nextStatus = selectEl.value;
+    if (statusInput) statusInput.value = nextStatus;
+
+    selectEl.disabled = true;
+
+    try {
+      const fd = new FormData(form);
+      fd.set('status', nextStatus);
+
+      const res = await fetch(form.action, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json',
+          'X-CSRFToken': _getCsrfToken()
+        },
+        body: fd
+      });
+
+      if (!res.ok) throw new Error('status update failed');
+
+      // ถ้า backend คืน JSON ก็ sync ค่าให้ชัวร์
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'status update failed');
+        if (statusInput) statusInput.value = data.status;
+        selectEl.value = data.status;
       }
-      form.submit();
+
+    } catch (err) {
+      // revert กลับค่าเดิม
+      selectEl.value = prevStatus;
+      if (statusInput) statusInput.value = prevStatus;
+      alert('อัปเดตสถานะไม่สำเร็จ');
+    } finally {
+      selectEl.disabled = false;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const novelsId  = Number('{{ novel.novels_id }}');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    /* ==== DESCRIPTION: limit 1000 chars + counter ==== */
+    const descField   = document.getElementById('descriptionField');
+    const descCountEl = document.getElementById('descriptionCount');
+    const descMax     = 1000;
+
+    function updateDescriptionCount(){
+      if (!descField || !descCountEl) return;
+      const len = descField.value.length;
+      descCountEl.textContent = len;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const novelsId  = Number('{{ novel.novels_id }}');
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-      /* ==== DESCRIPTION: limit 1000 chars + counter ==== */
-      const descField   = document.getElementById('descriptionField');
-      const descCountEl = document.getElementById('descriptionCount');
-      const descMax     = 1000;
-
-      function updateDescriptionCount(){
-        if (!descField || !descCountEl) return;
-        const len = descField.value.length;
-        descCountEl.textContent = len;
-      }
-
-      if (descField) {
+    if (descField) {
+      updateDescriptionCount();
+      descField.addEventListener('input', () => {
+        if (descField.value.length > descMax) {
+          descField.value = descField.value.slice(0, descMax);
+        }
         updateDescriptionCount();
-        descField.addEventListener('input', () => {
-          if (descField.value.length > descMax) {
-            descField.value = descField.value.slice(0, descMax);
-          }
-          updateDescriptionCount();
-        });
-      }
+      });
+    }
 
-      /* ==== API routes (แท็ก/ตอน) ==== */
-      const tagList   = $('#tagList');
-      const tagInput  = $('#tagInput');
-      const addTagBtn = $('#addTagBtn');
+    /* ==== API routes (แท็ก/ตอน) ==== */
+    const tagList   = $('#tagList');
+    const tagInput  = $('#tagInput');
+    const addTagBtn = $('#addTagBtn');
 
-      const apiBaseNovel   = `/api/novels/${novelsId}`;
-      const apiBaseChapter = `/api/chapters`;
+    const apiBaseNovel   = `/api/novels/${novelsId}`;
+    const apiBaseChapter = `/api/chapters`;
 
-      const routes = {
-        addTag:        `${apiBaseNovel}/tags`,
-        removeTag:     (tagId) => `${apiBaseNovel}/tags/${tagId}`,
-        createChapter: `${apiBaseNovel}/chapters`,
-        getChapter:    (id) => `${apiBaseChapter}/${id}`,
-        updateChapter: (id) => `${apiBaseChapter}/${id}`
-      };
+    const routes = {
+      addTag:        `${apiBaseNovel}/tags`,
+      removeTag:     (tagId) => `${apiBaseNovel}/tags/${tagId}`,
+      createChapter: `${apiBaseNovel}/chapters`,
+      getChapter:    (id) => `${apiBaseChapter}/${id}`,
+      updateChapter: (id) => `${apiBaseChapter}/${id}`
+    };
 
-      /* ==== COVER: เปิดไฟล์ + พรีวิว ==== */
-      const coverUpload = document.getElementById('coverUpload');
-      const coverInput  = document.getElementById('coverInput');
+    /* ==== COVER: เปิดไฟล์ + พรีวิว ==== */
+    const coverUpload = document.getElementById('coverUpload');
+    const coverInput  = document.getElementById('coverInput');
 
-      const openPicker = () => coverInput && coverInput.click();
+    const openPicker = () => coverInput && coverInput.click();
 
-      if (coverUpload && coverInput) {
-        coverUpload.addEventListener('click', openPicker);
-        coverUpload.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            openPicker();
-          }
-        });
-
-        coverInput.addEventListener('change', (e) => {
-          const file = e.target.files && e.target.files[0];
-          if (!file) return;
-          if (!file.type || !file.type.startsWith('image/')) {
-            alert('กรุณาเลือกไฟล์รูปภาพ');
-            return;
-          }
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            coverUpload.innerHTML = `<img src="${ev.target.result}" alt="ปกพรีวิว">`;
-          };
-          reader.readAsDataURL(file);
-        });
-      }
-
-      /* ==== TAGS ==== */
-      addTagBtn?.addEventListener('click', async () => {
-        const name = (tagInput.value || '').trim();
-        if (!name) return;
-        try {
-          const res = await fetch(routes.addTag, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': csrfToken
-            },
-            body: JSON.stringify({ name })
-          });
-          if (!res.ok) throw new Error();
-          const tag = await res.json(); // {tag_id, name}
-          tagInput.value = '';
-          appendTagChip(tag.tag_id, tag.name);
-        } catch {
-          alert('เพิ่มแท็กล้มเหลว');
+    if (coverUpload && coverInput) {
+      coverUpload.addEventListener('click', openPicker);
+      coverUpload.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openPicker();
         }
       });
 
-      tagList?.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-action="remove-tag"]');
-        if (!btn) return;
-        const chip = btn.closest('.chip');
-        const tagId = chip?.dataset.tagId;
-        if (!tagId) return;
-        try {
-          const res = await fetch(routes.removeTag(tagId), {
-            method: 'DELETE',
-            credentials: 'same-origin',
-            headers: {
-              'X-CSRFToken': csrfToken
-            }
-          });
-          if (!res.ok) throw new Error();
-          chip.remove();
-        } catch {
-          alert('ลบแท็กล้มเหลว');
+      coverInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!file.type || !file.type.startsWith('image/')) {
+          alert('กรุณาเลือกไฟล์รูปภาพ');
+          return;
         }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          coverUpload.innerHTML = `<img src="${ev.target.result}" alt="ปกพรีวิว">`;
+        };
+        reader.readAsDataURL(file);
       });
+    }
 
-      function appendTagChip(tagId, name){
-        if (!tagList) return;
-        const span = document.createElement('span');
-        span.className = 'chip';
-        span.dataset.tagId = tagId;
-        span.dataset.tagName = name;
-        span.innerHTML =
-          `<svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60">
-             <path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/>
-           </svg>`+
-          `<span>${name}</span>`+
-          `<button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">×</button>`;
-        tagList.appendChild(span);
-      }
-
-      /* ==== CHAPTERS: Accordion + Sort ==== */
-      const accordionEl = document.getElementById('chaptersAccordion');
-      const sortToggle  = document.getElementById('chapterSortToggle');
-
-      if (accordionEl) {
-        accordionEl.addEventListener('click', (e) => {
-          const header = e.target.closest('.chapter-group-header');
-          if (!header) return;
-          const group = header.closest('.chapter-group');
-          if (!group) return;
-          group.classList.toggle('is-open');
+    /* ==== TAGS ==== */
+    addTagBtn?.addEventListener('click', async () => {
+      const name = (tagInput.value || '').trim();
+      if (!name) return;
+      try {
+        const res = await fetch(routes.addTag, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({ name })
         });
-      }
-
-      function applyChapterSort(direction) {
-        if (!accordionEl) return;
-
-        const groups = Array.from(accordionEl.querySelectorAll('.chapter-group'));
-
-        groups.sort((a, b) => {
-          const aStart = Number(a.dataset.rangeStart || '0');
-          const bStart = Number(b.dataset.rangeStart || '0');
-          return direction === 'asc' ? aStart - bStart : bStart - aStart;
-        });
-
-        groups.forEach((group, index) => {
-          const listEl = group.querySelector('.chapters-list');
-          if (!listEl) return;
-
-          const rows = Array.from(listEl.querySelectorAll('.chapter-row'));
-          if (!rows.length) return;
-
-          rows.sort((a, b) => {
-            const aNo = Number(a.dataset.chapterNo || '0');
-            const bNo = Number(b.dataset.chapterNo || '0');
-            return direction === 'asc' ? aNo - bNo : bNo - aNo;
-          });
-
-          rows.forEach(row => listEl.appendChild(row));
-
-          const firstNo = rows[0].dataset.chapterNo || '';
-          const lastNo  = rows[rows.length - 1].dataset.chapterNo || '';
-          const titleEl = group.querySelector('.chapter-group-title');
-
-          if (titleEl) {
-            titleEl.textContent = `ตอนที่ ${firstNo} – ${lastNo}`;
-          }
-          group.dataset.rangeStart = firstNo;
-
-          accordionEl.appendChild(group);
-
-          if (index === 0) {
-            group.classList.add('is-open');
-          }
-        });
-      }
-
-      if (sortToggle && accordionEl) {
-        sortToggle.addEventListener('click', () => {
-          const current = sortToggle.getAttribute('data-direction') || 'asc';
-          const next    = current === 'asc' ? 'desc' : 'asc';
-
-          sortToggle.setAttribute('data-direction', next);
-          sortToggle.classList.toggle('desc', next === 'desc');
-
-          const labelEl = sortToggle.querySelector('.chapters-sort-label');
-          if (labelEl) {
-            labelEl.textContent = next === 'asc' ? 'เก่าไปใหม่' : 'ใหม่ไปเก่า';
-          }
-
-          applyChapterSort(next);
-        });
-
-        applyChapterSort(sortToggle.getAttribute('data-direction') || 'asc');
+        if (!res.ok) throw new Error();
+        const tag = await res.json(); // {tag_id, name}
+        tagInput.value = '';
+        appendTagChip(tag.tag_id, tag.name);
+      } catch {
+        alert('เพิ่มแท็กล้มเหลว');
       }
     });
-  </script>
+
+    tagList?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action="remove-tag"]');
+      if (!btn) return;
+      const chip = btn.closest('.chip');
+      const tagId = chip?.dataset.tagId;
+      if (!tagId) return;
+      try {
+        const res = await fetch(routes.removeTag(tagId), {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: {
+            'X-CSRFToken': csrfToken
+          }
+        });
+        if (!res.ok) throw new Error();
+        chip.remove();
+      } catch {
+        alert('ลบแท็กล้มเหลว');
+      }
+    });
+
+    function appendTagChip(tagId, name){
+      if (!tagList) return;
+      const span = document.createElement('span');
+      span.className = 'chip';
+      span.dataset.tagId = tagId;
+      span.dataset.tagName = name;
+      span.innerHTML =
+        `<svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60">
+           <path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/>
+         </svg>`+
+        `<span>${name}</span>`+
+        `<button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">×</button>`;
+      tagList.appendChild(span);
+    }
+
+    /* ==== CHAPTERS: Accordion + Sort ==== */
+    const accordionEl = document.getElementById('chaptersAccordion');
+    const sortToggle  = document.getElementById('chapterSortToggle');
+
+    if (accordionEl) {
+      accordionEl.addEventListener('click', (e) => {
+        const header = e.target.closest('.chapter-group-header');
+        if (!header) return;
+        const group = header.closest('.chapter-group');
+        if (!group) return;
+        group.classList.toggle('is-open');
+      });
+    }
+
+    function applyChapterSort(direction) {
+      if (!accordionEl) return;
+
+      const groups = Array.from(accordionEl.querySelectorAll('.chapter-group'));
+
+      groups.sort((a, b) => {
+        const aStart = Number(a.dataset.rangeStart || '0');
+        const bStart = Number(b.dataset.rangeStart || '0');
+        return direction === 'asc' ? aStart - bStart : bStart - aStart;
+      });
+
+      groups.forEach((group, index) => {
+        const listEl = group.querySelector('.chapters-list');
+        if (!listEl) return;
+
+        const rows = Array.from(listEl.querySelectorAll('.chapter-row'));
+        if (!rows.length) return;
+
+        rows.sort((a, b) => {
+          const aNo = Number(a.dataset.chapterNo || '0');
+          const bNo = Number(b.dataset.chapterNo || '0');
+          return direction === 'asc' ? aNo - bNo : bNo - aNo;
+        });
+
+        rows.forEach(row => listEl.appendChild(row));
+
+        const firstNo = rows[0].dataset.chapterNo || '';
+        const lastNo  = rows[rows.length - 1].dataset.chapterNo || '';
+        const titleEl = group.querySelector('.chapter-group-title');
+
+        if (titleEl) {
+          titleEl.textContent = `ตอนที่ ${firstNo} – ${lastNo}`;
+        }
+        group.dataset.rangeStart = firstNo;
+
+        accordionEl.appendChild(group);
+
+        if (index === 0) {
+          group.classList.add('is-open');
+        }
+      });
+    }
+
+    if (sortToggle && accordionEl) {
+      sortToggle.addEventListener('click', () => {
+        const current = sortToggle.getAttribute('data-direction') || 'asc';
+        const next    = current === 'asc' ? 'desc' : 'asc';
+
+        sortToggle.setAttribute('data-direction', next);
+        sortToggle.classList.toggle('desc', next === 'desc');
+
+        const labelEl = sortToggle.querySelector('.chapters-sort-label');
+        if (labelEl) {
+          labelEl.textContent = next === 'asc' ? 'เก่าไปใหม่' : 'ใหม่ไปเก่า';
+        }
+
+        applyChapterSort(next);
+      });
+
+      applyChapterSort(sortToggle.getAttribute('data-direction') || 'asc');
+    }
+  });
+</script>
+
 {% endblock %}

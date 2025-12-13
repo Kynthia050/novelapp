@@ -1,0 +1,170 @@
+<!-- Back (fixed) -->
+<button type="button" class="fab-btn fab-back" aria-label="ย้อนกลับ" onclick="goBack()">
+  <svg viewBox="0 0 24 24" aria-hidden="true" class="fab-icon">
+    <path d="M12 8.5 8.5 12 12 15.5"></path>
+    <line x1="9" y1="12" x2="16" y2="12"></line>
+  </svg>
+</button>
+
+<!-- Back to top (fixed bottom-right) -->
+<button type="button" class="fab-btn fab-top" aria-label="กลับขึ้นด้านบน" onclick="scrollToTop()">
+  <svg viewBox="0 0 24 24" aria-hidden="true" class="fab-icon">
+    <path d="M8.5 12 12 8.5 15.5 12"></path>
+    <line x1="12" y1="9" x2="12" y2="16"></line>
+  </svg>
+</button>
+
+<style>
+  :root{
+    --sticky-header-h: 74px;
+
+    /* ปรับได้ */
+    --fab-size: 46px;
+    --fab-icon: 32px;
+    --fab-stroke: 1.6;
+
+    --back-gap: 12px;
+  }
+
+  /* ===== Base: ให้ปุ่ม Back = BackToTop ===== */
+  .fab-btn{
+    width: var(--fab-size);
+    height: var(--fab-size);
+    border: 0;                 /* ✅ เอาเส้นวงกลมออก */
+    border-radius: 999px;
+
+    background: rgba(17,18,20,.35);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    box-shadow: 0 10px 22px rgba(0,0,0,.35);
+
+    transition: opacity .18s ease, transform .18s ease,
+                background .15s ease, box-shadow .15s ease, filter .15s ease;
+
+    position: fixed;
+    z-index: 90;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .fab-btn:hover{
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.10);
+    box-shadow: 0 14px 28px rgba(0,0,0,.45);
+  }
+  .fab-btn:active{
+    transform: translateY(0);
+    filter: brightness(.92);
+  }
+  .fab-btn:focus-visible{
+    outline: 2px solid rgba(255,255,255,.65);
+    outline-offset: 3px;
+  }
+
+  .fab-icon{
+    width: var(--fab-icon);
+    height: var(--fab-icon);
+    fill: none;
+    stroke: #fff;
+    stroke-width: var(--fab-stroke);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ===== Position: Back ===== */
+  .fab-back{
+    top: calc(var(--sticky-header-h) + 18px);
+
+    left: max(
+      12px,
+      calc(
+        (100vw - min(1200px, 100vw)) / 2
+        + clamp(16px, 4vw, 28px)
+        - var(--fab-size)
+        - var(--back-gap)
+      )
+    );
+  }
+
+  /* ซ่อน back เมื่อ scroll ลง */
+  .fab-back.is-hide{
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+  }
+
+  /* ===== Position: Top ===== */
+  .fab-top{
+    right: max(12px, calc((100vw - min(1200px, 100vw))/2 + clamp(16px,4vw,28px)));
+    bottom: 18px;
+
+    /* hidden by default */
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+  }
+  .fab-top.is-show{
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  @media (max-width: 768px){
+    :root{
+      --fab-size: 48px;
+      --fab-icon: 34px;
+    }
+    .fab-back{ top: calc(var(--sticky-header-h) + 12px); }
+  }
+</style>
+
+<script>
+  function goBack(fallbackUrl){
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = fallbackUrl || document.referrer || "/";
+  }
+
+  function scrollToTop(){
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function syncHeaderHeight(){
+    const header = document.querySelector("header");
+    const h = header ? header.getBoundingClientRect().height : 74;
+    document.documentElement.style.setProperty("--sticky-header-h", Math.round(h) + "px");
+  }
+
+  function syncBackButton(){
+    const back = document.querySelector(".fab-back");
+    if (!back) return;
+    const hideAfter = 40;
+    back.classList.toggle("is-hide", window.scrollY > hideAfter);
+  }
+
+  function syncTopButton(){
+    const btn = document.querySelector(".fab-top");
+    if (!btn) return;
+
+    const doc = document.documentElement;
+    const scrollBottom = window.scrollY + window.innerHeight;
+    const nearBottom = scrollBottom >= (doc.scrollHeight - 140);
+    btn.classList.toggle("is-show", nearBottom);
+  }
+
+  function syncAll(){
+    syncHeaderHeight();
+    syncBackButton();
+    syncTopButton();
+  }
+
+  window.addEventListener("load", syncAll);
+  window.addEventListener("resize", syncHeaderHeight);
+  window.addEventListener("scroll", () => {
+    syncBackButton();
+    syncTopButton();
+  }, { passive: true });
+</script>

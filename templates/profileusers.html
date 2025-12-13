@@ -4,6 +4,21 @@
 
 {# CSS เฉพาะหน้าดูโปรไฟล์ #}
 {% block extra_head %}
+
+<script>
+  // ✅ FIX: ไม่ทับ tailwind.config เดิม + เติมสีที่ header ใช้ (muted/textc)
+  window.tailwind = window.tailwind || {};
+  tailwind.config = tailwind.config || {};
+  tailwind.config.theme = tailwind.config.theme || {};
+  tailwind.config.theme.extend = tailwind.config.theme.extend || {};
+
+  const ex = tailwind.config.theme.extend;
+  const colors = Object.assign({}, ex.colors || {});
+  colors.muted = colors.muted || 'rgba(255,255,255,.65)';
+  colors.textc = colors.textc || 'rgba(255,255,255,.92)';
+  ex.colors = colors;
+</script>
+
 <style>
   /* พื้นหลังเฉพาะส่วนเนื้อหาโปรไฟล์ ไม่ไปยุ่งกับ header */
   .profile-bg{
@@ -224,7 +239,6 @@
                 <option value="female" {{ 'female' == (user.gender or '') and 'selected' or '' }}>หญิง</option>
                 <option value="LGBTQ+" {{ 'LGBTQ+' == (user.gender or '') and 'selected' or '' }}>LGBTQ+</option>
               </select>
-              <div class="hint">แก้ไขได้เพียงครั้งเดียวเท่านั้น</div>
             </div>
           </div>
 

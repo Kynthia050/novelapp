@@ -7,13 +7,8 @@
 
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-                   Roboto, Helvetica, Arial, sans-serif;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
+  
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-slate-100">
   {# safe defaults #}
@@ -45,7 +40,7 @@
         </div>
         <div class="leading-tight">
           <p class="font-semibold text-sm tracking-wide">Myshelf</p>
-          <p class="text-xs text-slate-400">Admin dashboard</p>
+          <p class="text-xs text-slate-400">Dashboard</p>
         </div>
       </div>
 

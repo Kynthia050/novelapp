@@ -229,7 +229,7 @@ def update_novel(novels_id):
                 pass
 
     flash("บันทึกสำเร็จ", "success")
-    return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+    return redirect(url_for("mywrite"))
 
 
 @editnovel_bp.post("/<int:novels_id>/chapters/<int:chapter_id>/status")
@@ -237,6 +237,10 @@ def update_chapter_status(novels_id, chapter_id):
     """อัปเดต status ของตอน (draft / published) จากหน้า edit_novel"""
     new_status = (request.form.get("status") or "").strip()
     if new_status not in ("draft", "published"):
+        # ถ้าเป็น AJAX ให้คืน JSON
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "error": "invalid status"}), 400
+
         flash("สถานะไม่ถูกต้อง", "error")
         return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
@@ -253,8 +257,14 @@ def update_chapter_status(novels_id, chapter_id):
             )
         conn.commit()
 
+    # ✅ ถ้าเป็น AJAX: คืน JSON เพื่อไม่ต้อง refresh
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "chapter_id": chapter_id, "status": new_status}), 200
+
+    # ✅ fallback แบบเดิม (กรณี JS ปิด): refresh + flash
     flash("อัปเดตสถานะตอนเรียบร้อยแล้ว", "success")
     return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+
 
 
 # ----- ลบนิยายจากหน้าเว็บ (ใช้กับปุ่ม "ลบงานเขียนนี้") -----
@@ -292,22 +302,46 @@ def delete_novel_page(novels_id):
 def delete_chapter_page(novels_id, chapter_id):
     with closing(_conn_alive()) as conn:
         with conn.cursor() as cur:
+            # ล็อกแถวตอนที่จะลบไว้ก่อนกัน race condition
             cur.execute(
-                "SELECT chapters_id FROM chapters WHERE chapters_id=%s AND novels_id=%s",
+                """
+                SELECT chapter_no
+                  FROM chapters
+                 WHERE chapters_id=%s AND novels_id=%s
+                 FOR UPDATE
+                """,
                 (chapter_id, novels_id),
             )
-            if not dictfetchone(cur):
+            row = dictfetchone(cur)
+            if not row:
                 flash("ไม่พบตอนที่ต้องการลบ", "error")
                 return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
+            deleted_no = row.get("chapter_no")
+
+            # ลบตอน
             cur.execute(
                 "DELETE FROM chapters WHERE chapters_id=%s AND novels_id=%s",
                 (chapter_id, novels_id),
             )
+
+            # เลื่อนเลขตอนถัดไปขึ้นมาแทน
+            if deleted_no is not None:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET chapter_no = chapter_no - 1
+                     WHERE novels_id = %s
+                       AND chapter_no > %s
+                    """,
+                    (novels_id, deleted_no),
+                )
+
         conn.commit()
 
     flash("ลบตอนเรียบร้อยแล้ว", "success")
     return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+
 
 
 # =========================  API: TAGS  =========================
@@ -466,18 +500,47 @@ def update_chapter(chapter_id):
 
 @api_bp.delete("/chapters/<int:chapter_id>")
 def delete_chapter(chapter_id):
+    shifted = 0
     with closing(_conn_alive()) as conn:
         with conn.cursor() as cur:
+            # ดึง novels_id + chapter_no ของตอนที่จะลบ แล้วล็อกแถว
             cur.execute(
-                "SELECT chapters_id FROM chapters WHERE chapters_id=%s",
+                """
+                SELECT novels_id, chapter_no
+                  FROM chapters
+                 WHERE chapters_id=%s
+                 FOR UPDATE
+                """,
                 (chapter_id,),
             )
-            if not dictfetchone(cur):
+            row = dictfetchone(cur)
+            if not row:
                 return _json_error("not found", 404)
 
+            novels_id = row.get("novels_id")
+            deleted_no = row.get("chapter_no")
+
+            # ลบตอน
             cur.execute("DELETE FROM chapters WHERE chapters_id=%s", (chapter_id,))
+
+            # เลื่อนเลขตอนถัดไปขึ้นมาแทน (เฉพาะในนิยายเรื่องเดียวกัน)
+            if novels_id is not None and deleted_no is not None:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET chapter_no = chapter_no - 1
+                     WHERE novels_id = %s
+                       AND chapter_no > %s
+                    """,
+                    (novels_id, deleted_no),
+                )
+                shifted = cur.rowcount
+
         conn.commit()
-    return jsonify({"ok": True}), 200
+
+    return jsonify({"ok": True, "shifted": shifted}), 200
+
+
 
 
 @api_bp.delete("/novels/<int:novels_id>")

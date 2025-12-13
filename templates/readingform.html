@@ -7,13 +7,14 @@
     {{ (novel_title ~ ' — ตอน ' ~ chapter_no ~ (chapter_title and (': ' ~ chapter_title) or '')) if novel_title else 'Novel Reader - MYSHELF' }}
   </title>
 
-  <!-- ใช้ global.css เป็นตัวจัดการ font และ base style -->
+  <!-- ใช้ฟอนต์/สไตล์หลักจาก global.css -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
 
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
+
     body{
-      /* font-family เอาไปใช้จาก global.css แทน */
+      font-family: var(--font-body, inherit);
       line-height:1.8;
       min-height:100vh;
       display:flex;
@@ -24,122 +25,150 @@
     body.light-mode{background:#fdfdfd;color:#222}
 
     main{flex:1;max-width:900px;margin:0 auto;padding:2rem 1rem 6rem}
+
     .chapter-header{text-align:center;margin-bottom:2rem}
     .chapter-title{font-size:2rem;font-weight:400;margin-bottom:.8rem}
     .chapter-subtitle{font-size:1.1rem;margin-bottom:.25rem;opacity:.85}
     .author-name{font-size:1rem;opacity:.7}
 
     .chapter-content{
-      border-radius:6px;
+      border-radius:14px;
       padding:2rem;
       font-size:1.1rem;
       margin-bottom:2rem;
       transition:background .3s;
       overflow:hidden;
-      white-space:pre-wrap;
-      max-height:calc(100vh - 12rem);
-      overflow-y:auto;
-      overflow-x:hidden;
+      overflow-wrap:anywhere;
+      word-break:break-word;
     }
     body.dark-mode .chapter-content{background:#333}
     body.light-mode .chapter-content{background:#f1f1f1}
 
-    /* Custom scrollbar styling */
-    .chapter-content::-webkit-scrollbar{width:8px}
-    .chapter-content::-webkit-scrollbar-track{background:transparent}
-    body.dark-mode .chapter-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
-    body.dark-mode .chapter-content::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.4)}
-    body.light-mode .chapter-content::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:4px}
-    body.light-mode .chapter-content::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.4)}
-    
-    /* Firefox scrollbar */
-    .chapter-content{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
-    body.light-mode .chapter-content{scrollbar-color:rgba(0,0,0,.2) transparent}
-
-    .content-paragraph{
-      margin-bottom:1.5rem;
-      overflow-wrap:anywhere;
-      word-break:break-word;
-      line-height:1.8;
-      /* ใช้ฟอนต์ตาม global.css */
-      font-family:inherit;
+    /* ทำให้รูป/สื่อไม่ล้นกรอบ */
+    .chapter-content :where(img, video, iframe, embed, object, canvas, svg){
+      max-width:100% !important;
+      height:auto !important;
     }
-    .content-paragraph:last-child{margin-bottom:0}
-
-    /* Make images and embedded media responsive and never exceed the content box */
-    .chapter-content img,
-    .chapter-content picture,
-    .chapter-content video,
-    .chapter-content iframe,
-    .chapter-content embed,
-    .chapter-content svg {
-      max-width:100%;
-      height:auto;
+    .chapter-content img{
       display:block;
-      margin:0.6rem auto;
+      margin:1rem auto;
+      border-radius:12px;
+    }
+
+    /* fallback สำหรับกรณี paragraphs (ไม่ใช่ html_content) */
+    .chapter-content > p{ margin-bottom:1.5rem; }
+    .chapter-content > p:last-child{ margin-bottom:0; }
+
+    /* กันตาราง/โค้ดยาวๆ ล้น */
+    .chapter-content :where(table){
+      width:100%;
+      max-width:100%;
+      border-collapse:collapse;
+    }
+    .chapter-content :where(pre){
+      max-width:100%;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+    }
+
+    /* ===== Quill Render Support (สำคัญมาก) =====
+       Quill เก็บ format เป็น class เช่น ql-align-*, ql-indent-* 
+       ถ้าไม่มี CSS ชุดนี้ จะดูเหมือน "ชิดซ้ายหมด" */
+    .chapter-content .ql-editor.ql-render{
+      padding:0;                 /* ใช้ padding ของ .chapter-content แทน */
+      margin:0;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      color: inherit;
+      background: transparent;
+      text-align: justify;       /* ให้ฟีลนิยาย (ถ้าไม่อยาก justify ลบออกได้) */
+    }
+
+    .chapter-content .ql-editor.ql-render p{
+      margin:0 0 1.5rem;
+      text-indent: 2em;          /* ให้ย่อหน้าไม่ชิดซ้าย (ถ้าไม่ต้องการ ลบบรรทัดนี้) */
+    }
+    .chapter-content .ql-editor.ql-render p:last-child{ margin-bottom:0; }
+
+    /* Align */
+    .chapter-content .ql-align-center{ text-align:center; }
+    .chapter-content .ql-align-right{ text-align:right; }
+    .chapter-content .ql-align-justify{ text-align:justify; }
+    /* ถ้ากลาง/ขวา ไม่ต้อง indent */
+    .chapter-content .ql-align-center,
+    .chapter-content .ql-align-right{
+      text-indent: 0;
+    }
+
+    /* Indent (Quill ใช้ class แทนการใส่ &nbsp;) */
+    .chapter-content .ql-indent-1{ padding-left: 3em; }
+    .chapter-content .ql-indent-2{ padding-left: 6em; }
+    .chapter-content .ql-indent-3{ padding-left: 9em; }
+    .chapter-content .ql-indent-4{ padding-left:12em; }
+    .chapter-content .ql-indent-5{ padding-left:15em; }
+    .chapter-content .ql-indent-6{ padding-left:18em; }
+    .chapter-content .ql-indent-7{ padding-left:21em; }
+    .chapter-content .ql-indent-8{ padding-left:24em; }
+
+    /* Lists */
+    .chapter-content .ql-editor.ql-render ol,
+    .chapter-content .ql-editor.ql-render ul{
+      padding-left: 2em;
+      margin: 0 0 1.25rem;
+      text-indent: 0;
+    }
+    .chapter-content .ql-editor.ql-render li{
+      margin: .25rem 0;
+      text-indent: 0;
+    }
+
+    /* Blockquote */
+    .chapter-content .ql-editor.ql-render blockquote{
+      border-left: 4px solid rgba(255,255,255,.18);
+      padding-left: 1rem;
+      margin: 0 0 1.5rem;
+      opacity: .95;
+      text-indent: 0;
+    }
+    body.light-mode .chapter-content .ql-editor.ql-render blockquote{
+      border-left-color: rgba(0,0,0,.12);
     }
 
     .navigation-controls{
-      position:fixed;
-      bottom:1.5rem;
-      left:50%;
-      transform:translateX(-50%);
-      display:flex;
-      align-items:center;
-      gap:1.5rem;
-      transition:opacity .3s,visibility .3s;
+      position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+      display:flex;align-items:center;gap:1.5rem;z-index:60;
     }
-    .navigation-controls.hidden{opacity:0;visibility:hidden}
     .nav-arrow{
-      width:45px;
-      height:45px;
-      background:#ddd;
-      border:none;
-      border-radius:50%;
-      font-size:1.2rem;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      transition:background .3s;
+      width:45px;height:45px;background:#ddd;border:none;border-radius:50%;
+      font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:background .3s
     }
     .nav-arrow[disabled]{opacity:.5;cursor:not-allowed}
     .nav-arrow:hover{background:#bbb}
+
     .back-to-cover-btn{
-      background:#ddd;
-      border:none;
-      padding:.6rem 1.5rem;
-      border-radius:20px;
-      font-size:.95rem;
-      cursor:pointer;
-      transition:background .3s;
+      background:#ddd;border:none;padding:.6rem 1.5rem;border-radius:20px;
+      font-size:.95rem;cursor:pointer;transition:background .3s
     }
     .back-to-cover-btn:hover{background:#bbb}
 
     .theme-toggle{
-      position:fixed;
-      top:1rem;
-      right:1rem;
-      background:transparent;
-      border:none;
-      font-size:1.5rem;
-      cursor:pointer;
-      transition:transform .3s,opacity .3s,visibility .3s;
+      position:fixed;top:1rem;right:1rem;background:transparent;border:none;
+      font-size:1.5rem;cursor:pointer;transition:transform .3s;z-index:70;
     }
     .theme-toggle:hover{transform:rotate(20deg)}
-    .theme-toggle.hidden{opacity:0;visibility:hidden}
 
-    /* Progress pill */
     .progress-pill{
-      position:fixed;top:1rem;left:1rem;z-index:50;
+      position:fixed;top:1rem;left:1rem;z-index:70;
       background:rgba(0,0,0,.5);color:#fff;padding:.35rem .7rem;border-radius:999px;
-      font-size:.9rem;backdrop-filter:blur(4px);transition:opacity .3s,visibility .3s;
+      font-size:.9rem;backdrop-filter:blur(4px)
     }
     body.light-mode .progress-pill{background:rgba(0,0,0,.6)}
-    .progress-pill.hidden{opacity:0;visibility:hidden}
-    /* Progress bar at bottom */
+
     .progress-bar{
       position:fixed;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.15);
+      z-index:65;
     }
     .progress-bar__fill{height:100%;width:0%}
     body.dark-mode .progress-bar__fill{background:#69d}
@@ -159,14 +188,10 @@
       data-novels-id="{{ novels_id }}"
       data-chapters-id="{{ chapters_id }}">
 
-  <!-- Theme toggle -->
   <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
-
-  <!-- Progress pill -->
   <div class="progress-pill" id="progress-pill">0%</div>
 
   <main>
-    <!-- Header -->
     <div class="chapter-header">
       <h1 class="chapter-title">
         {{ chapter_title or ('Chapter ' ~ chapter_no) }}
@@ -182,27 +207,36 @@
       </div>
     </div>
 
-    <!-- Content (ใช้เป็นฐานวัดความคืบหน้า) -->
     <div class="chapter-content" id="reader-content">
       {% if html_content %}
-        <!-- แสดง HTML content โดยตรง -->
-        {{ html_content|safe }}
+        <!-- ✅ wrap ด้วย .ql-editor เพื่อให้ class ของ Quill (align/indent) ทำงาน -->
+        <div class="ql-editor ql-render">
+          {{ html_content|safe }}
+        </div>
       {% elif paragraphs and paragraphs|length %}
-        <!-- แสดง plain text paragraphs -->
         {% for p in paragraphs %}
-          <p class="content-paragraph">{{ p }}</p>
+          <p>{{ p }}</p>
         {% endfor %}
       {% else %}
-        <p class="content-paragraph" style="opacity:.7">ยังไม่มีเนื้อหาสำหรับตอนนี้</p>
+        <p style="opacity:.7">ยังไม่มีเนื้อหาสำหรับตอนนี้</p>
+      {% endif %}
+
+      {% if like_count and like_count > 0 %}
+        <div style="margin-top: 2rem; text-align: center; opacity: 0.7;">
+          <span>❤️ {{ like_count }} คนชอบ</span>
+        </div>
       {% endif %}
     </div>
   </main>
 
-  <!-- Navigation -->
   <div class="navigation-controls">
-    <button class="nav-arrow"
-            {% if not prev_url or is_preview %}disabled{% endif %}
-            onclick="if(this.hasAttribute('disabled')) return; window.location='{{ prev_url }}'">◀</button>
+
+    {# PREV: disable เมื่อเป็น preview หรือไม่มี prev_url #}
+    {% if (not is_preview) and prev_url %}
+      <button class="nav-arrow" onclick="window.location='{{ prev_url }}'">◀</button>
+    {% else %}
+      <button class="nav-arrow" disabled aria-disabled="true" title="Preview mode: disabled">◀</button>
+    {% endif %}
 
     <button class="back-to-cover-btn"
             onclick="window.location='{% if is_preview and writing_url %}{{ writing_url }}{% else %}{{ back_url }}{% endif %}'">
@@ -213,12 +247,16 @@
       {% endif %}
     </button>
 
-    <button class="nav-arrow"
-            {% if not next_url or is_preview %}disabled{% endif %}
-            onclick="if(this.hasAttribute('disabled')) return; window.location='{{ next_url }}'">▶</button>
+    {# NEXT: disable เมื่อเป็น preview หรือไม่มี next_url #}
+    {% if (not is_preview) and next_url %}
+      <button class="nav-arrow" onclick="window.location='{{ next_url }}'">▶</button>
+    {% else %}
+      <button class="nav-arrow" disabled aria-disabled="true" title="Preview mode: disabled">▶</button>
+    {% endif %}
+
   </div>
 
-  <!-- Bottom progress bar -->
+
   <div class="progress-bar" aria-hidden="true">
     <div class="progress-bar__fill" id="progress-fill"></div>
   </div>
@@ -229,9 +267,7 @@
     const pill = document.getElementById("progress-pill");
     const fill = document.getElementById("progress-fill");
     const content = document.getElementById("reader-content");
-    const navControls = document.querySelector(".navigation-controls");
 
-    // restore theme from localStorage
     (function () {
       const saved = localStorage.getItem("myshelf-theme");
       if (saved === "light") {
@@ -249,11 +285,9 @@
       localStorage.setItem("myshelf-theme", isLight ? "light" : "dark");
     });
 
-    // ===== Reading Progress & Auto Save =====
     const novelsId = Number(body.dataset.novelsId || 0);
     const chaptersId = Number(body.dataset.chaptersId || 0);
 
-    // ป้องกันยิงถี่: ส่งเมื่อเพิ่มขึ้น >= 5% และไม่บ่อยกว่า 5 วิ
     let lastSentPct = 0;
     let lastSentAt = 0;
 
@@ -264,12 +298,11 @@
       const rect = content.getBoundingClientRect();
       const viewportH = window.innerHeight || document.documentElement.clientHeight;
 
-      // ส่วนที่ "ถูกอ่านแล้ว" = จาก top ของ content ถึงขอบล่าง viewport
       const contentTopInDoc = window.scrollY + rect.top;
       const seenBottomInDoc = window.scrollY + viewportH;
       const seenHeight = seenBottomInDoc - contentTopInDoc;
 
-      const totalHeight = content.scrollHeight; // ความสูงเนื้อหาเต็ม
+      const totalHeight = content.scrollHeight;
       const pct = (seenHeight / totalHeight) * 100;
       return clamp(Math.floor(pct), 0, 100);
     }
@@ -296,9 +329,8 @@
             progress: String(pct)
           })
         });
-        if (!resp.ok) {
-          console.debug("progress save skipped:", resp.status);
-        } else {
+
+        if (resp.ok) {
           lastSentPct = pct;
           lastSentAt = now;
         }
@@ -307,69 +339,21 @@
       }
     }
 
-    // ===== Hide/Show Navigation Controls =====
-    let lastScrollY = 0;
-    let scrollTimeout = null;
-    let isScrollingDown = false;
-
-    function updateUIVisibility(){
-      const rect = content.getBoundingClientRect();
-      const viewportH = window.innerHeight || document.documentElement.clientHeight;
-      
-      // Show if at top (content top near viewport top)
-      const atTop = rect.top <= 100;
-      // Show if at bottom (content bottom near viewport bottom)
-      const atBottom = rect.bottom >= viewportH - 100;
-      
-      // Hide if scrolling down and not at top/bottom
-      if (isScrollingDown && !atTop && !atBottom) {
-        navControls.classList.add("hidden");
-        toggleBtn.classList.add("hidden");
-        pill.classList.add("hidden");
-      } else {
-        navControls.classList.remove("hidden");
-        toggleBtn.classList.remove("hidden");
-        pill.classList.remove("hidden");
-      }
-    }
-
-    function onScroll(){
-      const currentScrollY = window.scrollY;
-      isScrollingDown = currentScrollY > lastScrollY;
-      lastScrollY = currentScrollY;
-      
-      updateUIVisibility();
-      
-      // Show UI temporarily when scrolling
-      navControls.classList.remove("hidden");
-      toggleBtn.classList.remove("hidden");
-      pill.classList.remove("hidden");
-      
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        updateUIVisibility();
-      }, 1500);
-      
-      // Original progress tracking
+    function onScrollOrResize(){
       const pct = getContentProgressPercent();
       renderProgress(pct);
       sendProgress(pct);
     }
 
-    addEventListener("scroll", onScroll, { passive: true });
-    addEventListener("resize", onScroll);
+    onScrollOrResize();
+    addEventListener("scroll", onScrollOrResize, { passive: true });
+    addEventListener("resize", onScrollOrResize);
 
-    // initial
-    onScroll();
-    // กันกรณีเนื้อหาภายในเปลี่ยนขนาดหลังโหลด (ภาพ/ฟอนต์)
-    let rafId = null;
-    function tick(){
-      onScroll();
-      rafId = requestAnimationFrame(tick);
+    if (content){
+      content.querySelectorAll("img").forEach(img => {
+        if (!img.complete) img.addEventListener("load", onScrollOrResize, { once:true });
+      });
     }
-    rafId = requestAnimationFrame(tick);
-    // ยกเลิกเมื่อออกจากหน้า
-    addEventListener("beforeunload", () => { if (rafId) cancelAnimationFrame(rafId); });
   </script>
 </body>
 </html>

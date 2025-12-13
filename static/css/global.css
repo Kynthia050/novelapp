@@ -28,3 +28,14 @@ select,
 textarea{
   font-family: inherit;
 }
+
+/* FIX: remove leftover top offset from old fixed header */
+body{
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+main{
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}

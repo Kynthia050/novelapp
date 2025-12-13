@@ -5,6 +5,7 @@ from flask import (
 from werkzeug.exceptions import HTTPException
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection
+from html import unescape
 
 reading_bp = Blueprint('reading', __name__, template_folder='templates')
 
@@ -38,6 +39,32 @@ def _columns(cur, table: str):
         return set()
 
 
+def _as_text(v):
+    """แปลงค่าจาก DB ให้เป็น str แบบปลอดภัย (รองรับ bytes)"""
+    if v is None:
+        return None
+    if isinstance(v, (bytes, bytearray)):
+        try:
+            return v.decode("utf-8")
+        except Exception:
+            return v.decode("utf-8", errors="ignore")
+    return str(v)
+
+
+def _maybe_unescape_html(s: str) -> str:
+    """
+    แก้กรณีเก็บ HTML แบบถูก escape มาแล้ว เช่น &lt;p&gt;...&lt;/p&gt;
+    จะ unescape เฉพาะเมื่อมีสัญญาณว่าเป็น HTML ที่ถูก encode จริง
+    """
+    if not s:
+        return s
+    has_lt = ("&lt;" in s) or ("&#60;" in s)
+    has_gt = ("&gt;" in s) or ("&#62;" in s)
+    if has_lt and has_gt:
+        return unescape(s)
+    return s
+
+
 def _get_current_user_id():
     """
     ดึง users_id ของผู้ใช้ที่ล็อกอินอยู่
@@ -61,6 +88,7 @@ def _get_current_user_id():
 @reading_bp.route("/read/<int:novels_id>/<int:chapter_no>")
 def read_chapter(novels_id: int, chapter_no: int):
     """หน้าอ่านตอน: เติมตัวแปรที่ template ต้องใช้ + สร้าง prev/next/back"""
+    conn = None
     try:
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
@@ -81,34 +109,45 @@ def read_chapter(novels_id: int, chapter_no: int):
             )
             row = cur.fetchone()
             if not row:
-                # ถ้าไม่เจอตอน → ให้ 404 ปกติ
                 abort(404, description="Chapter not found in database")
 
-            # ---- เนื้อหา: รองรับทั้ง content_html และ content ----
+            # ---- เนื้อหา: ใช้ content_html เป็นหลัก (ไม่เดาด้วย < >) ----
             ccols = _columns(cur, "chapters")
-            content = None
-            if "content_html" in ccols:
+
+            content_html = None
+            content_text = None
+
+            # ถ้ามีทั้งคู่ ดึงมาครั้งเดียว
+            if "content_html" in ccols and "content" in ccols:
+                cur.execute(
+                    "SELECT content_html, content FROM chapters WHERE chapters_id=%s",
+                    (row["chapters_id"],),
+                )
+                r = cur.fetchone() or {}
+                content_html = _as_text(r.get("content_html"))
+                content_text = _as_text(r.get("content"))
+            elif "content_html" in ccols:
                 cur.execute(
                     "SELECT content_html FROM chapters WHERE chapters_id=%s",
                     (row["chapters_id"],),
                 )
                 r = cur.fetchone() or {}
-                content = r.get("content_html")
+                content_html = _as_text(r.get("content_html"))
             elif "content" in ccols:
                 cur.execute(
                     "SELECT content FROM chapters WHERE chapters_id=%s",
                     (row["chapters_id"],),
                 )
                 r = cur.fetchone() or {}
-                content = r.get("content")
+                content_text = _as_text(r.get("content"))
 
-            if content and ("<" in str(content) and ">" in str(content)):
-                html_content = content
+            # ✅ ถ้ามี content_html ให้ถือว่าเป็น HTML เสมอ
+            if content_html and content_html.strip():
+                html_content = _maybe_unescape_html(content_html.strip())
                 paragraphs = None
             else:
                 html_content = None
-                paragraphs = split_paragraphs(content or "")
-
+                paragraphs = split_paragraphs((content_text or "").strip())
 
             # ---- ปุ่มก่อนหน้า/ถัดไป ----
             cur.execute(
@@ -143,7 +182,6 @@ def read_chapter(novels_id: int, chapter_no: int):
             is_preview = request.args.get("preview", default=0, type=int) == 1
             writing_url = None
             if is_preview:
-                # กลับไปหน้า writingform ของตอนนี้
                 try:
                     writing_url = url_for(
                         "writing.writing_form",
@@ -172,11 +210,16 @@ def read_chapter(novels_id: int, chapter_no: int):
         )
 
     except HTTPException:
-        # ให้ abort(404) / abort(403) อื่น ๆ ทำงานปกติ
         raise
     except Exception as e:
         print(f"reading.read_chapter error: {e}")
         abort(500)
+    finally:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
 
 
 # ---------- API: บันทึก Progress ----------
@@ -185,21 +228,12 @@ def read_chapter(novels_id: int, chapter_no: int):
 def save_reading_progress():
     """
     รับ progress จากหน้าอ่านตอน แล้วบันทึกลง reading_history
-
-    ตาม schema:
-      - UNIQUE KEY uk_history_user_novel (users_id, novels_id)
-      - 1 user + 1 novel = 1 แถว
-    บันทึก:
-      - chapters_id ล่าสุด
-      - progress ล่าสุด (0-100)
-      - last_read_at = CURRENT_TIMESTAMP
+    - 1 user + 1 novel = 1 แถว (UNIQUE users_id, novels_id)
     """
     user_id = _get_current_user_id()
     if not user_id:
-        # ไม่ล็อกอิน: ให้ 401 แบบเงียบๆ JS จัดการเอง
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
-    # readingform.html ส่งเป็น x-www-form-urlencoded
     novels_id = request.form.get("novels_id") or request.form.get("novel_id")
     chapters_id = request.form.get("chapters_id") or request.form.get("chapter_id")
     progress = request.form.get("progress") or request.form.get("scroll_percent")
@@ -214,12 +248,9 @@ def save_reading_progress():
     if not novels_id or not chapters_id:
         return jsonify({"ok": False, "error": "missing ids"}), 403
 
-    # บังคับ 0-100
-    if progress < 0:
-        progress = 0
-    if progress > 100:
-        progress = 100
+    progress = 0 if progress < 0 else 100 if progress > 100 else progress
 
+    conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
@@ -238,7 +269,8 @@ def save_reading_progress():
         return jsonify({"ok": False}), 500
     finally:
         try:
-            conn.close()
+            if conn:
+                conn.close()
         except Exception:
             pass
 

@@ -1002,7 +1002,9 @@
 </style>
 
 <main class="site">
-
+  <!-- Back Button -->
+  {% include 'back.html' with context %}
+  
   <!-- Novel Header -->
   <section class="novel-header">
     <!-- ซ้าย: ปก + การให้คะแนน -->
@@ -1139,8 +1141,8 @@
             </svg>
           </span>
           <span>
-            {{ novel.total_readers or 0 }}
-            ผู้อ่าน
+            {{ novel.total_views or 0 }}
+            ผู้เข้าชม
           </span>
         </div>
 
