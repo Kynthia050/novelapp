@@ -3,258 +3,340 @@
 {% block title %}Myshelf — Home{% endblock %}
 
 {% block extra_head %}
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            bg:    '#1f1f21',
-            panel: '#232326',
-            card:  '#2a2a2d',
-            textc: '#f3f3f3',
-            muted: '#c7c7cc',
-            brand: '#ffffff'
-          },
-          boxShadow: {
-            card: '0 4px 12px rgba(0,0,0,.35)',
-            cardLg: '0 10px 24px rgba(0,0,0,.45)'
-          },
-          borderRadius: { xl2: '16px' },
-          fontFamily: { serif: ['Georgia', 'ui-serif', 'serif'] }
-        }
-      }
-    }
-  </script>
+<script>
+  // ✅ ไม่ทับ config เดิม (เหมือน search)
+  window.tailwind = window.tailwind || {};
+  tailwind.config = tailwind.config || {};
+  tailwind.config.theme = tailwind.config.theme || {};
+  tailwind.config.theme.extend = tailwind.config.theme.extend || {};
 
-  <style>
-    /* === Novel Card styles (ปรับให้ไม่ทับ font-family ของ global.css) === */
-    :root{
-      --bg:#232323;
-      --card:#2a2a2a;
-      --muted:#cfcfcf;
-      --text:#f5f5f5;
-      --ink:#ffffff;
-      --placeholder:#d9d9d9;
-      --shadow:0 10px 24px rgba(0,0,0,.35);
-    }
+  const ex = tailwind.config.theme.extend;
+  const colors = Object.assign({}, ex.colors || {});
+  colors.bg    = colors.bg    || '#1f1f21';
+  colors.panel = colors.panel || '#232326';
+  colors.card  = colors.card  || '#2a2a2d';
+  colors.textc = colors.textc || 'rgba(255,255,255,.92)';
+  colors.muted = colors.muted || 'rgba(255,255,255,.65)';
+  ex.colors = colors;
+</script>
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
+<style>
+  :root{
+    --bg:#1f1f21; --panel:#232326; --text:#f3f3f3; --muted:#c7c7cc;
+    --card:#2a2a2d; --radius:16px; --shadow:0 4px 12px rgba(0,0,0,.35);
+    --line:rgba(255,255,255,.08); --star:#ffe402;
+    --accent:#484949;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+  }
 
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
-      /* ไม่กำหนด font-family ที่นี่ เพื่อให้ใช้ Niramit จาก global.css */
-    }
+  .page{
+    min-height:100vh;
+    padding:24px 20px 40px;
+    max-width:1200px;
+    margin:0 auto;
+  }
 
-    /* ชั้นวางการ์ดแบบแนวนอน (อิงจากภาพตัวอย่าง) */
-    .shelf{
-      display:grid;
-      grid-auto-flow:column;
-      grid-auto-columns:minmax(260px, 1fr);
-      gap:36px;
-      padding:22px 40px 40px;
-      overflow-x:auto;
-      scroll-snap-type:x mandatory;
-      scrollbar-width:thin;
-    }
-    .shelf::-webkit-scrollbar{height:10px}
-    .shelf::-webkit-scrollbar-thumb{background:#444;border-radius:8px}
+  /* ===== Carousel ===== */
+  #track{ -ms-overflow-style:none; scrollbar-width:none; }
+  #track::-webkit-scrollbar{ display:none; }
 
-    .card{scroll-snap-align:start}
-    .card-inner{
-      display:flex;flex-direction:column;
-      gap:12px;
-    }
-    .cover{
-      background:var(--placeholder);
-      border-radius:8px;
-      width:100%;
-      aspect-ratio:1/1;
-      position:relative; overflow:hidden;
-      box-shadow:var(--shadow);
-    }
-    .cover img{
-      width:100%;height:100%;object-fit:cover;display:block;
-    }
-    .title{
-      margin-top:2px;
-      text-transform:uppercase;
-      letter-spacing:.38em;
-      font-weight:900;
-      font-size:20px;
-    }
-    .writer{
-      font-weight:600;
-      font-size:14px;
-      line-height:1.2;
-      opacity:.9;
-      color:var(--text);
-    }
-    .writer span{opacity:.7}
-    .tagline{
-      font-size:15px;line-height:1.55;color:var(--muted);
-      white-space:pre-line;
-    }
-    .rating{display:flex;align-items:center;gap:10px}
-    .stars{display:flex;gap:8px}
-    .star{font-size:20px;line-height:1;color:var(--ink);opacity:.9}
-    .star.dim{opacity:.25}
-    .sr-only{position:absolute;left:-9999px}
+  .nav-btn{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:10;
+    display:grid;
+    place-items:center;
+    height:44px;
+    width:44px;
+    border-radius:999px;
+    background:rgba(255,255,255,.90);
+    color:#27272a;
+    border:1px solid rgba(0,0,0,.10);
+    box-shadow:0 12px 26px rgba(0,0,0,.25);
+    cursor:pointer;
+  }
+  .nav-btn:disabled{ opacity:.40; cursor:not-allowed; }
 
-    /* สเกลเลตันระหว่างโหลด */
-    .skeleton .cover{background:#3a3a3a;position:relative;overflow:hidden}
-    .skeleton .cover::after{
-      content:"";position:absolute;inset:0;
-      background:linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,0) 90%);
-      transform:translateX(-100%);
-      animation:shimmer 1.4s infinite;
-    }
-    @keyframes shimmer{to{transform:translateX(100%)}}
-    .skeleton .title,.skeleton .writer,.skeleton .tagline{background:#3a3a3a;border-radius:6px}
-    .skeleton .title{height:20px;width:70%;}
-    .skeleton .writer{height:16px;width:50%}
-    .skeleton .tagline{height:34px;width:90%}
+  /* ===== Card (เหมือน Search) ===== */
+  a.novel-link{ color:inherit; text-decoration:none; display:block; height:100%; }
+  .novel-card{
+    background:var(--card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    border:1px solid rgba(255,255,255,.04);
+    height:100%;
+    min-height:420px;
+  }
 
-    /* ซ่อนสกอลบาร์ของแทร็กคารูเซลเท่านั้น */
-    #track{-ms-overflow-style:none; scrollbar-width:none;}
-    #track::-webkit-scrollbar{display:none;}
-  </style>
+  /* ✅ ปก 800x800 => 1:1 */
+  .novel-cover-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:1 / 1;
+    overflow:hidden;
+    flex:0 0 auto;
+  }
+  .novel-cover-wrap img{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+
+  .novel-body{
+    padding:12px 14px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    flex:1;
+  }
+  .novel-title{
+    font-size:15px;
+    font-weight:700;
+    line-height:1.35;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .novel-meta{
+    font-size:12px;
+    color:var(--muted);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .novel-desc{
+    font-size:13px;
+    color:var(--muted);
+    flex:1;
+    display:-webkit-box;
+    -webkit-line-clamp:3;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .novel-footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:12px;
+    margin-top:6px;
+    color:var(--muted);
+    gap:8px;
+  }
+  .rating{ display:flex; align-items:center; gap:4px; }
+  .rating-star{ color:var(--star); font-size:13px; }
+
+  .status-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:4px 10px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.06);
+    color:rgba(255,255,255,.88);
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .status-badge.is-finished{
+    background:rgba(34,197,94,.14);
+    border-color:rgba(34,197,94,.26);
+    color:rgba(187,247,208,.95);
+  }
+  .status-badge.is-ongoing{
+    background:rgba(245,158,11,.14);
+    border-color:rgba(245,158,11,.26);
+    color:rgba(253,230,138,.95);
+  }
+
+  /* ขนาด card ใน carousel */
+  .carousel-item{
+    min-width:85%;
+    scroll-snap-align:center;
+  }
+  @media (min-width: 640px){
+    .carousel-item{ min-width:60%; }
+  }
+  @media (min-width: 768px){
+    .carousel-item{ min-width:32%; }
+  }
+</style>
 {% endblock %}
 
 {% block content %}
-  <div class="min-h-screen bg-bg text-textc">
-    <div class="mx-auto max-w-[1200px] px-4 md:px-6 pb-16">
-      <!-- Top 10 -->
-      <section class="pt-7 relative" aria-labelledby="top10-title">
-        <h2 id="top10-title"
-            class="text-[clamp(18px,2vw,24px)] tracking-[.15em] font-bold mb-4">
-          {{ month_label|default('อัปเดตล่าสุด') }}
-        </h2>
+<script>
+  // ✅ fallback รูปปก: ลอง cover/ ก่อน แล้วค่อย covers/ (และ default)
+  window.__staticBase = "{{ url_for('static', filename='') }}";
+  window.__coverFallback = function(img){
+    const raw = (img.getAttribute('data-cover') || '').trim();
+    const tries = [];
 
-        {# ถ้า top10 ไม่มี ให้ fallback เป็น novels #}
-        {% set items = top10 if top10 is defined and top10 else novels %}
-
-        {% if items %}
-        <div class="relative">
-          <!-- ปุ่มเลื่อนแบบวงกลม -->
-          <button id="prevBtn"
-            class="absolute top-1/2 -translate-y-1/2 left-2 z-10 grid place-items-center
-                   h-11 w-11 rounded-full bg-white/90 text-zinc-800 border border-black/10
-                   shadow-xl hover:bg-white focus:outline-none focus:ring-2 focus:ring-black/5
-                   disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="ก่อนหน้า">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                 class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M15 18l-6-6 6-6"/>
-            </svg>
-          </button>
-
-          <button id="nextBtn"
-            class="absolute top-1/2 -translate-y-1/2 right-2 z-10 grid place-items-center
-                   h-11 w-11 rounded-full bg-white/90 text-zinc-800 border border-black/10
-                   shadow-xl hover:bg-white focus:outline-none focus:ring-2 focus:ring-black/5
-                   disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="ถัดไป">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                 class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-          </button>
-
-          <!-- แทร็กคารูเซล -->
-          <div id="track"
-               class="no-scrollbar snap-x snap-mandatory overflow-x-auto scroll-smooth flex gap-8 pb-2"
-               tabindex="0" aria-label="Top 10 carousel">
-            {% for n in items %}
-            <article class="card min-w-[85%] sm:min-w-[60%] md:min-w-[32%] snap-center" role="article">
-              <div class="card-inner">
-                <a class="cover" href="{{ url_for('novel.detail', novels_id=n.novels_id) }}" aria-label="เปิดดูรายละเอียดนิยาย">
-                  {% if n.cover %}
-                    <img src="{{ n.cover }}" alt="{{ n.title }}" loading="lazy" />
-                  {% endif %}
-                </a>
-                <h3 class="title">{{ n.title }}</h3>
-                <div class="writer">
-                  <span>Writer:</span>
-                  <strong>{{ n.author_username or n.author_name or "ไม่ทราบ" }}</strong>
-                </div>
-                <p class="tagline">
-                  {{ (n.description or "")|striptags|trim|truncate(140, True, "...") }}
-                </p>
-
-                {% set display_rate = (n.user_rating or 0) if n.user_rating else (n.avg_rating or 0) %}
-                {% set rounded = (display_rate|round(0, "common")) %}
-
-                <div class="rating">
-                  <span class="sr-only">เรตติ้ง {{ display_rate|round(1) }} จาก 5 ดาว</span>
-                  <div class="stars">
-                    {% for i in range(1,6) %}
-                      <span class="star {{ "" if i <= rounded else "dim" }}" aria-hidden="true">★</span>
-                    {% endfor %}
-                  </div>
-                </div>
-              </div>
-            </article>
-            {% endfor %}
-          </div>
-        </div>
-        {% else %}
-          <p class="opacity-70">ยังไม่มีรายการในช่วงนี้</p>
-        {% endif %}
-      </section>
-    </div>
-  </div>
-
-  <!-- Hidden template for star styling (ไว้เผื่อใช้ต่อ) -->
-  <template class="hidden">
-    <span class="text-yellow-400"></span>
-  </template>
-
-  <!-- Carousel script: scroll/keyboard/autoplay -->
-  <script>
-    (function(){
-      const track = document.getElementById('track');
-      const prev  = document.getElementById('prevBtn');
-      const next  = document.getElementById('nextBtn');
-      if(!track || !prev || !next) return;
-
-      const step = () => Math.max(track.clientWidth * 0.66, 280);
-
-      function updateNav(){
-        const max = track.scrollWidth - track.clientWidth - 1;
-        prev.disabled = track.scrollLeft <= 0;
-        next.disabled = track.scrollLeft >= max;
+    if (raw) {
+      if (raw.includes('/')) {
+        tries.push(raw);
+      } else {
+        tries.push("cover/" + raw);
+        tries.push("covers/" + raw);
       }
+    }
+    tries.push("cover/default.jpg");
+    tries.push("covers/default.jpg");
+    tries.push("cover/placeholder.jpg");
 
-      prev.addEventListener('click', ()=> track.scrollBy({left: -step(), behavior: 'smooth'}));
-      next.addEventListener('click', ()=> track.scrollBy({left:  step(), behavior: 'smooth'}));
+    let i = parseInt(img.getAttribute('data-try') || "0", 10);
+    if (i >= tries.length) return;
 
-      // อัปเดตสถานะปุ่มระหว่างเลื่อน/รีไซส์/โหลด
-      track.addEventListener('scroll', ()=> requestAnimationFrame(updateNav));
-      window.addEventListener('resize', updateNav);
-      window.addEventListener('load', updateNav);
-      updateNav();
+    img.setAttribute('data-try', String(i + 1));
+    img.src = window.__staticBase + tries[i];
+  }
+</script>
 
-      // คีย์บอร์ด
-      track.addEventListener('keydown', (e)=>{
-        if(e.key === 'ArrowRight') next.click();
-        if(e.key === 'ArrowLeft')  prev.click();
-      });
+<div class="page">
+  <!-- Top 10 -->
+  <section class="pt-2 relative" aria-labelledby="top10-title">
+    <h2 id="top10-title"
+        class="text-[clamp(18px,2vw,24px)] tracking-[.12em] font-bold mb-4">
+      {{ month_label|default('อัปเดตล่าสุด') }}
+    </h2>
 
-      // ออโต้เพลย์ (หยุดเมื่อโฮเวอร์/โฟกัส)
-      let timer = setInterval(()=> next.click(), 4000);
-      const stop = ()=> { clearInterval(timer); timer = null; };
-      const start = ()=> { if(!timer) timer = setInterval(()=> next.click(), 4000); };
-      track.addEventListener('mouseenter', stop);
-      track.addEventListener('mouseleave', start);
-      track.addEventListener('focusin', stop);
-      track.addEventListener('focusout', start);
-    })();
-  </script>
+    {% set items = top10 if top10 is defined and top10 else novels %}
+
+    {% if items %}
+      <div class="relative">
+        <!-- ปุ่มเลื่อน -->
+        <button id="prevBtn" class="nav-btn" style="left:8px" aria-label="ก่อนหน้า">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+               class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+
+        <button id="nextBtn" class="nav-btn" style="right:8px" aria-label="ถัดไป">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+               class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </button>
+
+        <!-- แทร็กคารูเซล -->
+        <div id="track"
+             class="snap-x snap-mandatory overflow-x-auto scroll-smooth flex gap-8 pb-2"
+             tabindex="0" aria-label="Top carousel">
+
+          {% for n in items %}
+            {% set cover_name = (n.cover or 'default.jpg') %}
+            {% if '/' in cover_name %}
+              {% set initial_src = url_for('static', filename=cover_name) %}
+            {% else %}
+              {% set initial_src = url_for('static', filename='cover/' ~ cover_name) %}
+            {% endif %}
+
+            {% set status_text = (n.status_label or ('จบแล้ว' if n.status == 'จบแล้ว' else 'ยังไม่จบ')) %}
+            {% set status_class = 'is-finished' if status_text == 'จบแล้ว' else 'is-ongoing' %}
+
+            <div class="carousel-item">
+              <a class="novel-link" href="{{ url_for('novel.detail', novels_id=n.novels_id) }}">
+                <article class="novel-card">
+                  <div class="novel-cover-wrap">
+                    <img
+                      src="{{ initial_src }}"
+                      alt="{{ n.title }}"
+                      data-cover="{{ cover_name }}"
+                      data-try="0"
+                      loading="lazy"
+                      onerror="window.__coverFallback && window.__coverFallback(this)"
+                    >
+                  </div>
+
+                  <div class="novel-body">
+                    <div class="novel-title">{{ n.title }}</div>
+
+                    <div class="novel-meta">
+                      โดย {{ n.author_username or n.author_name or "ไม่ทราบ" }}
+                      {% if n.category_name %} · {{ n.category_name }}{% endif %}
+                    </div>
+
+                    <div class="novel-desc">
+                      {{ (n.description or "")|striptags|trim }}
+                    </div>
+
+                    <div class="novel-footer">
+                      <div class="rating">
+                        <span class="rating-star">★</span>
+                        <span>
+                          {% if (n.rating_count or 0) > 0 %}
+                            {{ '%.2f'|format((n.avg_rating or 0)|float) }}
+                          {% else %}
+                            ยังไม่มีคะแนน
+                          {% endif %}
+                        </span>
+                      </div>
+
+                      <div class="status-badge {{ status_class }}">{{ status_text }}</div>
+                    </div>
+                  </div>
+                </article>
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="opacity-70">ยังไม่มีรายการในช่วงนี้</p>
+    {% endif %}
+  </section>
+</div>
+
+<!-- Carousel script -->
+<script>
+  (function(){
+    const track = document.getElementById('track');
+    const prev  = document.getElementById('prevBtn');
+    const next  = document.getElementById('nextBtn');
+    if(!track || !prev || !next) return;
+
+    const step = () => Math.max(track.clientWidth * 0.66, 280);
+
+    function updateNav(){
+      const max = track.scrollWidth - track.clientWidth - 1;
+      prev.disabled = track.scrollLeft <= 0;
+      next.disabled = track.scrollLeft >= max;
+    }
+
+    prev.addEventListener('click', ()=> track.scrollBy({left: -step(), behavior: 'smooth'}));
+    next.addEventListener('click', ()=> track.scrollBy({left:  step(), behavior: 'smooth'}));
+
+    track.addEventListener('scroll', ()=> requestAnimationFrame(updateNav));
+    window.addEventListener('resize', updateNav);
+    window.addEventListener('load', updateNav);
+    updateNav();
+
+    track.addEventListener('keydown', (e)=>{
+      if(e.key === 'ArrowRight') next.click();
+      if(e.key === 'ArrowLeft')  prev.click();
+    });
+
+    let timer = setInterval(()=> next.click(), 4000);
+    const stop = ()=> { clearInterval(timer); timer = null; };
+    const start = ()=> { if(!timer) timer = setInterval(()=> next.click(), 4000); };
+    track.addEventListener('mouseenter', stop);
+    track.addEventListener('mouseleave', start);
+    track.addEventListener('focusin', stop);
+    track.addEventListener('focusout', start);
+  })();
+</script>
 {% endblock %}

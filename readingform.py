@@ -87,18 +87,33 @@ def _get_current_user_id():
 # ---------- Read chapter ----------
 @reading_bp.route("/read/<int:novels_id>/<int:chapter_no>")
 def read_chapter(novels_id: int, chapter_no: int):
-    """หน้าอ่านตอน: เติมตัวแปรที่ template ต้องใช้ + สร้าง prev/next/back"""
+    """
+    หน้าอ่านตอน:
+    - ผู้ใช้อ่านปกติ: เห็นเฉพาะ status='published'
+    - Preview: อนุญาตเฉพาะเจ้าของนิยาย (novels.users_id) เท่านั้น
+    - prev/next: สำหรับผู้ใช้อ่านปกติจะ "ข้าม" ตอน draft อัตโนมัติ
+    """
     conn = None
     try:
+        # ขอ preview?
+        preview_requested = request.args.get("preview", default=0, type=int) == 1
+        current_user_id = _get_current_user_id()
+
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
-            # ---- ดึงข้อมูลตอน + เรื่อง ----
+            ccols = _columns(cur, "chapters")
+            has_status = "status" in ccols
+
+            # ---- ดึงข้อมูลตอน + เรื่อง (ดึง status + author_id เพื่อเช็ค preview) ----
+            # ถ้าไม่มีคอลัมน์ status ก็จะ fallback แบบเดิม (ไม่กรอง)
             cur.execute(
-                """
+                f"""
                 SELECT c.chapters_id, c.novels_id, c.title AS chapter_title,
-                       c.chapter_no, c.created_at,
-                       n.title AS novel_title,
-                       u.username AS author_name
+                       c.chapter_no, c.created_at
+                       {", c.status" if has_status else ""}
+                     , n.title AS novel_title
+                     , n.users_id AS author_id
+                     , u.username AS author_name
                 FROM chapters c
                 JOIN novels n ON n.novels_id = c.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
@@ -111,13 +126,23 @@ def read_chapter(novels_id: int, chapter_no: int):
             if not row:
                 abort(404, description="Chapter not found in database")
 
-            # ---- เนื้อหา: ใช้ content_html เป็นหลัก (ไม่เดาด้วย < >) ----
-            ccols = _columns(cur, "chapters")
+            # ---- ตัดสินว่า preview ได้จริงไหม (ต้องเป็นเจ้าของนิยาย) ----
+            is_preview = False
+            if preview_requested and current_user_id and row.get("author_id"):
+                try:
+                    is_preview = int(current_user_id) == int(row["author_id"])
+                except Exception:
+                    is_preview = False
 
+            # ---- กันคนอ่านปกติไม่ให้เข้าตอน draft ----
+            if has_status and (not is_preview):
+                if (row.get("status") or "").lower() != "published":
+                    abort(404)
+
+            # ---- เนื้อหา: ใช้ content_html เป็นหลัก ----
             content_html = None
             content_text = None
 
-            # ถ้ามีทั้งคู่ ดึงมาครั้งเดียว
             if "content_html" in ccols and "content" in ccols:
                 cur.execute(
                     "SELECT content_html, content FROM chapters WHERE chapters_id=%s",
@@ -141,7 +166,6 @@ def read_chapter(novels_id: int, chapter_no: int):
                 r = cur.fetchone() or {}
                 content_text = _as_text(r.get("content"))
 
-            # ✅ ถ้ามี content_html ให้ถือว่าเป็น HTML เสมอ
             if content_html and content_html.strip():
                 html_content = _maybe_unescape_html(content_html.strip())
                 paragraphs = None
@@ -150,18 +174,36 @@ def read_chapter(novels_id: int, chapter_no: int):
                 paragraphs = split_paragraphs((content_text or "").strip())
 
             # ---- ปุ่มก่อนหน้า/ถัดไป ----
-            cur.execute(
-                "SELECT MAX(chapter_no) AS prev_no "
-                "FROM chapters WHERE novels_id=%s AND chapter_no<%s",
-                (novels_id, chapter_no),
-            )
+            # ผู้ใช้อ่านปกติ: ข้ามตอน draft โดยกรอง status='published'
+            # preview: ใช้ logic เดิม (ไม่กรอง) — แต่ใน template ของคุณก็ disable ปุ่มอยู่แล้ว
+            if has_status and (not is_preview):
+                cur.execute(
+                    "SELECT MAX(chapter_no) AS prev_no "
+                    "FROM chapters "
+                    "WHERE novels_id=%s AND chapter_no<%s AND status='published'",
+                    (novels_id, chapter_no),
+                )
+            else:
+                cur.execute(
+                    "SELECT MAX(chapter_no) AS prev_no "
+                    "FROM chapters WHERE novels_id=%s AND chapter_no<%s",
+                    (novels_id, chapter_no),
+                )
             prev_no = (cur.fetchone() or {}).get("prev_no")
 
-            cur.execute(
-                "SELECT MIN(chapter_no) AS next_no "
-                "FROM chapters WHERE novels_id=%s AND chapter_no>%s",
-                (novels_id, chapter_no),
-            )
+            if has_status and (not is_preview):
+                cur.execute(
+                    "SELECT MIN(chapter_no) AS next_no "
+                    "FROM chapters "
+                    "WHERE novels_id=%s AND chapter_no>%s AND status='published'",
+                    (novels_id, chapter_no),
+                )
+            else:
+                cur.execute(
+                    "SELECT MIN(chapter_no) AS next_no "
+                    "FROM chapters WHERE novels_id=%s AND chapter_no>%s",
+                    (novels_id, chapter_no),
+                )
             next_no = (cur.fetchone() or {}).get("next_no")
 
             prev_url = (
@@ -178,8 +220,7 @@ def read_chapter(novels_id: int, chapter_no: int):
             except Exception:
                 back_url = "/"
 
-            # ---- เช็คว่าเป็นโหมด Preview หรือเปล่า ----
-            is_preview = request.args.get("preview", default=0, type=int) == 1
+            # ---- writing_url สำหรับปุ่ม Back to editor (เฉพาะ preview จริง) ----
             writing_url = None
             if is_preview:
                 try:

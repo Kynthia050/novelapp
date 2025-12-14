@@ -20,6 +20,7 @@ from writerwork import  writerwork_bp
 from bookshelf import bookshelf_bp
 from comment import comment_bp
 from search import search_bp
+from dashboard import dashboard_bp
 import os
 
 
@@ -74,6 +75,7 @@ app.register_blueprint(api_bp)
 app.register_blueprint(bookshelf_bp)
 app.register_blueprint(comment_bp)
 app.register_blueprint(search_bp)
+app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
 
 # ทำให้ใช้ {{ csrf_token() }} ในทุก template ได้
@@ -142,11 +144,6 @@ def writingform():
 def new_novel():
     return render_template('new_novel.html')
 
-
-@app.route('/dashboard')
-@roles_required('admin', 'superadmin')
-def dashboard():
-    return render_template('dashboard.html')
 
 from flask import jsonify
 

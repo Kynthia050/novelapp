@@ -118,7 +118,7 @@ def login():
         return redirect(next_url)
 
     # ไปหน้า dashboard สำหรับ admin / superadmin, นอกนั้นไปหน้า home
-    return redirect(url_for('dashboard' if user.get('role') in ('admin', 'superadmin') else 'home'))
+    return redirect(url_for('dashboard.dashboard_index' if user.get('role') in ('admin', 'superadmin') else 'home'))
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():

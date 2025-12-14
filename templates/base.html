@@ -7,21 +7,19 @@
 
   <title>{% block title %}MY SHELF{% endblock %}</title>
 
-  {# โหลด Tailwind ให้ใช้ได้ทุกหน้า (header ใช้คลาส Tailwind) #}
   <script src="https://cdn.tailwindcss.com"></script>
 
-  {# CSS กลาง: ฟอนต์ Niramit และ theme หลัก #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
 
-  {# ถ้าหน้าไหนมี CSS/JS เพิ่มเติม ให้ใส่ใน block นี้ #}
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+
+<body class="bg-[#0b0b0b] text-zinc-100">
   {% include "header.html" %}
 
-  <main>
+  <!-- ✅ main ต้องมี bg ด้วย ไม่งั้นพื้นที่ว่างใต้ header จะเป็นสีขาว -->
+  <main class="bg-[#0b0b0b] min-h-screen">
     {% block content %}{% endblock %}
   </main>
-
 </body>
 </html>

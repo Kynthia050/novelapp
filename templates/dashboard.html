@@ -5,7 +5,6 @@
   <title>Admin Dashboard — Myshelf</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
   
@@ -25,14 +24,12 @@
   {% set users = users|default([]) %}
   {% set csrf_token = csrf_token if (csrf_token is defined) else None %}
 
-  <!-- Header -->
   <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
     {% include 'header.html' %}
   </header>
 
   <div class="min-h-screen flex">
 
-    <!-- ============ Sidebar ============ -->
     <aside class="w-64 bg-slate-950/60 border-r border-white/10 backdrop-blur-xl hidden md:flex flex-col">
       <div class="px-6 py-5 flex items-center gap-3 border-b border-white/10">
         <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-400 to-cyan-400 flex items-center justify-center text-slate-900 font-black text-xl">
@@ -47,7 +44,7 @@
       <nav class="flex-1 px-3 py-4 space-y-6 text-sm">
         <div>
           <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-[.2em] text-slate-500">Main</p>
-          <a href="{{ url_for('admin.dashboard') }}"
+          <a href="{{ url_for('dashboard.dashboard_index') }}"
              class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-medium shadow-sm">
             <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900/5">
               🧭
@@ -80,10 +77,8 @@
       </div>
     </aside>
 
-    <!-- ============ Main Content ============ -->
     <main class="flex-1 px-4 sm:px-6 lg:px-8 py-5 space-y-6">
 
-      <!-- Top bar -->
       <header class="flex items-center justify-between gap-4">
         <div>
           <h1 class="text-xl sm:text-2xl font-semibold">Hi, {{ g.user.username if g.get('user') else 'Admin' }} 👋</h1>
@@ -104,7 +99,6 @@
         </div>
       </header>
 
-      <!-- Flash message -->
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="space-y-2">
@@ -119,9 +113,7 @@
       {% endif %}
       {% endwith %}
 
-      <!-- ====== Row 1: Stat cards ====== -->
       <section class="grid gap-4 md:grid-cols-3">
-        <!-- สถิติ: นิยายทั้งหมด -->
         <div class="rounded-3xl bg-slate-950/80 border border-white/10 px-5 py-4 shadow-xl shadow-black/40">
           <div class="flex items-center justify-between mb-4">
             <p class="text-xs uppercase tracking-[.2em] text-slate-400">NOVELS</p>
@@ -133,7 +125,6 @@
           <p class="text-sm text-slate-400">นิยายทั้งหมดในระบบ</p>
         </div>
 
-        <!-- สถิติ: นิยายตามหมวด -->
         <div class="rounded-3xl bg-slate-900/80 border border-white/10 px-5 py-4 shadow-lg shadow-black/30">
           <div class="flex items-center justify-between mb-4">
             <p class="text-xs uppercase tracking-[.2em] text-slate-400">NOVELS BY CATEGORY</p>
@@ -147,7 +138,6 @@
           <p class="text-sm text-slate-400">จำนวนตามหมวดที่เลือก</p>
         </div>
 
-        <!-- สถิติ: ผู้ใช้ทั้งหมด -->
         <div class="rounded-3xl bg-slate-900/80 border border-white/10 px-5 py-4 shadow-lg shadow-black/30">
           <div class="flex items-center justify-between mb-4">
             <p class="text-xs uppercase tracking-[.2em] text-slate-400">USERS</p>
@@ -160,16 +150,14 @@
         </div>
       </section>
 
-      <!-- ====== Row 2: User list + Top 10 ====== -->
       <section class="grid gap-4 lg:grid-cols-3">
-        <!-- User list + search + pagination -->
         <div class="lg:col-span-2 rounded-3xl bg-slate-950/80 border border-white/10 px-5 py-4 shadow-xl shadow-black/40">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <h2 class="text-sm font-semibold tracking-[.18em] uppercase text-slate-300">USER MANAGEMENT</h2>
               <p class="text-xs text-slate-500">ค้นหา / จัดการผู้ใช้ในระบบ</p>
             </div>
-            <form method="get" action="{{ url_for('admin.dashboard') }}" class="flex gap-2">
+            <form method="get" action="{{ url_for('dashboard.dashboard_index') }}" class="flex gap-2">
               <input type="hidden" name="category_id" value="{{ selected_category_id or '' }}">
               <input
                 type="text"
@@ -238,7 +226,6 @@
             </table>
           </div>
 
-          <!-- Pagination -->
           <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
             <div>
               Page {{ page }} / {{ total_pages }}
@@ -246,7 +233,7 @@
 
             <div class="inline-flex items-center gap-1">
               {% if page > 1 %}
-                <a href="{{ url_for('admin.dashboard', page=page-1, search=search, category_id=selected_category_id) }}"
+                <a href="{{ url_for('dashboard.dashboard_index', page=page-1, search=search, category_id=selected_category_id) }}"
                    class="px-2 py-1 rounded-lg border border-white/10 bg-slate-900/70 hover:bg-slate-800">
                   ก่อนหน้า
                 </a>
@@ -258,7 +245,7 @@
                     {{ p }}
                   </span>
                 {% elif p == 1 or p == total_pages or (p >= page-1 and p <= page+1) %}
-                  <a href="{{ url_for('admin.dashboard', page=p, search=search, category_id=selected_category_id) }}"
+                  <a href="{{ url_for('dashboard.dashboard_index', page=p, search=search, category_id=selected_category_id) }}"
                      class="px-2 py-1 rounded-lg border border-white/10 bg-slate-900/70 hover:bg-slate-800">
                     {{ p }}
                   </a>
@@ -268,7 +255,7 @@
               {% endfor %}
 
               {% if page < total_pages %}
-                <a href="{{ url_for('admin.dashboard', page=page+1, search=search, category_id=selected_category_id) }}"
+                <a href="{{ url_for('dashboard.dashboard_index', page=page+1, search=search, category_id=selected_category_id) }}"
                    class="px-2 py-1 rounded-lg border border-white/10 bg-slate-900/70 hover:bg-slate-800">
                   ถัดไป
                 </a>
@@ -277,9 +264,7 @@
           </div>
         </div>
 
-        <!-- Top 10 novels + add category -->
         <div class="space-y-4">
-          <!-- Top 10 -->
           <div class="rounded-3xl bg-slate-950/80 border border-white/10 px-5 py-4 shadow-xl shadow-black/40">
             <div class="flex items-start justify-between gap-3 mb-4">
               <div>
@@ -288,7 +273,7 @@
                   เรียงตามคะแนนเฉลี่ย (AVG rating)
                 </p>
               </div>
-              <form method="get" action="{{ url_for('admin.dashboard') }}" class="flex flex-col items-end gap-1 text-xs">
+              <form method="get" action="{{ url_for('dashboard.dashboard_index') }}" class="flex flex-col items-end gap-1 text-xs">
                 <input type="hidden" name="page" value="{{ page }}">
                 <input type="hidden" name="search" value="{{ search }}">
                 <label for="category_id" class="text-slate-400">หมวดหมู่</label>
@@ -333,7 +318,6 @@
             </ol>
           </div>
 
-          <!-- Add category -->
           <div class="rounded-3xl border border-dashed border-emerald-500/50 bg-emerald-500/5 px-5 py-4">
             <h3 class="text-sm font-semibold tracking-[.18em] uppercase text-emerald-300 mb-2">
               ADD CATEGORY
@@ -341,7 +325,7 @@
             <p class="text-xs text-emerald-100/80 mb-3">
               เพิ่มหมวดหมู่นิยายใหม่ในระบบ (ชื่อไม่ซ้ำ)
             </p>
-            <form method="post" action="{{ url_for('admin.add_category') }}" class="flex flex-col gap-2">
+            <form method="post" action="{{ url_for('dashboard.add_category') }}" class="flex flex-col gap-2">
               {{ csrf_token() if csrf_token is defined }}
               <input
                 type="text"

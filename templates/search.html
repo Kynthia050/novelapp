@@ -10,7 +10,6 @@
 
 {% block extra_head %}
 <script>
-  // ✅ FIX: เติมสีที่ header ใช้ (text-muted / text-textc) แบบไม่ทับ config เดิม
   window.tailwind = window.tailwind || {};
   tailwind.config = tailwind.config || {};
   tailwind.config.theme = tailwind.config.theme || {};
@@ -33,115 +32,107 @@
     --accent:#484949;
   }
   *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--text); }
 
-  /* เอา font-family ออก ให้ไปใช้จาก base.html */
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
+  /* ✅ ระหว่างโหลดแบบ ajax */
+  #searchApp.is-loading{ opacity:.65; pointer-events:none; }
+  #searchApp.is-loading .loading-toast{
+    opacity:1; transform:translateY(0);
   }
-
-  .page{
-    min-height:100vh;
-    padding:24px 20px 40px;
-    max-width:1200px;
-    margin:0 auto;
-  }
-  .search-header{
-    margin-bottom:20px;
-  }
-  .search-title{
-    font-size:20px;
-    font-weight:700;
-  }
-  .search-sub{
-    font-size:13px;
-    color:var(--muted);
-    margin-top:4px;
-    margin-bottom:16px;
-  }
-
-  /* search bar แบบ pill */
-  .search-bar-wrap{
-    margin-bottom:12px;
-  }
-  .search-bar{
+  .loading-toast{
+    position:fixed;
+    right:18px;
+    bottom:18px;
+    background:rgba(42,42,45,.95);
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 18px 40px rgba(0,0,0,.55);
+    color:rgba(255,255,255,.92);
+    padding:10px 12px;
+    border-radius:999px;
+    font-size:12px;
     display:flex;
     align-items:center;
-    border-radius:999px;
-    overflow:hidden;
-    background:#fff;
-    color:#222;
-    box-shadow:0 4px 10px rgba(0,0,0,.35);
+    gap:10px;
+    z-index:9999;
+    opacity:0;
+    transform:translateY(6px);
+    transition:opacity .18s ease, transform .18s ease;
   }
-  .search-input{
-    flex:1;
-    border:none;
-    padding:10px 16px;
-    font-size:14px;
-    outline:none;
-    background:transparent;
-  }
-  .search-input::placeholder{
-    color:#999;
-  }
-  .search-category{
-    border:none;
-    border-left:1px solid #eee;
-    padding:10px 12px;
-    font-size:13px;
-    background:#fff;
-    outline:none;
-  }
-  .search-button{
-    border:none;
-    padding:10px 18px;
-    background:var(--accent);
-    color:#fff;
-    font-size:14px;
-    font-weight:600;
-    cursor:pointer;
+  .loading-dot{
+    width:8px; height:8px; border-radius:999px;
+    background:rgba(255,255,255,.75);
+    box-shadow:0 0 0 4px rgba(255,255,255,.08);
   }
 
-  /* filter tabs: ทั้งหมด / ชื่อเรื่อง / นามปากกา / เรื่องย่อ / แท็ก */
+  .page{ min-height:100vh; padding:24px 20px 40px; max-width:1200px; margin:0 auto; }
+  .search-header{ margin-bottom:18px; }
+  .search-title{ font-size:20px; font-weight:700; }
+  .search-sub{ font-size:13px; color:var(--muted); margin-top:6px; margin-bottom:16px; }
+
+  .search-bar-wrap{ margin-bottom:12px; }
+  .search-bar{
+    display:flex; align-items:center; border-radius:999px; overflow:hidden;
+    background:#fff; color:#222; box-shadow:0 4px 10px rgba(0,0,0,.35);
+  }
+  .search-input{ flex:1; border:none; padding:10px 16px; font-size:14px; outline:none; background:transparent; }
+  .search-input::placeholder{ color:#999; }
+  .search-category{ border:none; border-left:1px solid #eee; padding:10px 12px; font-size:13px; background:#fff; outline:none; }
+  .search-button{ border:none; padding:10px 18px; background:var(--accent); color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+
+  .filters-bar{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; margin-top:10px; margin-bottom:18px;
+  }
   .filter-tabs{
-    display:flex;
-    flex-wrap:wrap;
-    gap:20px;
-    font-size:13px;
-    border-bottom:1px solid var(--line);
-    padding-bottom:4px;
-    margin-bottom:20px;
+    display:flex; flex-wrap:wrap; gap:20px; font-size:13px;
+    border-bottom:1px solid var(--line); padding-bottom:4px; margin:0;
   }
   .filter-tab{
-    position:relative;
-    padding-bottom:6px;
-    color:var(--muted);
-    text-decoration:none;
-    cursor:pointer;
+    position:relative; padding-bottom:6px; color:var(--muted);
+    text-decoration:none; cursor:pointer;
   }
   .filter-tab::after{
-    content:"";
-    position:absolute;
-    left:0;
-    right:0;
-    bottom:0;
-    height:2px;
-    background:transparent;
-    border-radius:999px;
+    content:""; position:absolute; left:0; right:0; bottom:0;
+    height:2px; background:transparent; border-radius:999px;
   }
-  .filter-tab.is-active{
-    color:var(--accent);
-  }
-  .filter-tab.is-active::after{
-    background:var(--accent);
-  }
+  .filter-tab.is-active{ color:var(--accent); }
+  .filter-tab.is-active::after{ background:var(--accent); }
 
+  .sort-wrap{ margin-left:auto; }
+  details.sort-dd{ position:relative; }
+  details.sort-dd summary{ list-style:none; }
+  details.sort-dd summary::-webkit-details-marker{ display:none; }
+  .sort-btn{
+    display:inline-flex; align-items:center; gap:10px;
+    padding:10px 14px; border-radius:999px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(42,42,45,.92);
+    box-shadow:0 8px 20px rgba(0,0,0,.35);
+    cursor:pointer; user-select:none; font-size:13px; color:var(--text); white-space:nowrap;
+  }
+  .sort-menu{
+    position:absolute; right:0; top:calc(100% + 10px); min-width:270px;
+    background:rgba(42,42,45,.98);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    box-shadow:0 18px 40px rgba(0,0,0,.55);
+    overflow:hidden; z-index:50;
+  }
+  .sort-item{
+    display:flex; align-items:center; gap:10px;
+    padding:11px 12px; color:var(--text); text-decoration:none; font-size:13px;
+  }
+  .sort-item:hover{ background:rgba(255,255,255,.06); }
+  .sort-check{ width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; color:#fff; opacity:0; }
+  .sort-item.is-active .sort-check{ opacity:1; }
+
+  /* Grid equal size */
   .results-grid{
     display:grid;
     grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
     gap:16px;
   }
+  a.novel-link{ color:inherit; text-decoration:none; display:block; height:100%; }
   .novel-card{
     background:var(--card);
     border-radius:var(--radius);
@@ -150,183 +141,385 @@
     display:flex;
     flex-direction:column;
     border:1px solid rgba(255,255,255,.04);
-  }
-  .novel-cover-wrap{
-    position:relative;
-    padding-top:140%;
-    overflow:hidden;
-  }
-  .novel-cover-wrap img{
-    position:absolute;
-    inset:0;
-    width:100%;
     height:100%;
-    object-fit:cover;
+    min-height:420px;
   }
-  .novel-body{
-    padding:12px 14px 14px;
-    display:flex;
-    flex-direction:column;
-    gap:6px;
+
+  /* ✅ ปก 800x800 => 1:1 */
+  .novel-cover-wrap{
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    flex: 0 0 auto;
   }
+  .novel-cover-wrap img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+
+  .novel-body{ padding:12px 14px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
   .novel-title{
-    font-size:15px;
-    font-weight:700;
-    line-height:1.4;
+    font-size:15px; font-weight:700; line-height:1.35;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   }
-  .novel-meta{
-    font-size:12px;
-    color:var(--muted);
-  }
+  .novel-meta{ font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .novel-desc{
-    font-size:13px;
-    color:var(--muted);
-    max-height:3.2em;
-    overflow:hidden;
-    text-overflow:ellipsis;
+    font-size:13px; color:var(--muted); flex:1;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
   }
-  .novel-footer{
-    display:flex;
+  .novel-footer{ display:flex; align-items:center; justify-content:space-between; font-size:12px; margin-top:6px; color:var(--muted); gap:8px; }
+  .rating{ display:flex; align-items:center; gap:4px; }
+  .rating-star{ color:var(--star); font-size:13px; }
+
+  /* ✅ badge สถานะ */
+  .status-badge{
+    display:inline-flex;
     align-items:center;
-    justify-content:space-between;
-    font-size:12px;
-    margin-top:6px;
-    color:var(--muted);
-    gap:8px;
+    justify-content:center;
+    padding:4px 10px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.06);
+    color:rgba(255,255,255,.88);
+    font-weight:700;
+    white-space:nowrap;
   }
-  .rating{
-    display:flex;
-    align-items:center;
-    gap:4px;
+  .status-badge.is-finished{
+    background:rgba(34,197,94,.14);
+    border-color:rgba(34,197,94,.26);
+    color:rgba(187,247,208,.95);
   }
-  .rating-star{
-    color:var(--star);
-    font-size:13px;
+  .status-badge.is-ongoing{
+    background:rgba(245,158,11,.14);
+    border-color:rgba(245,158,11,.26);
+    color:rgba(253,230,138,.95);
   }
-  .empty-state{
-    margin-top:40px;
-    text-align:center;
-    color:var(--muted);
-    font-size:14px;
-  }
-  a.novel-link{
-    color:inherit;
+
+  .empty-state{ margin-top:40px; text-align:center; color:var(--muted); font-size:14px; }
+
+  /* Pagination */
+  .pagination{ margin-top:22px; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+  .page-link{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:38px; height:38px; padding:0 12px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(42,42,45,.75);
+    color:var(--text);
     text-decoration:none;
+    font-size:13px;
+    box-shadow:0 8px 18px rgba(0,0,0,.25);
   }
-  a.novel-link:hover .novel-title{
-    text-decoration:underline;
-  }
+  .page-link.is-active{ background:var(--accent); border-color:transparent; color:#fff; font-weight:700; }
+  .page-link.is-disabled{ opacity:.45; pointer-events:none; }
+  .page-ellipsis{ color:var(--muted); padding:0 4px; }
+  .page-info{ margin-top:10px; text-align:center; color:var(--muted); font-size:12px; }
 </style>
 
-<div class="page">
-  <header class="search-header">
-    <div class="search-title">
+<script>
+  // ✅ fallback รูปปก: ลอง cover/ ก่อน แล้วค่อย covers/ (และ default)
+  window.__staticBase = "{{ url_for('static', filename='') }}";
+  window.__coverFallback = function(img){
+    const raw = (img.getAttribute('data-cover') || '').trim();
+    const tries = [];
+
+    if (raw) {
+      if (raw.includes('/')) {
+        tries.push(raw);
+      } else {
+        tries.push("cover/" + raw);
+        tries.push("covers/" + raw);
+      }
+    }
+    tries.push("cover/default.jpg");
+    tries.push("covers/default.jpg");
+
+    let i = parseInt(img.getAttribute('data-try') || "0", 10);
+    if (i >= tries.length) return;
+
+    img.setAttribute('data-try', String(i + 1));
+    img.src = window.__staticBase + tries[i];
+  }
+</script>
+
+{% set cate_q = cate_id if cate_id else '' %}
+
+<!-- ✅ เราจะสลับเฉพาะ innerHTML ของ #searchApp (ไม่ refresh ทั้งหน้า) -->
+<div id="searchApp">
+  <div class="page">
+    <header class="search-header">
+      <div class="search-title">
+        {% if q %}ผลการค้นหา "{{ q }}"{% else %}ค้นหานิยาย{% endif %}
+      </div>
+
       {% if q %}
-        ผลการค้นหา "{{ q }}"
+        <div class="search-sub">พบ {{ total or 0 }} เรื่องที่ตรงกับคำค้นของคุณ</div>
       {% else %}
-        ค้นหานิยาย
+        <div class="search-sub">พิมพ์ชื่อเรื่อง ชื่อผู้แต่ง หรือคีย์เวิร์ดที่ต้องการค้นหา</div>
       {% endif %}
-    </div>
-    {% if q %}
-      <div class="search-sub">
-        พบ {{ results|length }} เรื่องที่ตรงกับคำค้นของคุณ
-      </div>
-    {% else %}
-      <div class="search-sub">
-        พิมพ์ชื่อเรื่อง ชื่อผู้แต่ง หรือคีย์เวิร์ดที่ต้องการค้นหา
-      </div>
-    {% endif %}
 
-    <!-- แถบค้นหาแบบในรูป: ช่องค้นหา + เลือกหมวด + ปุ่มค้นหา -->
-    <div class="search-bar-wrap">
-      <form class="search-bar" action="{{ url_for('search.search_novels') }}" method="get">
-        <input
-          class="search-input"
-          type="search"
-          name="q"
-          placeholder="ค้นหานิยาย"
-          value="{{ q or '' }}"
-        />
-        <select name="cate_id" class="search-category">
-          <option value="">ทุกหมวด</option>
-          {% for cate in categories %}
-            <option value="{{ cate.cate_id }}"
-              {% if cate_id == cate.cate_id %}selected{% endif %}>
-              {{ cate.name }}
-            </option>
+      <div class="search-bar-wrap">
+        <form class="search-bar" action="{{ url_for('search.search_novels') }}" method="get">
+          <input class="search-input" type="search" name="q" placeholder="ค้นหานิยาย" value="{{ q or '' }}" />
+          <select name="cate_id" class="search-category">
+            <option value="">ทุกหมวด</option>
+            {% for cate in categories %}
+              <option value="{{ cate.cate_id }}" {% if cate_id == cate.cate_id %}selected{% endif %}>
+                {{ cate.name }}
+              </option>
+            {% endfor %}
+          </select>
+          <input type="hidden" name="scope" value="{{ scope }}">
+          <input type="hidden" name="sort" value="{{ sort }}">
+          <button type="submit" class="search-button">ค้นหา</button>
+        </form>
+      </div>
+
+      <div class="filters-bar">
+        <nav class="filter-tabs">
+          {% set tabs = [('all','ทั้งหมด'),('title','ชื่อเรื่อง'),('author','นามปากกา'),('desc','เรื่องย่อ'),('tag','แท็ก')] %}
+          {% for value, label in tabs %}
+            <a class="filter-tab{% if scope == value %} is-active{% endif %}"
+               href="{{ url_for('search.search_novels', q=q or '', cate_id=cate_q, scope=value, sort=sort) }}">{{ label }}</a>
           {% endfor %}
-        </select>
+        </nav>
 
-        <!-- ให้จำ scope / sort เดิมไว้เวลาเปลี่ยนหมวด -->
-        <input type="hidden" name="scope" value="{{ scope }}">
-        <input type="hidden" name="sort" value="{{ sort }}">
-        <button type="submit" class="search-button">ค้นหา</button>
-      </form>
-    </div>
-
-    <!-- filter tabs : ทั้งหมด / ชื่อเรื่อง / นามปากกา / เรื่องย่อ / แท็ก -->
-    <nav class="filter-tabs">
-      {% set tabs = [
-        ('all',  'ทั้งหมด'),
-        ('title','ชื่อเรื่อง'),
-        ('author','นามปากกา'),
-        ('desc','เรื่องย่อ'),
-        ('tag','แท็ก')
-      ] %}
-      {% for value, label in tabs %}
-        <a
-          class="filter-tab{% if scope == value %} is-active{% endif %}"
-          href="{{ url_for('search.search_novels',
-                           q=q or '',
-                           cate_id=cate_id,
-                           scope=value,
-                           sort=sort) }}"
-        >{{ label }}</a>
-      {% endfor %}
-    </nav>
-  </header>
-
-  {% if q and results %}
-    <section class="results-grid">
-      {% for novel in results %}
-      <a class="novel-link" href="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
-        <article class="novel-card">
-          <div class="novel-cover-wrap">
-            <img src="{{ url_for('static', filename='covers/' ~ (novel.cover or 'default.jpg')) }}"
-                 alt="{{ novel.title }}">
-          </div>
-          <div class="novel-body">
-            <div class="novel-title">{{ novel.title }}</div>
-            <div class="novel-meta">
-              โดย {{ novel.author_name }}
-              {% if novel.category_name %} · {{ novel.category_name }}{% endif %}
+        <div class="sort-wrap">
+          <details class="sort-dd">
+            <summary class="sort-btn">
+              <span>{{ sort_options.get(sort, sort_options.get('relevance', 'จัดเรียง')) }}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08z" clip-rule="evenodd"/>
+              </svg>
+            </summary>
+            <div class="sort-menu">
+              {% set primary_sorts = ['relevance','finished','ongoing','new','rating','bookshelf'] %}
+              {% for key in primary_sorts %}
+                {% if sort_options.get(key) %}
+                  <a class="sort-item{% if sort == key %} is-active{% endif %}"
+                     href="{{ url_for('search.search_novels', q=q or '', cate_id=cate_q, scope=scope, sort=key) }}">
+                    <span class="sort-check">✓</span>
+                    <span>{{ sort_options[key] }}</span>
+                  </a>
+                {% endif %}
+              {% endfor %}
             </div>
-            <div class="novel-desc">{{ novel.description }}</div>
-            <div class="novel-footer">
-              <div class="rating">
-                <span class="rating-star">★</span>
-                <span>
-                  {% if novel.bayesian_avg %}
-                    {{ '%.2f'|format(novel.bayesian_avg|float) }}
-                  {% else %}
-                    ยังไม่มีคะแนน
-                  {% endif %}
-                </span>
-              </div>
-              {% if novel.votes %}
-                <div>{{ novel.votes }} โหวต</div>
-              {% endif %}
-            </div>
+          </details>
+        </div>
+      </div>
+    </header>
+
+    {# ✅ ถ้ายังไม่ได้ค้นหา: ไม่ต้องแสดงข้อมูลใด ๆ #}
+    {% if q %}
+      {% if results %}
+        <section class="results-grid">
+          {% for novel in results %}
+            {% set cover_name = (novel.cover or 'default.jpg') %}
+            {% if '/' in cover_name %}
+              {% set initial_src = url_for('static', filename=cover_name) %}
+            {% else %}
+              {% set initial_src = url_for('static', filename='cover/' ~ cover_name) %}
+            {% endif %}
+
+            {% set status_text = (novel.status_label or ('จบแล้ว' if novel.status == 'จบแล้ว' else 'ยังไม่จบ')) %}
+            {% set status_class = 'is-finished' if status_text == 'จบแล้ว' else 'is-ongoing' %}
+
+            <a class="novel-link" href="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
+              <article class="novel-card">
+                <div class="novel-cover-wrap">
+                  <img
+                    src="{{ initial_src }}"
+                    alt="{{ novel.title }}"
+                    data-cover="{{ cover_name }}"
+                    data-try="0"
+                    onerror="window.__coverFallback && window.__coverFallback(this)"
+                  >
+                </div>
+
+                <div class="novel-body">
+                  <div class="novel-title">{{ novel.title }}</div>
+
+                  <div class="novel-meta">
+                    โดย {{ novel.author_name }}
+                    {% if novel.category_name %} · {{ novel.category_name }}{% endif %}
+                  </div>
+
+                  <div class="novel-desc">{{ novel.description or '' }}</div>
+
+                  <div class="novel-footer">
+                    <div class="rating">
+                      <span class="rating-star">★</span>
+                      <span>
+                        {% if (novel.rating_count or 0) > 0 %}
+                          {{ '%.2f'|format((novel.avg_rating or 0)|float) }}
+                        {% else %}
+                          ยังไม่มีคะแนน
+                        {% endif %}
+                      </span>
+                    </div>
+
+                    <!-- ✅ เปลี่ยนเป็นสถานะนิยาย -->
+                    <div class="status-badge {{ status_class }}">{{ status_text }}</div>
+                  </div>
+                </div>
+              </article>
+            </a>
+          {% endfor %}
+        </section>
+
+        {% if total_pages and total_pages > 1 %}
+          <div class="page-info">
+            แสดง {{ start_item }}–{{ end_item }} จาก {{ total }} เรื่อง
           </div>
-        </article>
-      </a>
-      {% endfor %}
-    </section>
-  {% elif q %}
-    <div class="empty-state">
-      ไม่พบนิยายที่ตรงกับ "{{ q }}"<br>
-      ลองเปลี่ยนคำค้น หรือใช้คำสั้น ๆ ดูนะ
-    </div>
-  {% endif %}
+
+          <nav class="pagination" aria-label="Pagination">
+            <a class="page-link{% if page <= 1 %} is-disabled{% endif %}"
+               href="{{ url_for('search.search_novels', q=q, cate_id=cate_q, scope=scope, sort=sort, page=page-1) }}">‹</a>
+
+            {% set win = 2 %}
+            {% set start_p = page - win %}
+            {% set end_p = page + win %}
+            {% if start_p < 1 %}{% set start_p = 1 %}{% endif %}
+            {% if end_p > total_pages %}{% set end_p = total_pages %}{% endif %}
+
+            {% if start_p > 1 %}
+              <a class="page-link" href="{{ url_for('search.search_novels', q=q, cate_id=cate_q, scope=scope, sort=sort, page=1) }}">1</a>
+              {% if start_p > 2 %}<span class="page-ellipsis">…</span>{% endif %}
+            {% endif %}
+
+            {% for p in range(start_p, end_p + 1) %}
+              <a class="page-link{% if p == page %} is-active{% endif %}"
+                 href="{{ url_for('search.search_novels', q=q, cate_id=cate_q, scope=scope, sort=sort, page=p) }}">{{ p }}</a>
+            {% endfor %}
+
+            {% if end_p < total_pages %}
+              {% if end_p < total_pages - 1 %}<span class="page-ellipsis">…</span>{% endif %}
+              <a class="page-link" href="{{ url_for('search.search_novels', q=q, cate_id=cate_q, scope=scope, sort=sort, page=total_pages) }}">{{ total_pages }}</a>
+            {% endif %}
+
+            <a class="page-link{% if page >= total_pages %} is-disabled{% endif %}"
+               href="{{ url_for('search.search_novels', q=q, cate_id=cate_q, scope=scope, sort=sort, page=page+1) }}">›</a>
+          </nav>
+        {% endif %}
+      {% else %}
+        <div class="empty-state">
+          ไม่พบนิยายที่ตรงกับ "{{ q }}"<br>
+          ลองเปลี่ยนคำค้น หรือใช้คำสั้น ๆ ดูนะ
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
 </div>
+
+<div class="loading-toast" aria-live="polite">
+  <span class="loading-dot"></span>
+  <span>กำลังโหลด…</span>
+</div>
+
+<script>
+(function(){
+  const app = document.getElementById('searchApp');
+  if(!app) return;
+
+  const searchBase = "{{ url_for('search.search_novels') }}";
+  let controller = null;
+
+  function setLoading(on){
+    app.classList.toggle('is-loading', !!on);
+  }
+
+  async function loadUrl(url, {push=true, scroll=true} = {}){
+    try{
+      setLoading(true);
+      if(controller) controller.abort();
+      controller = new AbortController();
+
+      const res = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'fetch' },
+        signal: controller.signal
+      });
+
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const next = doc.getElementById('searchApp');
+
+      // ถ้าไม่เจอ container ให้ fallback เป็น refresh ปกติ
+      if(!next){
+        window.location.href = url;
+        return;
+      }
+
+      // อัปเดต title
+      if(doc.title) document.title = doc.title;
+
+      // สลับเฉพาะ content ใน #searchApp (ไม่ refresh ทั้งหน้า)
+      app.innerHTML = next.innerHTML;
+
+      // ปิด dropdown ที่ค้าง
+      app.querySelectorAll('details[open]').forEach(d => d.open = false);
+
+      if(push) history.pushState({}, '', url);
+
+      if(scroll){
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } catch(err){
+      if(err.name === 'AbortError') return;
+      window.location.href = url; // fallback
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // intercept click เฉพาะลิงก์ /search (แท็บ, sort, pagination)
+  document.addEventListener('click', (ev) => {
+    const a = ev.target.closest('#searchApp a');
+    if(!a) return;
+
+    // อย่าดัก link ออกนอก /search หรือไป novel detail
+    const href = a.getAttribute('href');
+    if(!href) return;
+    if(!href.startsWith(searchBase)) return;
+
+    // allow open new tab / modifiers
+    if(a.target && a.target !== '_self') return;
+    if(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+
+    ev.preventDefault();
+    loadUrl(href, {push:true, scroll:true});
+  });
+
+  // intercept submit ฟอร์มค้นหา
+  document.addEventListener('submit', (ev) => {
+    const form = ev.target.closest('#searchApp form.search-bar');
+    if(!form) return;
+
+    ev.preventDefault();
+
+    const url = new URL(form.action, window.location.origin);
+    const fd = new FormData(form);
+
+    for(const [k, v] of fd.entries()){
+      const val = String(v ?? '').trim();
+      if(!val){
+        // ไม่ส่งค่าว่างเพื่อลิงก์ดูสะอาด
+        continue;
+      }
+      url.searchParams.set(k, val);
+    }
+
+    // ทุกครั้งที่ค้นหาใหม่ ให้เริ่มหน้า 1
+    url.searchParams.delete('page');
+
+    loadUrl(url.toString(), {push:true, scroll:true});
+  });
+
+  // back/forward ไม่ refresh ทั้งหน้า
+  window.addEventListener('popstate', () => {
+    loadUrl(window.location.href, {push:false, scroll:false});
+  });
+})();
+</script>
 {% endblock %}

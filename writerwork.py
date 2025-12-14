@@ -1,225 +1,272 @@
-from flask import Blueprint, render_template, request, jsonify, abort
-from db import get_db_connection, query_all, query_one
-from datetime import datetime
+from flask import Blueprint, render_template, abort, request, jsonify, session, g, url_for
+from werkzeug.exceptions import HTTPException
+from MySQLdb.cursors import DictCursor
+from db import get_db_connection
+import os
+from datetime import datetime, timedelta
 
 writerwork_bp = Blueprint('writerwork', __name__, template_folder='templates')
 
-# ---------- Helpers ----------
-def _writer_overview(users_id: int):
-    """ดึงข้อมูลโปรไฟล์ + สรุปผลงานของผู้เขียน"""
-    sql = """
-    SELECT u.users_id, u.username, u.pfpic,
-           COUNT(n.novels_id) AS work_count,
-           COALESCE(SUM(b.bookshelf_users), 0) AS total_bookshelf
-    FROM users u
-    LEFT JOIN novels n ON n.users_id = u.users_id
-    LEFT JOIN v_novel_bookshelf_counts b ON b.novels_id = n.novels_id
-    WHERE u.users_id = %s
-    GROUP BY u.users_id, u.username, u.pfpic
+# ---------- helpers ----------
+def _cover_url(cover_path: str | None) -> str:
+    if cover_path:
+        s = str(cover_path).strip()
+        # ถ้าเป็น url หรือ path แบบ absolute ให้ใช้เลย
+        if s.startswith(('http://', 'https://', '/')):
+            return s
+        filename = os.path.basename(s)
+        return url_for('static', filename=f'cover/{filename}')
+    return url_for('static', filename='cover/placeholder.jpg')
+
+def _pfpic_url(pfpic: str | None) -> str:
     """
-    return query_one(sql, (users_id,))
-
-def _writer_works(users_id: int):
-    """รายการนิยายของผู้เขียน + สถิติโดยย่อ (ตอน, ยอดดู, ไลก์, บุ๊คมาร์ก, คอมเมนต์, เรตติ้ง)"""
-    sql = """
-    SELECT
-      n.novels_id, n.title, n.cover, n.updated_at, n.status,
-      COALESCE(cc.total_chapters, 0) AS chapters,
-      COALESCE(vh.views, 0) AS views,
-      COALESCE(lk.likes, 0) AS likes,
-      COALESCE(bc.bookshelf_users, 0) AS bookmarks,
-      COALESCE(cm.comments, 0) AS comments_count,
-      COALESCE(rs.bayesian_avg, rs.raw_avg, 0) AS rating_avg
-    FROM novels n
-    LEFT JOIN v_novel_chapter_counts cc ON cc.novels_id = n.novels_id
-    LEFT JOIN (
-        SELECT novels_id, COUNT(*) AS views
-        FROM reading_history
-        GROUP BY novels_id
-    ) vh ON vh.novels_id = n.novels_id
-    LEFT JOIN (
-        SELECT c.novels_id, COUNT(*) AS likes
-        FROM chapter_likes cl
-        JOIN chapters c ON c.chapters_id = cl.chapters_id
-        GROUP BY c.novels_id
-    ) lk ON lk.novels_id = n.novels_id
-    LEFT JOIN v_novel_bookshelf_counts bc ON bc.novels_id = n.novels_id
-    LEFT JOIN (
-        SELECT novels_id, COUNT(*) AS comments
-        FROM comments
-        GROUP BY novels_id
-    ) cm ON cm.novels_id = n.novels_id
-    LEFT JOIN v_novel_rating_stats rs ON rs.novels_id = n.novels_id
-    WHERE n.users_id = %s
-    ORDER BY n.updated_at DESC, n.novels_id DESC
+    ✅ ของจริงใน DB มักเก็บเป็น 'profile/xxx.png' (อยู่ใต้ static/)
+    - ถ้าเป็น http(s) หรือ /... ใช้เลย
+    - ถ้าเป็น 'static/...' ตัด static/ ออกแล้ว url_for('static', filename=...)
+    - ถ้ามี / อยู่แล้ว ให้ถือว่าเป็น path ใต้ static เช่น profile/...
+    - ถ้าเป็นชื่อไฟล์ล้วน ค่อยเดาโฟลเดอร์ profile/ ก่อน
     """
-    return query_all(sql, (users_id,))
+    if pfpic:
+        s = str(pfpic).strip()
+        if not s:
+            return url_for('static', filename='img/avatar-placeholder.jpg')
 
-def _novel_exists(novel_id: int):
-    row = query_one("SELECT novels_id, users_id, title, updated_at FROM novels WHERE novels_id = %s", (novel_id,))
-    return row
+        if s.startswith(('http://', 'https://', '/')):
+            return s
 
-# ---------- Page: /writer/<writer_id>/works ----------
-@writerwork_bp.get("/writer/<int:writer_id>/works")
+        if s.startswith('static/'):
+            s = s[len('static/'):]
+
+        if '/' in s:
+            return url_for('static', filename=s)
+
+        filename = os.path.basename(s)
+        return url_for('static', filename=f'profile/{filename}')
+
+    return url_for('static', filename='img/avatar-placeholder.jpg')
+
+def _current_uid() -> int | None:
+    """
+    ✅ ไม่พึ่ง flask_login (กัน Pylance ฟ้อง + โปรเจกต์คุณใช้ session/g เป็นหลัก)
+    รองรับ:
+      - session['users_id'] / session['user_id'] / session['uid']
+      - session['user'] dict -> users_id
+      - g.user dict -> users_id
+    """
+    uid = session.get('users_id') or session.get('user_id') or session.get('uid')
+    if uid:
+        try:
+            return int(uid)
+        except Exception:
+            pass
+
+    u = session.get('user')
+    if isinstance(u, dict) and u.get('users_id'):
+        try:
+            return int(u.get('users_id'))
+        except Exception:
+            pass
+
+    if getattr(g, 'user', None) and isinstance(g.user, dict) and g.user.get('users_id'):
+        try:
+            return int(g.user.get('users_id'))
+        except Exception:
+            pass
+
+    return None
+
+def _iso(dt) -> str:
+    if not dt:
+        return ''
+    if hasattr(dt, 'isoformat'):
+        return dt.isoformat()
+    return str(dt)
+
+# ---------- pages ----------
+@writerwork_bp.route('/writer/<int:writer_id>/works')
 def writer_works(writer_id: int):
-    writer = _writer_overview(writer_id)
-    if not writer:
-        abort(404)
+    conn = None
+    try:
+        current_uid = _current_uid()
+        is_owner = bool(current_uid and int(current_uid) == int(writer_id))
 
-    works = _writer_works(writer_id)
+        conn = get_db_connection()
+        with conn.cursor(DictCursor) as cur:
+            # writer profile
+            cur.execute("""
+                SELECT users_id, username, pfpic
+                FROM users
+                WHERE users_id=%s
+                LIMIT 1
+            """, (writer_id,))
+            writer = cur.fetchone()
+            if not writer:
+                abort(404)
 
-    # แปลงข้อมูลสำหรับฝั่ง template (ทำ data-* ที่การ์ด)
-    cards = []
-    for w in works:
-        cards.append({
-            "novels_id": w["novels_id"],
-            "title": w["title"],
-            "cover": w["cover"] or "/static/cover/placeholder.jpg",
-            "updated_at": w["updated_at"].isoformat() if isinstance(w["updated_at"], datetime) else w["updated_at"],
-            "status": ("finished" if (w["status"] or "").lower() in ("จบแล้ว", "finished", "complete", "completed") else "ongoing"),
-            "chapters": int(w["chapters"] or 0),
-            "views": int(w["views"] or 0),
-            "likes": int(w["likes"] or 0),
-            "bookmarks": int(w["bookmarks"] or 0),
-            "comments": int(w["comments_count"] or 0),
-            "rating_avg": float(w["rating_avg"] or 0.0),
-            "writer_name": writer["username"],
-        })
+            # counts (งานเขียน + เพิ่มเข้าชั้นรวมทุกเรื่อง)
+            cur.execute("SELECT COUNT(*) AS c FROM novels WHERE users_id=%s", (writer_id,))
+            work_count = int((cur.fetchone() or {}).get('c') or 0)
 
-    # NOTE: current_user_id คุณสามารถโยงกับระบบ auth ได้จริง
-    current_user_id = request.args.get("as_user", type=int)  # ชั่วคราว: ผ่าน ?as_user=42 เพื่อทดสอบปุ่มสถิติ
-    return render_template(
-        "writerwork.html",
-        current_user_id=current_user_id or writer["users_id"],
-        writer_id=writer["users_id"],
-        writer=writer,
-        works=cards
-    )
+            # ใช้ VIEW v_novel_bookshelf_counts (ของจริงมี novels_id, bookshelf_count)
+            cur.execute("""
+                SELECT COALESCE(SUM(vbc.bookshelf_count),0) AS total_bookshelf
+                FROM novels n
+                LEFT JOIN v_novel_bookshelf_counts vbc ON vbc.novels_id = n.novels_id
+                WHERE n.users_id=%s
+            """, (writer_id,))
+            total_bookshelf = int((cur.fetchone() or {}).get('total_bookshelf') or 0)
 
-# ---------- API: /api/novels/<novel_id>/stats ----------
-@writerwork_bp.get("/api/novels/<int:novel_id>/stats")
+            # works list
+            cur.execute("""
+                SELECT
+                    n.novels_id,
+                    n.title,
+                    n.cover,
+                    n.status,
+                    n.updated_at,
+                    n.views,
+                    c.name AS category_name,
+                    (SELECT COUNT(*) FROM chapters ch WHERE ch.novels_id = n.novels_id) AS chapters_count,
+                    COALESCE(vbc.bookshelf_count,0) AS bookmarks_count,
+                    (SELECT COUNT(*) FROM comments cm WHERE cm.novels_id = n.novels_id) AS comments_count,
+                    (SELECT AVG(r.rating) FROM ratings r WHERE r.novels_id = n.novels_id) AS rating_avg
+                FROM novels n
+                LEFT JOIN categories c ON c.cate_id = n.cate_id
+                LEFT JOIN v_novel_bookshelf_counts vbc ON vbc.novels_id = n.novels_id
+                WHERE n.users_id=%s
+                ORDER BY n.updated_at DESC, n.novels_id DESC
+            """, (writer_id,))
+            rows = cur.fetchall()
+
+        writer_out = {
+            "users_id": writer["users_id"],
+            "username": writer.get("username") or "Writer",
+            "pfpic": _pfpic_url(writer.get("pfpic")),
+            "work_count": work_count,
+            "total_bookshelf": total_bookshelf
+        }
+
+        works = []
+        for r in (rows or []):
+            works.append({
+                "novels_id": r["novels_id"],
+                "title": r.get("title") or "(ไม่มีชื่อเรื่อง)",
+                "cover": _cover_url(r.get("cover")),
+                "status": r.get("status") or "เผยแพร่",
+                "updated_at": _iso(r.get("updated_at")),
+                "views": int(r.get("views") or 0),
+                "chapters": int(r.get("chapters_count") or 0),
+                "bookmarks": int(r.get("bookmarks_count") or 0),
+                "comments": int(r.get("comments_count") or 0),
+                "rating_avg": float(r.get("rating_avg") or 0.0),
+                "writer_name": writer_out["username"],
+                "owner_id": writer_id,  # เผื่อใช้ใน template
+            })
+
+        return render_template(
+            "writerwork.html",
+            writer=writer_out,
+            works=works,
+            writer_id=writer_id,
+            current_user_id=current_uid,
+            is_owner=is_owner
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"writerwork.writer_works error: {e}")
+        abort(500)
+    finally:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+# ---------- APIs ----------
+@writerwork_bp.route('/api/writerwork/novels/<int:novel_id>/stats')
 def novel_stats(novel_id: int):
-    novel = _novel_exists(novel_id)
-    if not novel:
-        abort(404)
-
-    days = max(1, min(request.args.get("days", default=28, type=int), 180))  # ป้องกันยิงยาวเกิน
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    # 1) ตัวเลขรวม
-    # - chapters (จาก view), views/unique_readers (จาก reading_history), likes (chapter_likes), bookmarks (view), comments, rating
-    totals_sql = """
-    SELECT
-      n.novels_id,
-      COALESCE(cc.total_chapters, 0) AS chapters,
-      (SELECT COUNT(*) FROM reading_history rh WHERE rh.novels_id = n.novels_id) AS views,
-      (SELECT COUNT(DISTINCT rh.users_id) FROM reading_history rh WHERE rh.novels_id = n.novels_id) AS readers_unique,
-      (SELECT COUNT(*) FROM chapter_likes cl JOIN chapters c ON c.chapters_id = cl.chapters_id WHERE c.novels_id = n.novels_id) AS likes,
-      COALESCE(bc.bookshelf_users, 0) AS bookmarks,
-      (SELECT COUNT(*) FROM comments cm WHERE cm.novels_id = n.novels_id) AS comments_count,
-      COALESCE(rs.bayesian_avg, rs.raw_avg, 0) AS rating_avg,
-      n.updated_at
-    FROM novels n
-    LEFT JOIN v_novel_chapter_counts cc ON cc.novels_id = n.novels_id
-    LEFT JOIN v_novel_bookshelf_counts bc ON bc.novels_id = n.novels_id
-    LEFT JOIN v_novel_rating_stats rs ON rs.novels_id = n.novels_id
-    WHERE n.novels_id = %s
     """
-    cur.execute(totals_sql, (novel_id,))
-    totals = cur.fetchone()
-
-    # 2) completion_rate จาก reading_history:
-    #    - เอาความคืบหน้าสูงสุดต่อ user ในเรื่องนี้
-    #    - completed = max_progress >= 95
-    completion_sql = """
-    WITH last_per_user AS (
-      SELECT users_id, MAX(progress) AS max_progress
-      FROM reading_history
-      WHERE novels_id = %s
-      GROUP BY users_id
-    )
-    SELECT
-      COUNT(*) AS readers,
-      SUM(CASE WHEN COALESCE(max_progress,0) >= 95 THEN 1 ELSE 0 END) AS completed
-    FROM last_per_user
+    ✅ อนุญาตเฉพาะ "เจ้าของนิยาย" เท่านั้น
+    คืนค่า: chapters, views, bookmarks, comments_count, rating_avg, updated_at, timeseries(views 7 วัน)
     """
-    cur.execute(completion_sql, (novel_id,))
-    comp_row = cur.fetchone() or {"readers": 0, "completed": 0}
-    readers_total = int(comp_row["readers"] or 0)
-    completed_total = int(comp_row["completed"] or 0)
-    completion_rate = (completed_total / readers_total) if readers_total else 0.0
+    conn = None
+    try:
+        current_uid = _current_uid()
+        if not current_uid:
+            return jsonify(ok=False, error="unauthorized"), 401
 
-    # 3) timeseries แบบละเอียด (รายวัน) จาก reading_history:
-    #    - views: จำนวน event ต่อวัน
-    #    - unique_readers: ผู้ใช้ไม่ซ้ำต่อวัน
-    #    - new_completions: จำนวนผู้ใช้ที่ "เพิ่ง" ถึง 95% ครั้งแรกในวันนั้น
-    #    - avg_progress: ค่าเฉลี่ย progress สูงสุดต่อ user ในวันนั้น
-    ts_sql = f"""
-    WITH day_events AS (
-      SELECT DATE(last_read_at) AS d,
-             COUNT(*) AS views,
-             COUNT(DISTINCT users_id) AS readers
-      FROM reading_history
-      WHERE novels_id = %s
-        AND last_read_at >= CURDATE() - INTERVAL %s DAY
-      GROUP BY DATE(last_read_at)
-    ),
-    base AS (
-      SELECT DATE(last_read_at) AS d, users_id, MAX(COALESCE(progress,0)) AS day_max
-      FROM reading_history
-      WHERE novels_id = %s
-        AND last_read_at >= CURDATE() - INTERVAL %s DAY
-      GROUP BY DATE(last_read_at), users_id
-    ),
-    cumprog AS (
-      SELECT d, users_id, day_max,
-             MAX(day_max) OVER (PARTITION BY users_id ORDER BY d
-                                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum_max
-      FROM base
-    ),
-    flagged AS (
-      SELECT d, users_id, day_max, cum_max,
-             LAG(cum_max, 1, 0) OVER (PARTITION BY users_id ORDER BY d) AS prev_cum
-      FROM cumprog
-    )
-    SELECT
-      de.d AS date,
-      de.views,
-      de.readers AS unique_readers,
-      SUM(CASE WHEN f.cum_max >= 95 AND f.prev_cum < 95 THEN 1 ELSE 0 END) AS new_completions,
-      ROUND(AVG(f.day_max), 2) AS avg_progress
-    FROM day_events de
-    LEFT JOIN flagged f ON f.d = de.d
-    GROUP BY de.d
-    ORDER BY de.d
-    """
-    cur.execute(ts_sql, (novel_id, days, novel_id, days))
-    rows = cur.fetchall() or []
+        days = request.args.get('days', '7')
+        try:
+            days = max(1, min(90, int(days)))
+        except Exception:
+            days = 7
 
-    cur.close()
+        conn = get_db_connection()
+        with conn.cursor(DictCursor) as cur:
+            # owner check + base info
+            cur.execute("""
+                SELECT n.novels_id, n.users_id, n.title, n.updated_at, n.views,
+                       (SELECT COUNT(*) FROM chapters ch WHERE ch.novels_id = n.novels_id) AS chapters,
+                       COALESCE(vbc.bookshelf_count,0) AS bookmarks,
+                       (SELECT COUNT(*) FROM comments cm WHERE cm.novels_id = n.novels_id) AS comments_count,
+                       (SELECT AVG(r.rating) FROM ratings r WHERE r.novels_id = n.novels_id) AS rating_avg
+                FROM novels n
+                LEFT JOIN v_novel_bookshelf_counts vbc ON vbc.novels_id = n.novels_id
+                WHERE n.novels_id=%s
+                LIMIT 1
+            """, (novel_id,))
+            row = cur.fetchone()
+            if not row:
+                return jsonify(ok=False, error="not_found"), 404
 
-    payload = {
-        "novels_id": novel_id,
-        "title": novel["title"],
-        "chapters": int(totals["chapters"] or 0),
-        "views": int(totals["views"] or 0),
-        "readers_unique": int(totals["readers_unique"] or 0),
-        "likes": int(totals["likes"] or 0),
-        "bookmarks": int(totals["bookmarks"] or 0),
-        "comments_count": int(totals["comments_count"] or 0),
-        "rating_avg": float(totals["rating_avg"] or 0.0),
-        "completion_rate": float(completion_rate),
-        "updated_at": totals["updated_at"].isoformat() if isinstance(totals["updated_at"], datetime) else totals["updated_at"],
-        "timeseries": [
-            {
-                "date": r["date"].strftime("%Y-%m-%d") if hasattr(r["date"], "strftime") else str(r["date"]),
-                "views": int(r["views"] or 0),
-                "unique_readers": int(r["unique_readers"] or 0),
-                "new_completions": int(r["new_completions"] or 0),
-                "avg_progress": float(r["avg_progress"] or 0.0),
-            } for r in rows
-        ]
-    }
-    return jsonify(payload)
+            if int(row["users_id"]) != int(current_uid):
+                return jsonify(ok=False, error="forbidden"), 403
+
+            # timeseries: ใช้ reading_history.last_read_at นับการเข้าชมรายวัน (7 วันล่าสุด)
+            # ถ้าโปรเจกต์คุณนับ views แบบอื่น ค่อยปรับ query ตรงนี้ได้
+            start = (datetime.now() - timedelta(days=days-1)).date()
+            cur.execute("""
+                SELECT DATE(rh.last_read_at) AS d, COUNT(*) AS views
+                FROM reading_history rh
+                WHERE rh.novels_id=%s AND rh.last_read_at >= %s
+                GROUP BY DATE(rh.last_read_at)
+                ORDER BY d ASC
+            """, (novel_id, start))
+            ts_rows = cur.fetchall() or []
+
+        # fill missing days
+        ts_map = {}
+        for x in ts_rows:
+            d = x.get("d")
+            if d:
+                ts_map[str(d)] = int(x.get("views") or 0)
+
+        series = []
+        for i in range(days):
+            di = (start + timedelta(days=i))
+            key = str(di)
+            series.append({"date": key, "views": ts_map.get(key, 0)})
+
+        return jsonify(
+            ok=True,
+            title=row.get("title") or "นิยาย",
+            chapters=int(row.get("chapters") or 0),
+            views=int(row.get("views") or 0),
+            bookmarks=int(row.get("bookmarks") or 0),
+            comments_count=int(row.get("comments_count") or 0),
+            rating_avg=float(row.get("rating_avg") or 0.0),
+            updated_at=_iso(row.get("updated_at")),
+            timeseries=series
+        )
+
+    except Exception as e:
+        print(f"writerwork.novel_stats error: {e}")
+        return jsonify(ok=False, error="server_error"), 500
+    finally:
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass

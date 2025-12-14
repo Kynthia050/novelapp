@@ -1,37 +1,88 @@
 {% extends "base.html" %}
+{% include "back.html" %}
+{% block title %}Writer Work{% endblock %}
 
-{% block title %}Writing — Works (Monochrome){% endblock %}
+{% block extra_head %}
+<script>
+  // ✅ merge tailwind config (ไม่ทับของเดิม) + เติมสี/เงาที่ header ใช้
+  window.tailwind = window.tailwind || {};
+  tailwind.config = tailwind.config || {};
+  tailwind.config.theme = tailwind.config.theme || {};
+  tailwind.config.theme.extend = tailwind.config.theme.extend || {};
+  const ex = tailwind.config.theme.extend;
+
+  ex.colors = Object.assign({}, ex.colors || {}, {
+    muted: 'rgba(255,255,255,.65)',
+    textc: 'rgba(255,255,255,.92)',
+    accent: '#a3a3a3',
+    bg: '#0b0b0b',
+  });
+
+  ex.boxShadow = Object.assign({}, ex.boxShadow || {}, {
+    soft: '0 10px 24px rgba(0,0,0,.45)'
+  });
+</script>
+
+<style>
+  :root{
+    --muted: rgba(255,255,255,.65);
+    --textc: rgba(255,255,255,.92);
+  }
+
+  .chart-wrap{
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.04);
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+
+  body{ background:#0b0b0b !important; }
+  body > main{ background:#0b0b0b !important; }     
+  main{ background:#0b0b0b !important; }          
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-[#0b0b0b] text-zinc-100 selection:bg-white/20 selection:text-zinc-100">
-  <main class="max-w-6xl mx-auto p-5"
+<div id="writerworkPage" class="min-h-screen bg-[#0b0b0b] text-zinc-100 selection:text-zinc-100">
+  <main class="max-w-6xl mx-auto px-5 pb-5 pt-8 md:pt-10"
         data-writer-id="{{ writer_id }}"
-        data-current-user-id="{{ current_user_id or '' }}">
+        data-current-user-id="{{ current_user_id or '' }}"
+        data-is-owner="{{ 1 if is_owner else 0 }}">
 
     <!-- WRITER PANEL -->
-    <section class="bg-neutral-900/70 border border-white/10 rounded-2xl shadow-soft p-5 md:p-6">
-      <div class="grid grid-cols-[auto,1fr,auto] gap-4 items-center">
+    <section class="bg-neutral-900/70 border border-white/10 rounded-2xl shadow-soft p-5 md:p-6 mt-4">
+      <div class="flex flex-col md:flex-row md:items-stretch gap-5">
         <img class="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover bg-zinc-300 border border-white/10"
-             src="{{ writer.pfpic or '/static/img/avatar-placeholder.jpg' }}" alt="avatar"/>
-        <div>
+            src="{{ writer.pfpic }}" alt="avatar"/>
+
+        <!-- กล่องข้อมูลให้ได้ขนาดตามกรอบแดง -->
+        <div class="writer-info-box flex flex-col justify-center">
           <div class="text-2xl md:text-3xl font-bold">{{ writer.username }}</div>
+
           <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-zinc-300 text-sm">
-            <span>✍️ งานเขียน {{ writer.work_count }} เรื่อง</span>
-            <span>📥 เพิ่มเข้าชั้น {{ "{:,}".format(writer.total_bookshelf or 0) }} ครั้ง</span>
+            <span class="inline-flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                  class="w-4 h-4 text-zinc-300">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+              </svg>
+              <span>งานเขียน {{ writer.work_count }} เรื่อง</span>
+            </span>
+
+            <span class="inline-flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                  class="w-4 h-4 text-zinc-300">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+              </svg>
+              <span>เพิ่มเข้าชั้น {{ "{:,}".format(writer.total_bookshelf or 0) }} ครั้ง</span>
+            </span>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <!-- Owner-only quick dashboard button -->
-          <a href="/me/analytics" data-owner-only
-             class="hidden inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 hover:bg-white/20 px-4 py-2 text-sm text-zinc-100 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M3 3h2v18H3V3Zm4 10h2v8H7v-8Zm4-6h2v14h-2V7Zm4 3h2v11h-2V10Zm4-6h2v17h-2V4Z"/></svg>
-            แดชบอร์ดสถิติ
-          </a>
-          <button class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/15 text-zinc-200" aria-label="more">⋯</button>
-        </div>
       </div>
-      <p class="mt-3 text-center text-zinc-400 italic">“เขียนเพราะรักการเล่าเรื่อง”</p>
     </section>
+
 
     <!-- NAV/TABS + TOOLBAR -->
     <nav class="mt-4 bg-neutral-900/70 border border-white/10 rounded-2xl shadow-soft">
@@ -72,7 +123,6 @@
                data-novel-id="{{ w.novels_id }}"
                data-chapters="{{ w.chapters }}"
                data-views="{{ w.views }}"
-               data-likes="{{ w.likes }}"
                data-bookmarks="{{ w.bookmarks }}"
                data-status="{{ w.status }}"
                data-updated="{{ w.updated_at }}"
@@ -81,24 +131,50 @@
             <div class="flex items-center gap-2">
               <span title="อัปเดตล่าสุด" class="inline-block w-2 h-2 rounded-full bg-zinc-300"></span>
               <h3 class="font-bold truncate">{{ w.title }}</h3>
+
+              {% if is_owner %}
               <div class="ml-auto flex items-center gap-2">
-                <!-- Owner-only: view stats -->
-                <button data-owner-only data-action="open-stats" data-id="{{ w.novels_id }}"
-                        class="hidden inline-flex items-center gap-1 rounded-full border border-white/10 bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 text-sm font-medium text-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M3 3h2v18H3V3Zm4 10h2v8H7v-8Zm4-6h2v14h-2V7Zm4 3h2v11h-2V10Zm4-6h2v17h-2V4Z"/></svg>
+                <button data-action="open-stats" data-id="{{ w.novels_id }}"
+                        class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 text-sm font-medium text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                    <path d="M3 3h2v18H3V3Zm4 10h2v8H7v-8Zm4-6h2v14h-2V7Zm4 3h2v11h-2V10Zm4-6h2v17h-2V4Z"/>
+                  </svg>
                   ดูสถิติ
                 </button>
-                <a href="/novel/{{ w.novels_id }}"
-                   class="inline-flex items-center gap-1 rounded-full bg-white text-black px-3 py-1.5 text-sm font-medium">
-                  อ่านต่อ
-                </a>
               </div>
+              {% endif %}
             </div>
+
             <div class="text-zinc-300 text-sm">by {{ w.writer_name }}</div>
+
             <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-sm">
-              <span>📄 {{ w.chapters }}</span>
-              <span>👁️ {{ "{:,}".format(w.views) }}</span>
-              <span>❤ {{ "{:,}".format(w.likes) }}</span>
+              <span class="inline-flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">
+                  <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
+                </svg>
+                <span>{{ w.chapters }}</span>
+              </span>
+
+              <span class="inline-flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">
+                  <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
+                </svg>
+                <span>{{ "{:,}".format(w.views) }}</span>
+              </span>
+
+              <span class="inline-flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">
+                  <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
+                </svg>
+                <span>
+                  {% if w.rating_avg is not none %}
+                    {{ '%.1f'|format(w.rating_avg|float) }}
+                  {% else %}
+                    0.0
+                  {% endif %}
+                  <span class="text-zinc-400">/5</span>
+                </span>
+              </span>
             </div>
           </div>
         </article>
@@ -109,35 +185,25 @@
 
   <!-- MODAL: Stats -->
   <div id="statsModal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60"></div>
+    <div id="statsOverlay" class="absolute inset-0 bg-black/60"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="w-full max-w-2xl rounded-2xl border border-white/10 bg-neutral-900 shadow-soft">
         <div class="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <h3 id="statsTitle" class="text-lg font-semibold">สถิตินิยาย</h3>
           <button id="statsClose"
                   class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
-                  aria-label="close">
-            ✕
-          </button>
+                  aria-label="close">✕</button>
         </div>
-        <div id="statsBody" class="p-5 grid gap-4"><!-- Filled by JS --></div>
+        <div id="statsBody" class="p-5 grid gap-4"></div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-  // ===== Owner gate (ใช้ data-* แทน meta) =====
-  const mainEl = document.querySelector('main[data-writer-id]');
-  const currentUserId = mainEl?.dataset.currentUserId || '';
-  const writerId = mainEl?.dataset.writerId || '';
-  const isOwner = currentUserId && writerId && currentUserId === writerId;
+  const mainEl = document.querySelector('main[data-is-owner]');
+  const isOwner = (mainEl?.dataset.isOwner === '1');
 
-  document.querySelectorAll('[data-owner-only]').forEach(el => {
-    if (isOwner) el.classList.remove('hidden');
-  });
-
-  // ===== Filters =====
   const works = Array.from(document.querySelectorAll('#works > article > div.flex-1'));
   const pills = document.querySelectorAll('.filter-pill');
   const statusSelect = document.getElementById('statusSelect');
@@ -149,15 +215,16 @@
     const container = document.getElementById('works');
     let items = works.slice();
 
-    // status filter
     items.forEach(el => {
-      const ok = status === 'all' ? true : el.dataset.status === status;
+      const st = (el.dataset.status || '').trim();
+      let ok = true;
+      if (status === 'finished') ok = (st === 'จบแล้ว');
+      else if (status === 'ongoing') ok = (st !== 'จบแล้ว');
       el.closest('article').classList.toggle('hidden', !ok);
     });
 
-    // sort (latest)
     if (filter === 'latest') {
-      items.sort((a,b)=> new Date(b.dataset.updated) - new Date(a.dataset.updated));
+      items.sort((a,b)=> new Date(b.dataset.updated || 0) - new Date(a.dataset.updated || 0));
       items.forEach(el => container.appendChild(el.closest('article')));
     }
   }
@@ -170,101 +237,168 @@
   statusSelect.addEventListener('change', applyFilters);
   applyFilters();
 
-  // ===== Stats Modal =====
   const modal = document.getElementById('statsModal');
+  const overlay = document.getElementById('statsOverlay');
   const statsBody = document.getElementById('statsBody');
   const statsTitle = document.getElementById('statsTitle');
+
   document.getElementById('statsClose').addEventListener('click', ()=> modal.classList.add('hidden'));
-  modal.addEventListener('click', (e)=>{
-    if(e.target === modal) modal.classList.add('hidden');
-  });
+  overlay.addEventListener('click', ()=> modal.classList.add('hidden'));
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') modal.classList.add('hidden'); });
 
-  async function fetchStats(novelId, days=28) {
-    try {
-      const res = await fetch(`/api/novels/${novelId}/stats?days=${days}`, {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (res.ok) return await res.json();
-    } catch (err) {
-      console.error(err);
-    }
-    // fallback จาก data-* ถ้า API ไม่พร้อม
-    const el = document.querySelector(`[data-novel-id="${novelId}"]`);
-    const title = el?.querySelector('h3')?.textContent?.trim() || 'นิยาย';
-    return {
-      title,
-      chapters: Number(el?.dataset.chapters || 0),
-      views: Number(el?.dataset.views || 0),
-      likes: Number(el?.dataset.likes || 0),
-      bookmarks: Number(el?.dataset.bookmarks || 0),
-      comments_count: Number(el?.dataset.comments || 0),
-      rating_avg: Number(el?.dataset.rating || 0),
-      readers_unique: Math.round((Number(el?.dataset.views || 0)) * 0.6),
-      completion_rate: 0.0,
-      updated_at: el?.dataset.updated || new Date().toISOString(),
-      timeseries: []
-    }
-  }
-
-  function n(x){ return new Intl.NumberFormat('th-TH').format(x); }
-  function p(x){ return (Number(x||0)*100).toFixed(1)+'%'; }
-  function r(x){ return (Number(x||0)).toFixed(2); }
+  function n(x){ return new Intl.NumberFormat('th-TH').format(Number(x||0)); }
+  function r1(x){ return (Number(x||0)).toFixed(1); }
 
   function statCard(label, value){
-    return `<div class="rounded-xl border border-white/10 bg-white/5 p-4">
-      <div class="text-sm text-zinc-300">${label}</div>
-      <div class="mt-1 text-2xl font-semibold">${value}</div>
-    </div>`;
+    return `
+      <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+        <div class="text-sm text-zinc-300">${label}</div>
+        <div class="mt-1 text-2xl font-semibold">${value}</div>
+      </div>
+    `;
   }
 
-  // timeseries layout: date, views, unique_readers, new_completions, avg_progress
-  function renderTimeseries(rows){
-    const head = `<div class="grid grid-cols-5 text-sm text-zinc-300">
-      <div>วันที่</div>
-      <div class="text-right">ยอดดู</div>
-      <div class="text-right">ผู้อ่านไม่ซ้ำ</div>
-      <div class="text-right">อ่านจบใหม่</div>
-      <div class="text-right">ความคืบหน้าเฉลี่ย</div>
-    </div>`;
-    const body = (rows || []).map(r=> `<div class="grid grid-cols-5 py-2 border-t border-white/10">
-      <div>${r.date}</div>
-      <div class="text-right">${n(r.views)}</div>
-      <div class="text-right">${n(r.unique_readers || 0)}</div>
-      <div class="text-right">${n(r.new_completions || 0)}</div>
-      <div class="text-right">${(Number(r.avg_progress || 0)).toFixed(1)}%</div>
-    </div>`).join('');
-    return `<div class="rounded-xl border border-white/10 bg-white/5 p-4">
-      ${head}
-      ${body || '<div class="text-sm text-zinc-400 mt-2">— ไม่มีข้อมูล —</div>'}
-    </div>`;
+  function drawViewsChart(canvas, series){
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
+    const cssW = canvas.clientWidth || 640;
+    const cssH = canvas.clientHeight || 180;
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    ctx.clearRect(0,0,cssW,cssH);
+
+    const padding = {l: 34, r: 10, t: 12, b: 28};
+    const W = cssW - padding.l - padding.r;
+    const H = cssH - padding.t - padding.b;
+
+    const values = series.map(x => Number(x.views||0));
+    const maxV = Math.max(1, ...values);
+
+    const grid = 'rgba(255,255,255,.08)';
+    const axis = 'rgba(255,255,255,.18)';
+    const bar  = 'rgba(255,255,255,.85)';
+    const text = 'rgba(255,255,255,.70)';
+
+    ctx.strokeStyle = grid;
+    ctx.lineWidth = 1;
+    for(let i=0;i<=3;i++){
+      const y = padding.t + (H * i / 3);
+      ctx.beginPath();
+      ctx.moveTo(padding.l, y);
+      ctx.lineTo(padding.l + W, y);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = axis;
+    ctx.beginPath();
+    ctx.moveTo(padding.l, padding.t);
+    ctx.lineTo(padding.l, padding.t + H);
+    ctx.lineTo(padding.l + W, padding.t + H);
+    ctx.stroke();
+
+    ctx.fillStyle = text;
+    ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, Arial';
+    const yLabels = [maxV, Math.round(maxV/2), 0];
+    yLabels.forEach((v, idx) => {
+      const y = padding.t + (H * idx / 2);
+      ctx.fillText(n(v), 6, y + 4);
+    });
+
+    const count = series.length || 7;
+    const gap = 10;
+    const bw = Math.max(10, (W - gap*(count-1)) / count);
+
+    series.forEach((pt, i) => {
+      const v = Number(pt.views||0);
+      const h = (v / maxV) * H;
+      const x = padding.l + i*(bw+gap);
+      const y = padding.t + (H - h);
+
+      ctx.fillStyle = bar;
+      ctx.fillRect(x, y, bw, h);
+
+      const d = new Date(pt.date);
+      const label = isNaN(d) ? pt.date : d.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit' });
+      ctx.fillStyle = text;
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x + bw/2, padding.t + H + 18);
+      ctx.textAlign = 'start';
+    });
+  }
+
+  async function fetchStats(novelId, days=7) {
+    const res = await fetch(`/api/writerwork/novels/${novelId}/stats?days=${days}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (res.ok) return await res.json();
+    throw new Error('fetch stats failed');
   }
 
   async function openStats(novelId){
-    if (!isOwner) return; // ป้องกัน
-    const data = await fetchStats(novelId);
-    const title = data.title ||
-      document.querySelector(`[data-id="${novelId}"]`)?.closest('[data-novel-id]')?.querySelector('h3')?.textContent?.trim();
+    if (!isOwner) return;
+
+    let data;
+    try{
+      data = await fetchStats(novelId, 7);
+      if (!data.ok) throw new Error(data.error || 'not ok');
+    }catch(e){
+      const el = document.querySelector(`[data-novel-id="${novelId}"]`);
+      data = {
+        title: el?.querySelector('h3')?.textContent?.trim() || 'นิยาย',
+        chapters: Number(el?.dataset.chapters || 0),
+        views: Number(el?.dataset.views || 0),
+        bookmarks: Number(el?.dataset.bookmarks || 0),
+        comments_count: Number(el?.dataset.comments || 0),
+        rating_avg: Number(el?.dataset.rating || 0),
+        updated_at: (el?.dataset.updated || new Date().toISOString()),
+        timeseries: []
+      };
+    }
+
+    const title = data.title || 'นิยาย';
+    const chapters = Number(data.chapters ?? 0);
+    const viewsTotal = Number(data.views ?? 0);
+    const bookmarks = Number(data.bookmarks ?? 0);
+    const comments = Number(data.comments_count ?? 0);
+    const ratingAvg = Number(data.rating_avg ?? 0);
+    const updatedAt = data.updated_at || new Date().toISOString();
+
+    const series = Array.isArray(data.timeseries) && data.timeseries.length
+      ? data.timeseries
+      : Array.from({length: 7}).map((_,i)=>{
+          const d = new Date(); d.setDate(d.getDate()-(6-i));
+          return { date: d.toISOString().slice(0,10), views: 0 };
+        });
+
     statsTitle.textContent = `สถิตินิยาย — ${title}`;
 
     statsBody.innerHTML = `
-      <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-        ${statCard('ตอนทั้งหมด', n(data.chapters))}
-        ${statCard('ยอดดูรวม', n(data.views))}
-        ${statCard('ผู้อ่านไม่ซ้ำ', n(data.readers_unique))}
-        ${statCard('ไลก์รวม', n(data.likes))}
-        ${statCard('ถูกเพิ่มเข้าชั้น', n(data.bookmarks))}
-        ${statCard('คอมเมนต์ทั้งหมด', n(data.comments_count))}
-        ${statCard('คะแนนเฉลี่ย', r(data.rating_avg) + ' / 5')}
-        ${statCard('อัตราอ่านจบ (จริง)', p(data.completion_rate))}
+      <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        ${statCard('ตอนทั้งหมด', n(chapters))}
+        ${statCard('ยอดเข้าชมรวม', n(viewsTotal))}
+        ${statCard('เพิ่มเข้าชั้นทั้งหมด', n(bookmarks))}
+        ${statCard('ความคิดเห็นทั้งหมด', n(comments))}
+        ${statCard('คะแนนเฉลี่ย', `${r1(ratingAvg)} <span class="text-zinc-400">/5</span>`)}
       </div>
-      <div class="grid gap-3">
-        <div class="text-sm text-zinc-300">
-          อัปเดตล่าสุด: ${new Date(data.updated_at).toLocaleString('th-TH')}
+
+      <div class="chart-wrap">
+        <div>
+          <div class="text-sm text-zinc-300">ยอดเข้าชม 7 วันล่าสุด</div>
+          <div class="text-xs text-zinc-400">อัปเดตล่าสุด: ${new Date(updatedAt).toLocaleString('th-TH')}</div>
         </div>
-        ${renderTimeseries(data.timeseries || [])}
-      </div>`;
+
+        <div class="mt-3">
+          <canvas id="viewsChart" style="width:100%; height:180px;"></canvas>
+        </div>
+      </div>
+    `;
 
     modal.classList.remove('hidden');
+    drawViewsChart(document.getElementById('viewsChart'), series);
   }
 
   document.querySelectorAll('[data-action="open-stats"]').forEach(btn=>{
