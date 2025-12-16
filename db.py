@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 
 from flask import current_app
 
-# MySQL driver (mysqlclient -> MySQLdb)
 import MySQLdb, MySQLdb.cursors
 
 
@@ -23,7 +22,11 @@ DEFAULTS = {
     "MYSQL_CONNECT_TIMEOUT": 10,
     "MYSQL_READ_TIMEOUT": 30,
     "MYSQL_WRITE_TIMEOUT": 30,
+    # SSL (optional)
+    "MYSQL_SSL_CA": "",
+    "MYSQL_SSL_MODE": "",  # e.g. "REQUIRED"
 }
+
 
 # ---------------- Env helpers ----------------
 def _env(*keys, default=None):
@@ -34,21 +37,22 @@ def _env(*keys, default=None):
             return v
     return default
 
+
 def _parse_mysql_url(url: str):
     """
-    รองรับรูปแบบ mysql://user:pass@host:port/dbname
-    หรือ mysql+pymysql://...
+    รองรับรูปแบบ:
+      mysql://user:pass@host:port/dbname
+      mysql+pymysql://...
     """
     if not url:
         return {}
-    p = urlparse(url)
 
-    # เผื่อ scheme เป็น mysql+pymysql
+    p = urlparse(url)
     host = p.hostname or ""
     port = p.port or 3306
     user = p.username or ""
     password = p.password or ""
-    db = (p.path or "").lstrip("/")  # /dbname -> dbname
+    db = (p.path or "").lstrip("/")
     return {
         "MYSQL_HOST": host,
         "MYSQL_PORT": int(port),
@@ -57,12 +61,21 @@ def _parse_mysql_url(url: str):
         "MYSQL_DB": db,
     }
 
+
 def apply_defaults(app):
-    """ใส่ default ก่อน แล้วค่อย override จาก env"""
+    """
+    ใส่ default ก่อน แล้วค่อย override จาก env
+    รองรับ Railway:
+      - MYSQL_URL / DATABASE_URL
+      - MYSQLHOST/MYSQLPORT/MYSQLUSER/MYSQLPASSWORD/MYSQLDATABASE
+    รองรับชื่ออีกแบบ:
+      - MYSQL_DB / MYSQLDATABASE / MYSQLDB
+    """
+    # defaults
     for k, v in DEFAULTS.items():
         app.config.setdefault(k, v)
 
-    # 1) ถ้ามี MYSQL_URL / DATABASE_URL ให้ parse ก่อน (priority สูง)
+    # 1) URL (priority สูง)
     url = _env("MYSQL_URL", "MYSQL_PUBLIC_URL", "DATABASE_URL", default=None)
     if url:
         parsed = _parse_mysql_url(url)
@@ -70,19 +83,43 @@ def apply_defaults(app):
             if v not in (None, "", 0):
                 app.config[k] = v
 
-    # 2) รองรับชื่อ env แบบ Railway (MYSQLHOST...) และแบบทั่วไป (MYSQL_HOST...)
+    # 2) key แยก (รองรับทั้งแบบทั่วไปและแบบ Railway)
     app.config["MYSQL_HOST"] = _env("MYSQL_HOST", "MYSQLHOST", default=app.config["MYSQL_HOST"])
     app.config["MYSQL_PORT"] = int(_env("MYSQL_PORT", "MYSQLPORT", default=str(app.config["MYSQL_PORT"])))
     app.config["MYSQL_USER"] = _env("MYSQL_USER", "MYSQLUSER", default=app.config["MYSQL_USER"])
     app.config["MYSQL_PASSWORD"] = _env("MYSQL_PASSWORD", "MYSQLPASSWORD", default=app.config["MYSQL_PASSWORD"])
-    app.config["MYSQL_DB"] = _env("MYSQL_DB", "MYSQLDATABASE", default=app.config["MYSQL_DB"])
 
-    # optional knobs
+    # DB name: รองรับหลายชื่อ (Railway มักเป็น MYSQLDATABASE)
+    app.config["MYSQL_DB"] = _env(
+        "MYSQL_DB", "MYSQLDATABASE", "MYSQLDB",
+        default=app.config["MYSQL_DB"]
+    )
+
+    # knobs
     app.config["MYSQL_CHARSET"] = _env("MYSQL_CHARSET", default=app.config["MYSQL_CHARSET"])
-    app.config["MYSQL_USE_UNICODE"] = bool(int(_env("MYSQL_USE_UNICODE", default="1" if app.config["MYSQL_USE_UNICODE"] else "0")))
+
+    # env อาจเป็น true/false หรือ 1/0
+    v_unicode = _env("MYSQL_USE_UNICODE", default=None)
+    if v_unicode is not None:
+        app.config["MYSQL_USE_UNICODE"] = str(v_unicode).strip().lower() in ("1", "true", "yes", "y", "on")
+    else:
+        app.config["MYSQL_USE_UNICODE"] = bool(app.config["MYSQL_USE_UNICODE"])
+
     app.config["MYSQL_CONNECT_TIMEOUT"] = int(_env("MYSQL_CONNECT_TIMEOUT", default=str(app.config["MYSQL_CONNECT_TIMEOUT"])))
     app.config["MYSQL_READ_TIMEOUT"] = int(_env("MYSQL_READ_TIMEOUT", default=str(app.config["MYSQL_READ_TIMEOUT"])))
     app.config["MYSQL_WRITE_TIMEOUT"] = int(_env("MYSQL_WRITE_TIMEOUT", default=str(app.config["MYSQL_WRITE_TIMEOUT"])))
+
+    # SSL (optional)
+    app.config["MYSQL_SSL_CA"] = _env("MYSQL_SSL_CA", default=app.config.get("MYSQL_SSL_CA", ""))
+    app.config["MYSQL_SSL_MODE"] = _env("MYSQL_SSL_MODE", default=app.config.get("MYSQL_SSL_MODE", ""))
+
+    # แจ้งเตือนถ้ายังเป็น localhost (พบบ่อยบน Railway)
+    if str(app.config.get("MYSQL_HOST", "")).strip() in ("127.0.0.1", "localhost"):
+        if _env("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", default=None):
+            print(
+                "[WARNING] DB host ยังเป็น localhost (127.0.0.1). "
+                "บน Railway ต้องตั้ง MYSQL_URL หรือ MYSQLHOST/MYSQLUSER/... ใน Web Service Variables"
+            )
 
 
 def _cfg(key, default=None):
@@ -98,7 +135,7 @@ def get_db_connection():
     สร้าง connection ใหม่ + ping(True) เพื่อ auto-reconnect
     หมายเหตุ: ผู้เรียกควรปิด conn เอง หรือใช้ contextlib.closing(...)
     """
-    conn = MySQLdb.connect(
+    connect_kwargs = dict(
         host=_cfg("MYSQL_HOST", DEFAULTS["MYSQL_HOST"]),
         user=_cfg("MYSQL_USER", DEFAULTS["MYSQL_USER"]),
         passwd=_cfg("MYSQL_PASSWORD", DEFAULTS["MYSQL_PASSWORD"]),
@@ -111,10 +148,22 @@ def get_db_connection():
         read_timeout=int(_cfg("MYSQL_READ_TIMEOUT", DEFAULTS["MYSQL_READ_TIMEOUT"])),
         write_timeout=int(_cfg("MYSQL_WRITE_TIMEOUT", DEFAULTS["MYSQL_WRITE_TIMEOUT"])),
     )
+
+    # SSL (optional)
+    ssl_ca = _cfg("MYSQL_SSL_CA", DEFAULTS["MYSQL_SSL_CA"])
+    ssl_mode = _cfg("MYSQL_SSL_MODE", DEFAULTS["MYSQL_SSL_MODE"])
+    if ssl_ca:
+        # mysqlclient ใช้พารามิเตอร์ ssl={"ca": "..."}
+        connect_kwargs["ssl"] = {"ca": ssl_ca}
+    # ssl_mode บางเวอร์ชันอาจไม่รองรับ; เลยไม่ใส่บังคับ
+
+    conn = MySQLdb.connect(**connect_kwargs)
+
     try:
         conn.ping(True)
     except Exception:
         pass
+
     return conn
 
 
@@ -124,9 +173,8 @@ def init_db(app=None, schema_path="schema.sql", run_schema_if_exists=True):
         from db import init_db
         init_db(app)
 
-    เวอร์ชันนี้:
     - ใส่ default + override จาก ENV (Railway-friendly)
-    - "ไม่ทำให้แอปล้มตอนบูต" ถ้า DB ต่อไม่ได้
+    - ไม่ทำให้แอปล้มตอนบูตถ้า DB ต่อไม่ได้
     - ถ้าจะให้เช็ก/รัน schema ตอนบูต ให้เปิด ENV:
         DB_STARTUP_CHECK=1
         DB_RUN_SCHEMA=1
@@ -136,16 +184,14 @@ def init_db(app=None, schema_path="schema.sql", run_schema_if_exists=True):
 
     apply_defaults(app)
 
-    # จะทำ startup connect/รัน schema ก็ต่อเมื่อสั่งเปิดเอง
     startup_check = _env("DB_STARTUP_CHECK", default="0") == "1"
-    run_schema = run_schema_if_exists and (_env("DB_RUN_SCHEMA", default="0") == "1")
+    run_schema = bool(run_schema_if_exists) and (_env("DB_RUN_SCHEMA", default="0") == "1")
 
     if not startup_check and not run_schema:
         return True
 
     try:
         with closing(get_db_connection()) as conn:
-            # ping already attempted in get_db_connection()
             if run_schema:
                 base = app.root_path
                 path = schema_path if os.path.isabs(schema_path) else os.path.join(base, schema_path)
@@ -159,7 +205,6 @@ def init_db(app=None, schema_path="schema.sql", run_schema_if_exists=True):
                     conn.commit()
         return True
     except Exception as e:
-        # สำคัญ: อย่าให้ล้มตอนบูตบน Railway
         print("[WARNING] init_db: connect/run schema skipped due to error:", repr(e))
         return False
 
