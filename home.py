@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, g
+from flask import Blueprint, request, render_template, url_for, g
 from db import get_db_connection
 from contextlib import closing
 import MySQLdb, MySQLdb.cursors
@@ -6,8 +6,27 @@ import os
 
 home_bp = Blueprint('home', __name__, template_folder='../templates')
 
+# ===== sort แบบเดียวกับ Search =====
+SORT_OPTIONS = {
+    'relevance': 'ความเกี่ยวข้อง/ความนิยม',
+    'finished': 'จบแล้ว',
+    'ongoing': 'ยังไม่จบ',
+    'new': 'นิยายมาใหม่',
+    'rating': 'คะแนนสูงสุด',
+    'bookshelf': 'ถูกเพิ่มเข้าชั้นหนังสือมากสุด',
+}
+
 # ---------- helpers ----------
-def _has_table(cur, name: str) -> bool:
+def _process_cover_url(cover_path: str | None) -> str:
+    """ทำให้ path รูปปกกลายเป็น URL ใต้ static/cover/* และมี placeholder ถ้าไม่มี"""
+    if cover_path:
+        filename = os.path.basename(cover_path)
+        return url_for('static', filename=f"cover/{filename}")
+    return url_for('static', filename='cover/placeholder.jpg')
+
+
+def _has_relation(cur, name: str) -> bool:
+    """เช็ค table/view ว่ามีจริงไหม"""
     try:
         cur.execute(f"DESCRIBE {name}")
         cur.fetchall()
@@ -17,13 +36,7 @@ def _has_table(cur, name: str) -> bool:
 
 
 def _author_sql_parts(cur):
-    """
-    คืน (select_expr, join_clause, groupby_expr) สำหรับดึง username ผู้เขียน
-    รองรับหลายแบบ:
-    - novels.users_id
-    - novels.author_id
-    - novels.created_by
-    """
+    """รองรับโครงสร้างคอลัมน์ผู้เขียนหลายแบบของตาราง novels"""
     try:
         cur.execute("DESCRIBE novels")
         cols = {r["Field"] for r in cur.fetchall()}
@@ -31,24 +44,12 @@ def _author_sql_parts(cur):
         cols = set()
 
     if "users_id" in cols:
-        return (
-            "u.username AS author_username",
-            "LEFT JOIN users u ON u.users_id = n.users_id",
-            "u.username",
-        )
+        return ("u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.users_id")
     if "author_id" in cols:
-        return (
-            "u.username AS author_username",
-            "LEFT JOIN users u ON u.users_id = n.author_id",
-            "u.username",
-        )
+        return ("u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.author_id")
     if "created_by" in cols:
-        return (
-            "u.username AS author_username",
-            "LEFT JOIN users u ON u.users_id = n.created_by",
-            "u.username",
-        )
-    return ("'Unknown' AS author_username", "", "'Unknown'")
+        return ("u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.created_by")
+    return ("'Unknown' AS author_name", "")
 
 
 def _get_categories():
@@ -62,18 +63,23 @@ def _get_categories():
         return []
 
 
+def _safe_int(v, default=1, minv=1):
+    try:
+        x = int(v)
+        return x if x >= minv else default
+    except Exception:
+        return default
+
+
 def _get_latest_updated(current_uid: int | None, limit: int = 10):
     """
-    คืน N เรื่องที่ "อัปเดตล่าสุด"
-    - avg_rating / rating_count (ถ้ามีตาราง ratings)
-    - user_rating ของผู้ใช้ปัจจุบัน (ถ้ามี)
-    - author_username
-    - category_name
+    ส่วน 'อัปเดตล่าสุด' ของคุณเดิมอยู่แล้ว -> ไม่ไปเปลี่ยน logic หลัก
+    (ยังใช้แนวเดิมที่คุณใช้อยู่ได้)
     """
     try:
         with closing(get_db_connection()) as conn:
             with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
-                # ใช้ updated_at ถ้ามี ไม่งั้น fallback created_at
+                # เลือกคอลัมน์ sort: updated_at ถ้ามี ไม่งั้น fallback created_at
                 try:
                     cur.execute("DESCRIBE novels")
                     cols = {row['Field'] for row in cur.fetchall()}
@@ -81,102 +87,269 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                     cols = set()
                 order_col = "n.updated_at" if "updated_at" in cols else "n.created_at"
 
-                has_rt = _has_table(cur, "ratings")
-                sel_author, join_author, gb_author = _author_sql_parts(cur)
+                sel_author, join_author = _author_sql_parts(cur)
+
+                # ใช้ ratings table ถ้ามี (ตามโค้ดเดิมคุณ)
+                has_rt = _has_relation(cur, "ratings")
 
                 if has_rt:
                     sql = f"""
                         SELECT
-                            n.novels_id,
-                            n.title,
-                            n.description,
-                            n.status,
-                            n.cover,
-                            c.name AS category_name,
+                            n.novels_id, n.title, n.description, n.status, n.cover,
                             {order_col} AS updated_sort,
-
                             COALESCE(AVG(r_all.rating),0) AS avg_rating,
                             COUNT(r_all.rating)           AS rating_count,
-                            r_u.rating                    AS user_rating,
-
                             {sel_author}
-
                         FROM novels n
-                        LEFT JOIN categories c ON c.cate_id = n.cate_id
                         {join_author}
                         LEFT JOIN ratings r_all ON r_all.novels_id = n.novels_id
-                        LEFT JOIN ratings r_u   ON r_u.novels_id  = n.novels_id AND r_u.users_id = %s
                         WHERE n.status IN ('เผยแพร่','จบแล้ว')
-
-                        GROUP BY
-                            n.novels_id, n.title, n.description, n.status, n.cover,
-                            c.name,
-                            updated_sort,
-                            r_u.rating,
-                            {gb_author}
-
+                        GROUP BY n.novels_id, n.title, n.description, n.status, n.cover, updated_sort
                         ORDER BY updated_sort DESC, n.novels_id DESC
                         LIMIT %s
                     """
-                    cur.execute(sql, (current_uid or 0, int(limit)))
+                    cur.execute(sql, (int(limit),))
                 else:
                     sql = f"""
                         SELECT
-                            n.novels_id,
-                            n.title,
-                            n.description,
-                            n.status,
-                            n.cover,
-                            c.name AS category_name,
+                            n.novels_id, n.title, n.description, n.status, n.cover,
                             {order_col} AS updated_sort,
-
-                            0 AS avg_rating,
-                            0 AS rating_count,
-                            NULL AS user_rating,
-
+                            0 AS avg_rating, 0 AS rating_count,
                             {sel_author}
-
                         FROM novels n
-                        LEFT JOIN categories c ON c.cate_id = n.cate_id
                         {join_author}
                         WHERE n.status IN ('เผยแพร่','จบแล้ว')
                         ORDER BY updated_sort DESC, n.novels_id DESC
                         LIMIT %s
                     """
                     cur.execute(sql, (int(limit),))
-
                 return cur.fetchall()
     except Exception as e:
         print(f"Latest-updated error: {e}")
         return []
 
 
+def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page: int = 20):
+    """
+    section ใหม่: เลือกหมวด -> sort -> pagination 20/หน้า (รูปแบบเดียวกับ Search)
+    ใช้ view ตาม DB ที่แนบมา:
+      - v_novel_rating_stats: avg_rating, rating_count
+      - v_novel_bookshelf_counts: bookshelf_count
+      - v_novel_chapter_counts: chapter_count
+    """
+    page = _safe_int(page, 1, 1)
+    per_page = int(per_page)
+    offset = (page - 1) * per_page
+
+    # sort ที่เป็น filter สถานะ
+    status_filter = None
+    order_sort = sort
+    if sort == 'finished':
+        status_filter = 'จบแล้ว'
+        order_sort = 'relevance'
+    elif sort == 'ongoing':
+        status_filter = 'เผยแพร่'
+        order_sort = 'relevance'
+
+    allowed = set(SORT_OPTIONS.keys())
+    if sort not in allowed:
+        sort = 'relevance'
+        order_sort = 'relevance'
+        status_filter = None
+
+    order_by_map = {
+        'new': "n.created_at DESC",
+        'rating': "avg_rating DESC, rating_count DESC, n.views DESC, n.created_at DESC",
+        'bookshelf': "bookshelf_count DESC, n.views DESC, n.created_at DESC",
+        'relevance': "n.views DESC, avg_rating DESC, bookshelf_count DESC, n.created_at DESC",
+    }
+    order_by_sql = order_by_map.get(order_sort, order_by_map['relevance'])
+
+    where = ["n.status IN ('เผยแพร่','จบแล้ว')"]
+    params: list = []
+
+    if status_filter:
+        where.append("n.status = %s")
+        params.append(status_filter)
+
+    # cate_id: None = ยังไม่เลือก -> ไม่ query
+    # cate_id: 0 = ทั้งหมด -> ไม่กรองหมวด
+    if cate_id is not None and int(cate_id) != 0:
+        where.append("n.cate_id = %s")
+        params.append(int(cate_id))
+
+    where_sql = " AND ".join(where)
+
+    results = []
+    total = 0
+
+    try:
+        with closing(get_db_connection()) as conn:
+            with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+                # count
+                cur.execute(f"SELECT COUNT(*) AS total FROM novels n WHERE {where_sql}", params)
+                total = int((cur.fetchone() or {}).get("total") or 0)
+
+                if not total:
+                    return {
+                        "results": [],
+                        "total": 0,
+                        "page": 1,
+                        "per_page": per_page,
+                        "total_pages": 0,
+                        "start_item": 0,
+                        "end_item": 0
+                    }
+
+                total_pages = (total + per_page - 1) // per_page
+                if page > total_pages:
+                    page = total_pages
+                    offset = (page - 1) * per_page
+
+                sel_author, join_author = _author_sql_parts(cur)
+
+                # views availability
+                try:
+                    cur.execute("DESCRIBE novels")
+                    ncols = {r["Field"] for r in cur.fetchall()}
+                except Exception:
+                    ncols = set()
+                has_views = "views" in ncols
+
+                # views joins (safe)
+                has_r = _has_relation(cur, "v_novel_rating_stats")
+                has_b = _has_relation(cur, "v_novel_bookshelf_counts")
+                has_ch = _has_relation(cur, "v_novel_chapter_counts")
+
+                join_r = "LEFT JOIN v_novel_rating_stats r ON r.novels_id = n.novels_id" if has_r else ""
+                join_b = "LEFT JOIN v_novel_bookshelf_counts b ON b.novels_id = n.novels_id" if has_b else ""
+                join_ch = "LEFT JOIN v_novel_chapter_counts ch ON ch.novels_id = n.novels_id" if has_ch else ""
+
+                sel_views = "n.views AS views" if has_views else "0 AS views"
+                sel_avg = "COALESCE(r.avg_rating, 0) AS avg_rating" if has_r else "0 AS avg_rating"
+                sel_rc = "COALESCE(r.rating_count, 0) AS rating_count" if has_r else "0 AS rating_count"
+                sel_bc = "COALESCE(b.bookshelf_count, 0) AS bookshelf_count" if has_b else "0 AS bookshelf_count"
+                sel_cc = "COALESCE(ch.chapter_count, 0) AS chapter_count" if has_ch else "0 AS chapter_count"
+
+                sql = f"""
+                    SELECT
+                        n.novels_id,
+                        n.title,
+                        n.description,
+                        n.cover,
+                        n.status,
+                        n.created_at,
+                        n.updated_at,
+                        {sel_views},
+
+                        {sel_author},
+                        c.name AS category_name,
+
+                        {sel_avg},
+                        {sel_rc},
+                        {sel_bc},
+                        {sel_cc}
+
+                    FROM novels n
+                    LEFT JOIN categories c ON c.cate_id = n.cate_id
+                    {join_author}
+                    {join_r}
+                    {join_b}
+                    {join_ch}
+
+                    WHERE {where_sql}
+                    ORDER BY {order_by_sql}
+                    LIMIT %s OFFSET %s
+                """
+                cur.execute(sql, params + [per_page, offset])
+                results = cur.fetchall()
+
+    except Exception as e:
+        print(f"Home category section error: {e}")
+        results = []
+        total = 0
+
+    total_pages = (total + per_page - 1) // per_page if total else 0
+    start_item = offset + 1 if total else 0
+    end_item = min(offset + per_page, total) if total else 0
+
+    # ทำ cover url ให้ใช้ได้ทันทีใน template ใหม่
+    for n in results:
+        n["cover_url"] = _process_cover_url(n.get("cover"))
+
+    return {
+        "results": results,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "start_item": start_item,
+        "end_item": end_item
+    }
+
+
 # ---------- routes ----------
 @home_bp.route('/')
 def index():
     current_uid = (g.user or {}).get('users_id') if hasattr(g, 'user') and g.user else None
+
+    # existing section: อัปเดตล่าสุด
     top10 = _get_latest_updated(current_uid, limit=10)
-
-    # ✅ ส่ง cover เป็น "ชื่อไฟล์" เพื่อให้ template ใช้ fallback แบบเดียวกับ Search
+    # keep behavior: แปลง cover -> url (เพื่อไม่ทำให้ section เดิมเพี้ยน)
     for n in top10:
-        raw = n.get('cover')
-        n['cover'] = os.path.basename(raw) if raw else 'default.jpg'
-
-        # ✅ สถานะเหมือน Search
-        if n.get('status') == 'จบแล้ว':
-            n['status_label'] = 'จบแล้ว'
-        else:
-            # ถ้าเป็น 'เผยแพร่' => ยังไม่จบ
-            n['status_label'] = 'ยังไม่จบ'
-
+        n['cover'] = _process_cover_url(n.get('cover'))
         n.setdefault('avg_rating', 0)
         n.setdefault('rating_count', 0)
-        n.setdefault('user_rating', None)
+
+    categories = _get_categories()
+
+    # ===== new section params =====
+    cate_id = request.args.get('cate_id', default=None, type=int)  # None = ยังไม่เลือก
+    sort = request.args.get('sort', default='relevance', type=str)
+    if sort not in SORT_OPTIONS:
+        sort = 'relevance'
+    page = _safe_int(request.args.get('page', 1), 1, 1)
+
+    # แสดงหมวด 10 หมวด: "ทั้งหมด" + 9 หมวดแรก
+    top_cates = categories[:9]
+    more_cates = categories[9:]
+
+    cat_ctx = {
+        "cat_results": [],
+        "cat_total": 0,
+        "cat_page": 1,
+        "cat_per_page": 20,
+        "cat_total_pages": 0,
+        "cat_start_item": 0,
+        "cat_end_item": 0
+    }
+
+    # ✅ ยังไม่เลือกหมวด -> ไม่ query
+    if cate_id is not None:
+        data = _get_home_category_page(cate_id=cate_id, sort=sort, page=page, per_page=20)
+        cat_ctx.update({
+            "cat_results": data["results"],
+            "cat_total": data["total"],
+            "cat_page": data["page"],
+            "cat_per_page": data["per_page"],
+            "cat_total_pages": data["total_pages"],
+            "cat_start_item": data["start_item"],
+            "cat_end_item": data["end_item"],
+        })
 
     return render_template(
         'home.html',
+        # existing
         top10=top10,
-        categories=_get_categories(),
         month_label="อัปเดตล่าสุด",
+        categories=categories,
         user=getattr(g, 'user', None),
+
+        # new section
+        cate_id=cate_id,
+        sort=sort,
+        sort_options=SORT_OPTIONS,
+        top_cates=top_cates,
+        more_cates=more_cates,
+        **cat_ctx
     )
