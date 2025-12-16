@@ -1,7 +1,21 @@
-Flask==2.3.3
-Flask-WTF==1.1.1
-Werkzeug==2.3.7
-PyMySQL==1.1.0
-python-dotenv==1.0.0
-openai
-gunicorn==20.1.0
+# Web framework
+Flask==3.1.2
+Werkzeug==3.1.3
+
+# Forms + CSRF
+Flask-WTF==1.2.2
+
+# Login/session helpers (used in mywrite.py / writerwork.py)
+Flask-Login>=0.6.3
+
+# MySQL driver (your code imports MySQLdb)
+mysqlclient==2.2.7
+
+# Load .env locally (optional but useful)
+python-dotenv>=1.0.0
+
+# OpenAI client (used in app.py)
+openai>=1.0.0
+
+# Production WSGI server (Railway)
+gunicorn>=21.0.0
