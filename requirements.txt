@@ -4,4 +4,3 @@ gunicorn
 openai
 mysqlclient==2.2.4
 python-dotenv
-3.12.7
