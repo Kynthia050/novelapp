@@ -27,8 +27,8 @@ import os
 app = Flask(__name__)
 
 # ต้องมี SECRET_KEY เพื่อให้ CSRF และ session ทำงานได้
-app.config['SECRET_KEY'] = 'change-me-to-a-long-random-string'
-app.permanent_session_lifetime = timedelta(days=14)
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-only-change-me")
+app.permanent_session_lifetime = timedelta(days=1)
 
 # ---------- สร้าง OpenAI client ----------
 api_key = os.environ.get("OPENAI_API_KEY")
