@@ -289,7 +289,7 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
 
 
 # ---------- routes ----------
-@home_bp.route('/')
+@home_bp.route('/home')
 def index():
     current_uid = (g.user or {}).get('users_id') if hasattr(g, 'user') and g.user else None
 

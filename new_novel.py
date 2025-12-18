@@ -8,6 +8,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 from contextlib import closing
 from pathlib import Path
+from datetime import datetime
 import uuid
 import json
 
@@ -17,7 +18,6 @@ from db import get_db_connection
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 COVER_SUBDIR = "cover"
 
-# schema ของคุณไม่มี AUTO_INCREMENT ใน novels/tags/novels_tags
 LOCK_NAME = "lock:new_novel_create"
 LOCK_TIMEOUT = 5
 # ---------------------------
@@ -45,7 +45,6 @@ def _k_to_str(k):
 
 
 def _normalize_row(row: dict) -> dict:
-    # ✅ ทำให้ key เป็น str เสมอ (แก้ปัญหา Jinja อ่าน c.cate_id ไม่ออก)
     out = {}
     for k, v in (row or {}).items():
         out[_k_to_str(k)] = v
@@ -56,10 +55,8 @@ def dictfetchone(cur):
     row = cur.fetchone()
     if row is None:
         return None
-
     if isinstance(row, dict):
         return _normalize_row(row)
-
     cols = [_k_to_str(d[0]) for d in (cur.description or [])]
     return dict(zip(cols, row))
 
@@ -68,10 +65,8 @@ def dictfetchall(cur):
     rows = cur.fetchall()
     if not rows:
         return []
-
     if isinstance(rows[0], dict):
         return [_normalize_row(r) for r in rows]
-
     cols = [_k_to_str(d[0]) for d in (cur.description or [])]
     return [dict(zip(cols, r)) for r in rows]
 
@@ -102,7 +97,6 @@ def _slugify(s: str) -> str:
 
 
 def _next_id(cur, table: str, pk: str) -> int:
-    # table/pk เป็นค่าคงที่จากโค้ดเราเอง
     cur.execute(f"SELECT COALESCE(MAX({pk}),0)+1 AS next_id FROM {table}")
     row = dictfetchone(cur) or {}
     return int(row.get("next_id") or 1)
@@ -140,6 +134,115 @@ def _current_username(conn, users_id: int | None) -> str:
             return str(row.get("username") or "")
     except Exception:
         return ""
+
+
+def _read_payload():
+    """
+    รองรับ:
+      - title
+      - description (สไตล์ edit_novel)
+      - cate_id
+      - cover
+      - tags (list หรือ json-string)
+    และ fallback ของเดิม:
+      - synopsis -> description
+      - mainCategory -> cate_id
+    """
+    content_type = (request.content_type or "").lower()
+    is_multipart = content_type.startswith("multipart/form-data")
+
+    title = ""
+    description = ""
+    cate_raw = ""
+    tags = []
+    cover_file = None
+
+    if is_multipart:
+        form = request.form
+        title = (form.get("title") or "").strip()
+        description = (form.get("description") or form.get("synopsis") or "").strip()
+        cate_raw = (form.get("cate_id") or form.get("mainCategory") or "").strip()
+
+        raw_tags = form.get("tags") or "[]"
+        try:
+            tags = json.loads(raw_tags) if isinstance(raw_tags, str) else (raw_tags or [])
+        except Exception:
+            tags = []
+
+        cover_file = request.files.get("cover")
+    else:
+        data = request.get_json(silent=True) or {}
+        title = (data.get("title") or "").strip()
+        description = (data.get("description") or data.get("synopsis") or "").strip()
+        cate_raw = str(data.get("cate_id") or data.get("mainCategory") or "").strip()
+        tags = data.get("tags") or []
+        cover_file = None
+
+    if isinstance(tags, str):
+        try:
+            tags = json.loads(tags)
+        except Exception:
+            tags = []
+
+    if not isinstance(tags, list):
+        tags = []
+
+    return title, description, cate_raw, tags, cover_file
+
+
+def _save_cover_file(cover_file, novels_id: int) -> tuple[str | None, Path | None]:
+    if not cover_file or not getattr(cover_file, "filename", ""):
+        return None, None
+
+    upload_dir = _upload_dir()
+    fname = secure_filename(cover_file.filename)
+    ext = Path(fname).suffix.lower() or ".jpg"
+    stamp = int(datetime.utcnow().timestamp())
+    cover_filename = f"n{novels_id}_{stamp}_{uuid.uuid4().hex}{ext}"
+    saved_path = upload_dir / cover_filename
+    cover_file.save(saved_path)
+    return cover_filename, saved_path
+
+
+def _tag_find_or_create(cur, name: str) -> int:
+    """
+    ✅ ปลอดภัย: ถ้า tags ไม่มีคอลัมน์ slug ก็ยังทำงานได้
+    """
+    name50 = (name or "").strip()[:50]
+    if not name50:
+        raise ValueError("empty tag")
+
+    # 1) หาโดย name ก่อน (ปลอดภัยสุด)
+    cur.execute("SELECT tag_id FROM tags WHERE name=%s ORDER BY tag_id ASC LIMIT 1", (name50,))
+    row = dictfetchone(cur)
+    if row and row.get("tag_id") is not None:
+        return int(row["tag_id"])
+
+    slug = _slugify(name50)
+
+    # 2) ถ้ามี slug ก็ลองหาเพิ่ม (ถ้าไม่มีจะ except แล้วข้าม)
+    try:
+        cur.execute("SELECT tag_id FROM tags WHERE slug=%s ORDER BY tag_id ASC LIMIT 1", (slug,))
+        row = dictfetchone(cur)
+        if row and row.get("tag_id") is not None:
+            return int(row["tag_id"])
+    except Exception:
+        pass
+
+    # 3) สร้างใหม่
+    tag_id = _next_id(cur, "tags", "tag_id")
+    try:
+        cur.execute(
+            "INSERT INTO tags (tag_id, name, slug) VALUES (%s, %s, %s)",
+            (tag_id, name50, slug),
+        )
+    except Exception:
+        cur.execute(
+            "INSERT INTO tags (tag_id, name) VALUES (%s, %s)",
+            (tag_id, name50),
+        )
+
+    return int(tag_id)
 # ----------------------------
 
 
@@ -149,22 +252,23 @@ def new_novel_form():
     if not users_id:
         return redirect("/login")
 
-    with closing(_conn_alive()) as conn:
-        username = _current_username(conn, users_id)
+    with conn.cursor() as cur:
+        cur.execute("SELECT DATABASE() AS db")
+        dbname = (dictfetchone(cur) or {}).get("db")
 
-        # ✅ ดึงหมวดหมู่จาก DB จริง + normalize key แล้ว
-        with conn.cursor() as cur:
-            cur.execute("SELECT cate_id, name FROM categories ORDER BY cate_id ASC")
-            categories = dictfetchall(cur)
+        cur.execute("SELECT COUNT(*) AS n FROM categories")
+        n = (dictfetchone(cur) or {}).get("n")
 
-        # ช่วย debug เวลา DB ว่าง (ไม่ทำให้พัง)
-        if not categories:
-            current_app.logger.warning("categories ว่าง: ไม่พบข้อมูลในตาราง categories")
+        cur.execute("SELECT cate_id, name FROM categories ORDER BY name")
+        categories = dictfetchall(cur)
 
-    return render_template(
+        current_app.logger.warning("NEW_NOVEL DB=%s | categories_count=%s | sample=%r", dbname, n, categories[:3])
+
+        return render_template(
         "new_novel.html",
         categories=categories,
         username=username,
+        all_tags=all_tags,
     )
 
 
@@ -174,90 +278,53 @@ def api_create_novel():
     if not users_id:
         return jsonify(ok=False, error="กรุณาเข้าสู่ระบบก่อนสร้างนิยาย"), 401
 
-    content_type = (request.content_type or "").lower()
-    is_multipart = content_type.startswith("multipart/form-data")
+    title, description, cate_raw, tags, cover_file = _read_payload()
 
-    title = ""
-    synopsis = ""
-    main_category = ""
-    tags = []
-    cover_file = None
-
-    if is_multipart:
-        form = request.form
-        title = (form.get("title") or "").strip()
-        synopsis = (form.get("synopsis") or "").strip()
-        main_category = (form.get("mainCategory") or "").strip()
-
-        raw_tags = form.get("tags") or "[]"
-        try:
-            tags = json.loads(raw_tags)
-        except Exception:
-            tags = []
-
-        cover_file = request.files.get("cover")
-    else:
-        data = request.get_json(silent=True) or {}
-        title = (data.get("title") or "").strip()
-        synopsis = (data.get("synopsis") or "").strip()
-        main_category = str(data.get("mainCategory") or "").strip()
-        tags = data.get("tags") or []
-        cover_file = None
-
-    # ---- validation ตาม schema ----
-    title = title[:150]                 # novels.title varchar(150)
-    synopsis = (synopsis or "")[:200]   # novels.description varchar(200)
+    title = (title or "")[:150]
+    description = (description or "")[:200]
 
     if not title:
         return jsonify(ok=False, error="กรุณากรอกชื่อเรื่อง"), 400
-    if not main_category:
+    if not cate_raw:
         return jsonify(ok=False, error="กรุณาเลือกหมวดหมู่"), 400
 
     try:
-        cate_id = int(main_category)
+        cate_id = int(str(cate_raw).strip())
     except Exception:
         return jsonify(ok=False, error="หมวดหมู่ไม่ถูกต้อง"), 400
 
-    will_upload_cover = bool(cover_file and cover_file.filename)
+    will_upload_cover = bool(cover_file and getattr(cover_file, "filename", ""))
     if will_upload_cover and not allowed_image(cover_file.filename, cover_file.mimetype):
         return jsonify(ok=False, error="ชนิดไฟล์ภาพไม่ถูกต้อง (รองรับ .jpg .jpeg .png .webp)"), 400
 
     saved_cover_path: Path | None = None
     cover_filename: str | None = None
+    novels_id: int | None = None
 
     with closing(_conn_alive()) as conn:
         try:
             with conn.cursor() as cur:
-                # ✅ lock กัน id ชนกัน
                 cur.execute("SELECT GET_LOCK(%s, %s) AS got", (LOCK_NAME, LOCK_TIMEOUT))
                 got = (dictfetchone(cur) or {}).get("got")
                 if got != 1:
                     return jsonify(ok=False, error="ระบบกำลังทำงาน กรุณาลองใหม่อีกครั้ง"), 503
 
                 try:
-                    # ตรวจ cate_id มีจริง
                     cur.execute("SELECT cate_id FROM categories WHERE cate_id=%s", (cate_id,))
                     if not dictfetchone(cur):
                         return jsonify(ok=False, error="หมวดหมู่ไม่ถูกต้อง"), 400
 
-                    # gen id
                     novels_id = _next_id(cur, "novels", "novels_id")
 
-                    # อัปโหลดปก (ถ้ามี)
                     if will_upload_cover:
-                        upload_dir = _upload_dir()
-                        ext = Path(secure_filename(cover_file.filename)).suffix.lower()
-                        cover_filename = f"n{novels_id}_{uuid.uuid4().hex}{ext}"
-                        saved_cover_path = upload_dir / cover_filename
-                        cover_file.save(saved_cover_path)
+                        cover_filename, saved_cover_path = _save_cover_file(cover_file, novels_id)
 
-                    # INSERT novels (ตรง schema)
                     cur.execute(
                         """
                         INSERT INTO novels (novels_id, title, description, users_id, cate_id, cover)
                         VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (novels_id, title, synopsis or None, users_id, cate_id, cover_filename),
+                        (novels_id, title, description or None, users_id, cate_id, cover_filename),
                     )
 
                     # ---- TAGS + MAP ----
@@ -274,42 +341,48 @@ def api_create_novel():
                         clean_tags.append(s)
                     clean_tags = clean_tags[:20]
 
-                    next_tag_id = _next_id(cur, "tags", "tag_id")
-                    next_nt_id = _next_id(cur, "novels_tags", "nt_id")
+                    # nt_id อาจไม่มี -> ทำให้เป็น optional
+                    use_nt_id = True
+                    next_nt_id = None
+                    try:
+                        next_nt_id = _next_id(cur, "novels_tags", "nt_id")
+                    except Exception:
+                        use_nt_id = False
 
                     for name in clean_tags:
-                        slug = _slugify(name)
+                        tag_id = _tag_find_or_create(cur, name)
 
-                        # หา tag เดิม (schema ไม่มี unique slug จึงเลือกตัวแรก)
+                        # ✅ ปลอดภัย: ไม่อ้าง nt_id ตอนเช็ค
                         cur.execute(
-                            "SELECT tag_id FROM tags WHERE slug=%s OR name=%s ORDER BY tag_id ASC LIMIT 1",
-                            (slug, name[:50]),
-                        )
-                        row = dictfetchone(cur)
-                        if row and row.get("tag_id") is not None:
-                            tag_id = int(row["tag_id"])
-                        else:
-                            tag_id = next_tag_id
-                            next_tag_id += 1
-                            cur.execute(
-                                "INSERT INTO tags (tag_id, name, slug) VALUES (%s, %s, %s)",
-                                (tag_id, name[:50], slug),
-                            )
-
-                        # map ถ้ายังไม่มี
-                        cur.execute(
-                            "SELECT nt_id FROM novels_tags WHERE novels_id=%s AND tag_id=%s LIMIT 1",
+                            "SELECT 1 FROM novels_tags WHERE novels_id=%s AND tag_id=%s LIMIT 1",
                             (novels_id, tag_id),
                         )
-                        if not dictfetchone(cur):
-                            nt_id = next_nt_id
+                        if dictfetchone(cur):
+                            continue
+
+                        if use_nt_id:
+                            nt_id = int(next_nt_id)
                             next_nt_id += 1
+                            try:
+                                cur.execute(
+                                    "INSERT INTO novels_tags (nt_id, novels_id, tag_id) VALUES (%s, %s, %s)",
+                                    (nt_id, novels_id, tag_id),
+                                )
+                            except Exception:
+                                # ถ้า insert แบบมี nt_id ไม่ได้ ก็ fallback
+                                use_nt_id = False
+                                cur.execute(
+                                    "INSERT INTO novels_tags (novels_id, tag_id) VALUES (%s, %s)",
+                                    (novels_id, tag_id),
+                                )
+                        else:
                             cur.execute(
-                                "INSERT INTO novels_tags (nt_id, novels_id, tag_id) VALUES (%s, %s, %s)",
-                                (nt_id, novels_id, tag_id),
+                                "INSERT INTO novels_tags (novels_id, tag_id) VALUES (%s, %s)",
+                                (novels_id, tag_id),
                             )
 
                     conn.commit()
+
                 finally:
                     cur.execute("SELECT RELEASE_LOCK(%s)", (LOCK_NAME,))
 

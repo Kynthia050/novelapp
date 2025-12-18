@@ -8,6 +8,7 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 from contextlib import closing
 from pathlib import Path
+import os
 import MySQLdb  # สำหรับ conn.ping(True) ถ้าใช้ MySQLdb backend
 
 from db import get_db_connection
@@ -33,7 +34,6 @@ def _conn_alive():
     try:
         conn.ping(True)
     except Exception:
-        # ถ้าพัง เดี๋ยวตอน execute จะ error เอง
         pass
     return conn
 
@@ -56,6 +56,13 @@ def dictfetchall(cur):
         return rows
     cols = [d[0] for d in cur.description]
     return [dict(zip(cols, r)) for r in rows]
+
+
+def _to_int(val, default=0):
+    try:
+        return int(val)
+    except Exception:
+        return default
 
 
 def _novel_or_404(conn, novels_id: int):
@@ -88,6 +95,18 @@ def _allowed_image(filename: str, mimetype: str | None) -> bool:
     return True
 
 
+def _safe_next_url(next_url: str | None) -> str | None:
+    """
+    กัน open redirect: อนุญาตเฉพาะ path ภายในเว็บ (ขึ้นต้นด้วย /)
+    """
+    if not next_url:
+        return None
+    next_url = next_url.strip()
+    if next_url.startswith("/"):
+        return next_url
+    return None
+
+
 # =========================  PAGE: เขียน/แก้ไขตอน  =========================
 
 @writing_bp.route("/<int:novels_id>", methods=["GET"])
@@ -97,9 +116,15 @@ def writing_form(novels_id: int):
     แสดงหน้าเขียน / แก้ไขตอน
 
     - ถ้ามี query string ?chapter_id=<id> = โหมดแก้ไขตอน
-    - ถ้าไม่มี chapter_id = โหมดสร้างตอนใหม่ (suggested_part = MAX(chapter_no)+1)
+    - ถ้าไม่มี chapter_id = โหมดสร้างตอนใหม่
+    - ถ้ามี ?reset=1 = บังคับให้เป็นฟอร์มว่าง (เคลียร์ค่าเดิม)
     """
+    reset = request.args.get("reset", default=0, type=int)
     chapter_id = request.args.get("chapter_id", type=int)
+
+    # ✅ ถ้ากด reset ให้ถือว่าเป็น “ตอนใหม่” และไม่โหลดข้อมูลเดิม
+    if reset == 1:
+        chapter_id = None
 
     with closing(_conn_alive()) as conn:
         novel = _novel_or_404(conn, novels_id)
@@ -109,7 +134,6 @@ def writing_form(novels_id: int):
 
         with conn.cursor() as cur:
             if chapter_id:
-                # ดึงข้อมูลตอนที่ต้องการแก้ไข
                 cur.execute(
                     """
                     SELECT chapters_id, novels_id, title, content_html, chapter_no
@@ -124,7 +148,6 @@ def writing_form(novels_id: int):
 
                 suggested_part = chapter.get("chapter_no") or 1
             else:
-                # ตอนใหม่ → ให้ลำดับตอน = MAX(chapter_no)+1
                 cur.execute(
                     """
                     SELECT COALESCE(MAX(chapter_no), 0) + 1 AS next_no
@@ -136,11 +159,6 @@ def writing_form(novels_id: int):
                 row = dictfetchone(cur) or {}
                 suggested_part = row.get("next_no") or 1
 
-    # ตัวแปรที่ writingform.html ใช้:
-    # - novel        → ชื่อเรื่อง ฯลฯ
-    # - novels_id    → ใช้ใน hidden + config JS
-    # - chapter      → None (ตอนใหม่) หรือ dict ของตอน (แก้ไข)
-    # - suggested_part → ตั้งค่าลำดับตอนเริ่มต้นใน input#part
     return render_template(
         "writingform.html",
         novel=novel,
@@ -148,6 +166,38 @@ def writing_form(novels_id: int):
         chapter=chapter,
         suggested_part=suggested_part,
     )
+
+
+# =========================  CANCEL (ไม่บันทึก + เคลียร์ค่า)  =========================
+
+@writing_bp.route("/cancel", methods=["POST"])
+@roles_required("user")
+def cancel_writing():
+    """
+    กดยกเลิก:
+    - ไม่บันทึกลง DB
+    - รีโหลดกลับไปฟอร์มว่างด้วย ?reset=1
+    รองรับทั้ง fetch (json) และ submit ปกติ
+    """
+    accept = (request.headers.get("Accept") or "").lower()
+    wants_json = "application/json" in accept
+
+    novels_id = _to_int(request.form.get("novels_id"), 0)
+    next_url = _safe_next_url(request.form.get("next"))
+
+    if wants_json:
+        return jsonify({"success": True, "cancelled": True})
+
+    flash("ยกเลิกแล้ว (ไม่บันทึกข้อมูล)", "info")
+
+    if next_url:
+        return redirect(next_url)
+
+    if novels_id:
+        return redirect(url_for("writing.writing_form", novels_id=novels_id, reset=1))
+
+    # fallback
+    return redirect(url_for("home.index"))
 
 
 # =========================  SAVE / AUTOSAVE  =========================
@@ -168,35 +218,31 @@ def save_chapter():
       - content_html (เนื้อหา HTML จาก Quill)
     """
     accept = (request.headers.get("Accept") or "").lower()
-    is_autosave = "application/json" in accept  # autosave จะใส่ Accept: application/json
+    is_autosave = "application/json" in accept
 
     def _json_resp(payload, status=200):
         return jsonify(payload), status
 
-    # --- ดึงและตรวจค่าพื้นฐาน ---
-    try:
-        novels_id = int(request.form.get("novels_id", "0"))
-    except ValueError:
-        novels_id = 0
-
+    # --- ดึง novels_id ก่อน (เพื่อใช้ redirect/cancel ได้) ---
+    novels_id = _to_int(request.form.get("novels_id"), 0)
     if not novels_id:
         if is_autosave:
             return _json_resp({"success": False, "error": "novels_id required"}, 400)
         abort(400, description="novels_id required")
 
+    # ✅ กันพลาด: ถ้าปุ่ม “ยกเลิก” เผลอ POST มาที่ /save ให้ไม่เขียน DB
+    action = (request.form.get("action") or request.form.get("intent") or "").strip().lower()
+    if action == "cancel" or request.form.get("cancel") in ("1", "true", "yes", "on"):
+        if is_autosave:
+            return _json_resp({"success": True, "cancelled": True})
+        flash("ยกเลิกแล้ว (ไม่บันทึกข้อมูล)", "info")
+        return redirect(url_for("writing.writing_form", novels_id=novels_id, reset=1))
+
     chapter_id_raw = request.form.get("chapter_id")
-    chapter_id = None
-    if chapter_id_raw:
-        try:
-            chapter_id = int(chapter_id_raw)
-        except ValueError:
-            chapter_id = None
+    chapter_id = _to_int(chapter_id_raw, 0) or None
 
     part_raw = request.form.get("part") or ""
-    try:
-        chapter_no = int(part_raw)
-    except ValueError:
-        chapter_no = 0
+    chapter_no = _to_int(part_raw, 0)
 
     title = (request.form.get("epName") or "").strip()
     content_html = (request.form.get("content_html") or "").strip()
@@ -205,16 +251,11 @@ def save_chapter():
     if not is_autosave:
         if chapter_no < 1:
             flash("กรุณากรอกลำดับตอนที่ถูกต้อง", "error")
-            return redirect(
-                url_for("writing.writing_form", novels_id=novels_id, chapter_id=chapter_id or None)
-            )
+            return redirect(url_for("writing.writing_form", novels_id=novels_id, chapter_id=chapter_id or None))
 
-        # ฝั่ง JS เช็กแล้วว่า ถ้าไม่มีตัวอักษรและไม่มีรูปให้เตือน
         if not content_html.strip():
             flash("กรุณากรอกเนื้อเรื่อง", "error")
-            return redirect(
-                url_for("writing.writing_form", novels_id=novels_id, chapter_id=chapter_id or None)
-            )
+            return redirect(url_for("writing.writing_form", novels_id=novels_id, chapter_id=chapter_id or None))
 
     # --- เขียนลงฐานข้อมูล ---
     with closing(_conn_alive()) as conn:
@@ -222,7 +263,6 @@ def save_chapter():
 
         with conn.cursor() as cur:
             if chapter_id:
-                # แก้ไขตอนเดิม
                 cur.execute(
                     "SELECT chapters_id FROM chapters WHERE chapters_id=%s AND novels_id=%s",
                     (chapter_id, novels_id),
@@ -234,15 +274,9 @@ def save_chapter():
 
                 # ถ้า part ไม่ valid ให้ fallback เป็น chapter_no เดิม
                 if chapter_no < 1:
-                    cur.execute(
-                        "SELECT chapter_no FROM chapters WHERE chapters_id=%s",
-                        (chapter_id,),
-                    )
+                    cur.execute("SELECT chapter_no FROM chapters WHERE chapters_id=%s", (chapter_id,))
                     row = dictfetchone(cur)
-                    if row and row.get("chapter_no"):
-                        chapter_no = row["chapter_no"]
-                    else:
-                        chapter_no = 1
+                    chapter_no = (row or {}).get("chapter_no") or 1
 
                 cur.execute(
                     """
@@ -256,9 +290,7 @@ def save_chapter():
                 )
 
             else:
-                # สร้างตอนใหม่
                 if chapter_no < 1:
-                    # ถ้า part ไม่ถูกต้อง ให้คำนวณ MAX+1 อีกครั้ง
                     cur.execute(
                         """
                         SELECT COALESCE(MAX(chapter_no), 0) + 1 AS next_no
@@ -281,16 +313,12 @@ def save_chapter():
 
         conn.commit()
 
-       # --- ตอบกลับ ---
+    # --- ตอบกลับ ---
     if is_autosave:
-        # ใช้ใน JS autosave → ต้องส่ง chapters_id กลับไปเพื่อเก็บลง hidden input
         return _json_resp({"success": True, "chapters_id": chapter_id})
 
-    # submit ปกติ → เด้งกลับไปหน้าแก้ไขนิยาย
     flash("บันทึกตอนสำเร็จ", "success")
-    return redirect(
-        url_for("editnovel.edit_novel", novels_id=novels_id)
-    )
+    return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
 
 # =========================  UPLOAD IMAGE จาก Quill  =========================

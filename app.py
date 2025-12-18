@@ -1,6 +1,6 @@
 from flask import (
     Flask, render_template, request, send_from_directory,
-    redirect, url_for, g
+    redirect, url_for, g, session, jsonify
 )
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from datetime import timedelta
@@ -16,7 +16,7 @@ from edit_novel import editnovel_bp, api_bp
 from mywrite import mywrite_bp
 from notification import noti_bp
 from readingform import reading_bp
-from writerwork import  writerwork_bp
+from writerwork import writerwork_bp
 from bookshelf import bookshelf_bp
 from comment import comment_bp
 from search import search_bp
@@ -34,7 +34,6 @@ app.permanent_session_lifetime = timedelta(days=1)
 api_key = os.environ.get("OPENAI_API_KEY")
 
 if not api_key:
-    # ถ้าไม่มี key ให้แค่เตือน และปิดฟีเจอร์ AI summary ไปก่อน
     print(
         "[WARNING] OPENAI_API_KEY ยังไม่ได้ตั้งค่า "
         "ฟีเจอร์สรุปความคิดเห็นด้วย AI จะไม่สามารถใช้งานได้"
@@ -59,7 +58,6 @@ csrf = CSRFProtect(app)
 init_db(app)
 
 # ---------- Register Blueprints ----------
-
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(home_bp)
 app.register_blueprint(writing_bp, url_prefix='/writing')
@@ -84,8 +82,49 @@ def inject_csrf_token():
     return dict(csrf_token=generate_csrf)
 
 
-# ---------- Pages (wrapper ไปยัง blueprint / template เดิม) ----------
+# ---------- Force Login First (สำคัญ) ----------
+def _is_logged_in() -> bool:
+    """
+    เช็คสถานะล็อกอินแบบทนทาน:
+    - รองรับหลายชื่อ key ที่พบบ่อยในโปรเจกต์ Flask
+    """
+    # บางระบบโหลด user มาไว้ที่ g.user
+    if getattr(g, "user", None):
+        return True
 
+    # เช็ค session keys ที่พบบ่อย
+    if session.get("user_id") or session.get("users_id") or session.get("_user_id"):
+        return True
+
+    # บางระบบเก็บ user เป็น dict ใน session
+    u = session.get("user")
+    if isinstance(u, dict):
+        if u.get("user_id") or u.get("users_id") or u.get("id"):
+            return True
+
+    return False
+
+
+@app.before_request
+def force_login_first():
+    # 1) เข้าเว็บใหม่ที่ / ให้ไปหน้า login เสมอ
+    if request.path == "/":
+        return redirect(url_for("login"))
+
+    # 2) อนุญาต auth และ static (กัน redirect loop)
+    if request.path.startswith("/auth") or request.path.startswith("/static/"):
+        return
+
+    # 3) อนุญาตไฟล์ทั่วไปบางอย่าง (ถ้ามี)
+    if request.path in ("/favicon.ico",):
+        return
+
+    # 4) ถ้ายังไม่ล็อกอิน -> เด้งไปหน้า login
+    if not _is_logged_in():
+        return redirect(url_for("login"))
+
+
+# ---------- Pages (wrapper ไปยัง blueprint / template เดิม) ----------
 @app.route('/auth')
 def login():
     return render_template('login.html')
@@ -132,7 +171,7 @@ def mywrite():
 @app.route('/writingform')
 @roles_required('user')
 def writingform():
-    from flask import request, abort
+    from flask import abort
     nid = request.args.get('novels_id', type=int)
     if not nid:
         abort(400, description="ต้องระบุ novels_id")
@@ -145,10 +184,14 @@ def new_novel():
     return render_template('new_novel.html')
 
 
-from flask import jsonify
-
 @app.route("/test-openai")
 def test_openai():
+    if not client:
+        return jsonify({
+            "ok": False,
+            "error": "OPENAI_CLIENT is not configured (missing OPENAI_API_KEY)"
+        }), 500
+
     try:
         resp = client.responses.create(
             model="gpt-4o-mini",
@@ -156,14 +199,13 @@ def test_openai():
         )
         return jsonify({
             "ok": True,
-            "text": resp.output_text  # shortcut จาก SDK
+            "text": resp.output_text
         })
     except Exception as e:
         return jsonify({
             "ok": False,
             "error": str(e)
         }), 500
-
 
 
 if __name__ == "__main__":

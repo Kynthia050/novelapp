@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from flask import (
     Blueprint, render_template, abort, url_for,
     request, jsonify, g, session
@@ -7,7 +9,7 @@ from MySQLdb.cursors import DictCursor
 from db import get_db_connection
 from html import unescape
 
-reading_bp = Blueprint('reading', __name__, template_folder='templates')
+reading_bp = Blueprint("reading", __name__, template_folder="templates")
 
 
 # ---------- Utilities ----------
@@ -31,10 +33,10 @@ def _table_exists(cur, name: str) -> bool:
         return False
 
 
-def _columns(cur, table: str):
+def _columns(cur, table: str) -> set[str]:
     try:
         cur.execute(f"DESCRIBE {table}")
-        return {r['Field'] for r in cur.fetchall()}
+        return {r["Field"] for r in cur.fetchall()}
     except Exception:
         return set()
 
@@ -65,13 +67,8 @@ def _maybe_unescape_html(s: str) -> str:
     return s
 
 
-def _get_current_user_id():
-    """
-    ดึง users_id ของผู้ใช้ที่ล็อกอินอยู่
-    ปรับให้ตรงกับระบบ auth ของโปรเจกต์คุณ:
-    - ถ้าใช้ g.user → ต้องมี g.user["users_id"]
-    - ถ้าใช้ session → ต้องมี session["users_id"]
-    """
+def _get_current_user_id() -> int | None:
+    """ดึง users_id ของผู้ใช้ที่ล็อกอินอยู่"""
     if hasattr(g, "user") and g.user:
         uid = g.user.get("users_id") or g.user.get("id")
         if uid:
@@ -84,18 +81,171 @@ def _get_current_user_id():
     return None
 
 
+def _get_payload() -> dict:
+    """รองรับทั้ง form-data และ JSON"""
+    if request.is_json:
+        return request.get_json(silent=True) or {}
+    # form / x-www-form-urlencoded / multipart
+    return dict(request.form or {})
+
+
+def _pick(payload: dict, *keys: str):
+    for k in keys:
+        if k in payload and payload.get(k) not in (None, ""):
+            return payload.get(k)
+    return None
+
+
+def _to_int_strict(v) -> int:
+    """แปลงเป็น int แบบเคร่ง (ใช้กับ id)"""
+    if v is None:
+        raise ValueError("missing")
+    if isinstance(v, bool):
+        raise ValueError("invalid")
+    if isinstance(v, int):
+        return int(v)
+    if isinstance(v, float):
+        return int(v)
+    s = str(v).strip()
+    if s == "":
+        raise ValueError("empty")
+    return int(s)
+
+
+def _to_progress(v) -> int:
+    """แปลง progress ให้ทน: รับ int/float/'12.34'/'12%'/' 12 '"""
+    if v is None or v == "":
+        return 0
+    if isinstance(v, bool):
+        return 0
+    if isinstance(v, int):
+        p = v
+    elif isinstance(v, float):
+        p = int(round(v))
+    else:
+        s = str(v).strip()
+        if not s:
+            return 0
+        if s.endswith("%"):
+            s = s[:-1].strip()
+        try:
+            p = int(s)
+        except Exception:
+            try:
+                p = int(round(float(s)))
+            except Exception:
+                return 0
+
+    if p < 0:
+        return 0
+    if p > 100:
+        return 100
+    return p
+
+
+# ---------- reading_history (per chapter) ----------
+
+def _needs_rh_id(cur) -> bool:
+    """
+    เผื่อกรณี rh_id ไม่ AUTO_INCREMENT:
+    - ถ้า insert แบบไม่ใส่ rh_id แล้วล้มด้วย error 'doesn't have a default value'
+      เราจะ fallback สร้าง rh_id ให้เอง
+    """
+    cols = _columns(cur, "reading_history")
+    return "rh_id" in cols
+
+
+def _next_rh_id(cur) -> int:
+    cur.execute("SELECT COALESCE(MAX(rh_id),0) + 1 AS next_id FROM reading_history")
+    row = cur.fetchone() or {}
+    return int(row.get("next_id") or 1)
+
+
+def _upsert_reading_history_per_chapter(
+    cur,
+    user_id: int,
+    novels_id: int,
+    chapters_id: int,
+    progress: int = 0,
+) -> None:
+    """
+    reading_history ต่อ chapter:
+    UNIQUE (users_id, novels_id, chapters_id)
+    """
+    if not _table_exists(cur, "reading_history"):
+        return
+
+    cols = _columns(cur, "reading_history")
+    # คอลัมน์หลักตามสคีมาที่คุณส่งมา
+    need = {"users_id", "novels_id", "chapters_id"}
+    if not need.issubset(cols):
+        return
+
+    has_progress = "progress" in cols
+    has_last = "last_read_at" in cols
+    has_rh_id = "rh_id" in cols
+
+    base_cols = ["users_id", "novels_id", "chapters_id"]
+    base_vals = ["%s", "%s", "%s"]
+    params = [int(user_id), int(novels_id), int(chapters_id)]
+
+    if has_progress:
+        base_cols.append("progress")
+        base_vals.append("%s")
+        params.append(int(progress))
+
+    if has_last:
+        base_cols.append("last_read_at")
+        base_vals.append("CURRENT_TIMESTAMP")
+
+    upd = []
+    if has_progress:
+        upd.append("progress = VALUES(progress)")
+    if has_last:
+        upd.append("last_read_at = CURRENT_TIMESTAMP")
+
+    sql = f"""
+        INSERT INTO reading_history ({", ".join(base_cols)})
+        VALUES ({", ".join(base_vals)})
+        ON DUPLICATE KEY UPDATE {", ".join(upd) if upd else "chapters_id=chapters_id"}
+    """
+
+    try:
+        cur.execute(sql, tuple(params))
+        return
+    except Exception as e:
+        # เผื่อ rh_id ไม่ได้ AUTO_INCREMENT -> ต้องใส่ค่าเอง
+        msg = str(e).lower()
+        if has_rh_id and ("rh_id" in msg) and ("default" in msg or "doesn't have a default value" in msg):
+            new_id = _next_rh_id(cur)
+            cols2 = ["rh_id"] + base_cols
+            vals2 = ["%s"] + base_vals
+            params2 = [new_id] + params
+
+            sql2 = f"""
+                INSERT INTO reading_history ({", ".join(cols2)})
+                VALUES ({", ".join(vals2)})
+                ON DUPLICATE KEY UPDATE {", ".join(upd) if upd else "chapters_id=chapters_id"}
+            """
+            cur.execute(sql2, tuple(params2))
+            return
+
+        raise
+
+
 # ---------- Read chapter ----------
+
 @reading_bp.route("/read/<int:novels_id>/<int:chapter_no>")
 def read_chapter(novels_id: int, chapter_no: int):
     """
     หน้าอ่านตอน:
     - ผู้ใช้อ่านปกติ: เห็นเฉพาะ status='published'
-    - Preview: อนุญาตเฉพาะเจ้าของนิยาย (novels.users_id) เท่านั้น
+    - Preview: อนุญาตเฉพาะเจ้าของนิยาย
     - prev/next: สำหรับผู้ใช้อ่านปกติจะ "ข้าม" ตอน draft อัตโนมัติ
+    - ✅ บันทึก reading_history ทันทีเมื่อเข้าอ่าน (ถ้า login และไม่ใช่ preview)
     """
     conn = None
     try:
-        # ขอ preview?
         preview_requested = request.args.get("preview", default=0, type=int) == 1
         current_user_id = _get_current_user_id()
 
@@ -104,8 +254,7 @@ def read_chapter(novels_id: int, chapter_no: int):
             ccols = _columns(cur, "chapters")
             has_status = "status" in ccols
 
-            # ---- ดึงข้อมูลตอน + เรื่อง (ดึง status + author_id เพื่อเช็ค preview) ----
-            # ถ้าไม่มีคอลัมน์ status ก็จะ fallback แบบเดิม (ไม่กรอง)
+            # ---- ดึงข้อมูลตอน + เรื่อง ----
             cur.execute(
                 f"""
                 SELECT c.chapters_id, c.novels_id, c.title AS chapter_title,
@@ -126,7 +275,7 @@ def read_chapter(novels_id: int, chapter_no: int):
             if not row:
                 abort(404, description="Chapter not found in database")
 
-            # ---- ตัดสินว่า preview ได้จริงไหม (ต้องเป็นเจ้าของนิยาย) ----
+            # ---- preview permission ----
             is_preview = False
             if preview_requested and current_user_id and row.get("author_id"):
                 try:
@@ -139,7 +288,21 @@ def read_chapter(novels_id: int, chapter_no: int):
                 if (row.get("status") or "").lower() != "published":
                     abort(404)
 
-            # ---- เนื้อหา: ใช้ content_html เป็นหลัก ----
+            # ✅ touch history เมื่อเข้าอ่าน (นับต่อ chapter)
+            if current_user_id and (not is_preview) and _table_exists(cur, "reading_history"):
+                try:
+                    _upsert_reading_history_per_chapter(
+                        cur,
+                        user_id=int(current_user_id),
+                        novels_id=int(row["novels_id"]),
+                        chapters_id=int(row["chapters_id"]),
+                        progress=0,
+                    )
+                    conn.commit()
+                except Exception as e:
+                    print(f"[reading.touch_history] error: {e}")
+
+            # ---- เนื้อหา ----
             content_html = None
             content_text = None
 
@@ -173,9 +336,7 @@ def read_chapter(novels_id: int, chapter_no: int):
                 html_content = None
                 paragraphs = split_paragraphs((content_text or "").strip())
 
-            # ---- ปุ่มก่อนหน้า/ถัดไป ----
-            # ผู้ใช้อ่านปกติ: ข้ามตอน draft โดยกรอง status='published'
-            # preview: ใช้ logic เดิม (ไม่กรอง) — แต่ใน template ของคุณก็ disable ปุ่มอยู่แล้ว
+            # ---- prev/next ----
             if has_status and (not is_preview):
                 cur.execute(
                     "SELECT MAX(chapter_no) AS prev_no "
@@ -206,21 +367,14 @@ def read_chapter(novels_id: int, chapter_no: int):
                 )
             next_no = (cur.fetchone() or {}).get("next_no")
 
-            prev_url = (
-                url_for("reading.read_chapter", novels_id=novels_id, chapter_no=prev_no)
-                if prev_no is not None else None
-            )
-            next_url = (
-                url_for("reading.read_chapter", novels_id=novels_id, chapter_no=next_no)
-                if next_no is not None else None
-            )
+            prev_url = url_for("reading.read_chapter", novels_id=novels_id, chapter_no=prev_no) if prev_no is not None else None
+            next_url = url_for("reading.read_chapter", novels_id=novels_id, chapter_no=next_no) if next_no is not None else None
 
             try:
                 back_url = url_for("novel.detail", novels_id=novels_id)
             except Exception:
                 back_url = "/"
 
-            # ---- writing_url สำหรับปุ่ม Back to editor (เฉพาะ preview จริง) ----
             writing_url = None
             if is_preview:
                 try:
@@ -269,42 +423,48 @@ def read_chapter(novels_id: int, chapter_no: int):
 def save_reading_progress():
     """
     รับ progress จากหน้าอ่านตอน แล้วบันทึกลง reading_history
-    - 1 user + 1 novel = 1 แถว (UNIQUE users_id, novels_id)
+    - 1 user + 1 novel + 1 chapter = 1 แถว (UNIQUE users_id, novels_id, chapters_id)
     """
     user_id = _get_current_user_id()
     if not user_id:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
-    novels_id = request.form.get("novels_id") or request.form.get("novel_id")
-    chapters_id = request.form.get("chapters_id") or request.form.get("chapter_id")
-    progress = request.form.get("progress") or request.form.get("scroll_percent")
+    payload = _get_payload()
+
+    novels_id_raw = _pick(payload, "novels_id", "novel_id", "novelId")
+    chapters_id_raw = _pick(payload, "chapters_id", "chapter_id", "chaptersId", "chapterId")
+    progress_raw = _pick(payload, "progress", "scroll_percent", "scrollPercent")
 
     try:
-        novels_id = int(novels_id or 0)
-        chapters_id = int(chapters_id or 0)
-        progress = int(progress or 0)
-    except ValueError:
-        return jsonify({"ok": False, "error": "invalid data"}), 400
+        novels_id = _to_int_strict(novels_id_raw)
+        chapters_id = _to_int_strict(chapters_id_raw)
+    except Exception:
+        return jsonify({
+            "ok": False,
+            "error": "invalid ids",
+            "received": {
+                "novels_id": novels_id_raw,
+                "chapters_id": chapters_id_raw,
+                "progress": progress_raw,
+                "content_type": request.headers.get("Content-Type"),
+            }
+        }), 400
 
-    if not novels_id or not chapters_id:
-        return jsonify({"ok": False, "error": "missing ids"}), 403
-
-    progress = 0 if progress < 0 else 100 if progress > 100 else progress
+    progress = _to_progress(progress_raw)
 
     conn = None
     try:
         conn = get_db_connection()
-        with conn.cursor() as cur:
-            sql = """
-            INSERT INTO reading_history (users_id, novels_id, chapters_id, progress)
-            VALUES (%s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-              chapters_id = VALUES(chapters_id),
-              progress = VALUES(progress),
-              last_read_at = CURRENT_TIMESTAMP
-            """
-            cur.execute(sql, (user_id, novels_id, chapters_id, progress))
+        with conn.cursor(DictCursor) as cur:
+            _upsert_reading_history_per_chapter(
+                cur,
+                user_id=int(user_id),
+                novels_id=int(novels_id),
+                chapters_id=int(chapters_id),
+                progress=int(progress),
+            )
             conn.commit()
+
     except Exception as e:
         print(f"save_reading_progress error: {e}")
         return jsonify({"ok": False}), 500
@@ -315,4 +475,4 @@ def save_reading_progress():
         except Exception:
             pass
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "progress": progress})
