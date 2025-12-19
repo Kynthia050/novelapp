@@ -181,7 +181,7 @@ def writingform():
 @app.route('/new_novel')
 @roles_required('user')
 def new_novel():
-    return render_template('new_novel.html')
+    return redirect(url_for('new_novel.new_novel_form'))
 
 
 @app.route("/test-openai")

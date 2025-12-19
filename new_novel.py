@@ -252,19 +252,29 @@ def new_novel_form():
     if not users_id:
         return redirect("/login")
 
-    with conn.cursor() as cur:
-        cur.execute("SELECT DATABASE() AS db")
-        dbname = (dictfetchone(cur) or {}).get("db")
+    with closing(_conn_alive()) as conn:
+        username = _current_username(conn, users_id)
+        with conn.cursor() as cur:
+            cur.execute("SELECT DATABASE() AS db")
+            dbname = (dictfetchone(cur) or {}).get("db")
 
-        cur.execute("SELECT COUNT(*) AS n FROM categories")
-        n = (dictfetchone(cur) or {}).get("n")
+            cur.execute("SELECT COUNT(*) AS n FROM categories")
+            n = (dictfetchone(cur) or {}).get("n")
 
-        cur.execute("SELECT cate_id, name FROM categories ORDER BY name")
-        categories = dictfetchall(cur)
+            cur.execute("SELECT cate_id, name FROM categories ORDER BY name")
+            categories = dictfetchall(cur)
 
-        current_app.logger.warning("NEW_NOVEL DB=%s | categories_count=%s | sample=%r", dbname, n, categories[:3])
+            cur.execute("SELECT tag_id, name FROM tags ORDER BY name")
+            all_tags = dictfetchall(cur)
 
-        return render_template(
+            current_app.logger.warning(
+                "NEW_NOVEL DB=%s | categories_count=%s | sample=%r",
+                dbname,
+                n,
+                categories[:3],
+            )
+
+    return render_template(
         "new_novel.html",
         categories=categories,
         username=username,

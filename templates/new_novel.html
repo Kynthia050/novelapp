@@ -221,17 +221,6 @@
             </p>
           </div>
 
-          <div class="flex gap-3 items-center">
-            <button id="submitBtn" type="submit" class="btn btn-primary px-5 py-2 rounded-full font-semibold">
-              สร้างนิยายใหม่
-            </button>
-
-            <button type="button"
-                    class="btn btn-ghost px-5 py-2 rounded-full"
-                    onclick="history.back()">
-              ยกเลิก
-            </button>
-          </div>
         </div>
       </div>
 
@@ -257,6 +246,18 @@
           </button>
         </div>
       </section>
+
+      <div class="flex gap-3 items-center justify-end mt-5">
+        <button id="submitBtn" type="submit" class="btn btn-primary px-5 py-2 rounded-full font-semibold">
+          สร้างนิยายใหม่
+        </button>
+
+        <button type="button"
+                class="btn btn-ghost px-5 py-2 rounded-full"
+                onclick="history.back()">
+          ยกเลิก
+        </button>
+      </div>
     </form>
   </main>
 
@@ -267,7 +268,7 @@
     || '';
 
   const apiCreateUrl    = "{{ url_for('new_novel.api_create_novel') }}";
-  const viewUrlTemplate = "{{ url_for('new_novel.view_novel', novels_id=0) }}";
+  const mywriteUrl = "{{ url_for('mywrite.mywrite_index') }}";
 
   const formMsg = document.getElementById('formMsg');
   function setMsg(text, ok=false){
@@ -428,7 +429,7 @@
       }
 
       setMsg('สร้างนิยายใหม่เรียบร้อย!', true);
-      window.location.href = viewUrlTemplate.replace('0', String(json.novels_id));
+      window.location.href = mywriteUrl;
 
     }catch(err){
       setMsg(err.message || 'เกิดข้อผิดพลาด');
