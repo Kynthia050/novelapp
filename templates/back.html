@@ -124,8 +124,18 @@
 
 <script>
   function goBack(fallbackUrl){
+    const ref = document.referrer || "";
+    const fromReader = /\/reading\//.test(ref);
+    const storedEntry = sessionStorage.getItem("novel_entry_path");
+
+    // ถ้ากลับมาจาก back-to-cover (ref มาจาก /reading/...) และมี path เดิมที่เก็บไว้ ให้พุ่งกลับไปจุดเริ่มต้นนั้น
+    if (fromReader && storedEntry) {
+      window.location.href = storedEntry;
+      return;
+    }
+
     if (window.history.length > 1) window.history.back();
-    else window.location.href = fallbackUrl || document.referrer || "/";
+    else window.location.href = fallbackUrl || ref || "/";
   }
 
   function scrollToTop(){
@@ -160,6 +170,16 @@
     syncBackButton();
     syncTopButton();
   }
+
+  // เก็บ path ที่ใช้เข้ามายังหน้าปกนิยาย (ไม่ใช่จาก /reading/) ไว้ใน sessionStorage
+  (function rememberNovelEntry(){
+    const isNovelDetail = /^\/novel\/\d+/.test(window.location.pathname);
+    const ref = document.referrer || "";
+    const fromReader = /\/reading\//.test(ref);
+    if (isNovelDetail && !fromReader && ref) {
+      sessionStorage.setItem("novel_entry_path", ref);
+    }
+  })();
 
   window.addEventListener("load", syncAll);
   window.addEventListener("resize", syncHeaderHeight);

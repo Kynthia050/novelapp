@@ -868,6 +868,10 @@
     transform:translateY(18px) scale(.98);
     transition:opacity .6s ease, transform .6s ease;
   }
+  .comment-card.is-editing{
+    box-shadow:0 0 0 2px rgba(255,255,255,.25);
+    border-radius:16px;
+  }
   .comment-card.show{
     opacity:1;
     transform:none;
@@ -908,26 +912,55 @@
     line-height:1.7;
   }
 
+  .comment-actions{
+    margin-left:auto;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+
   .comment-delete-form{
-    margin-left:auto;  
+    margin:0;
   }
 
   .comment-delete-btn{
     border-radius:999px;
-    border:1px solid rgba(255,255,255,.24);
+    border:1px solid rgba(255,255,255,.16);
     background:transparent;
-    color:var(--muted);
+    color:var(--text);
     font-size:11px;
-    padding:4px 10px;
+    padding:6px 14px;
     cursor:pointer;
     letter-spacing:.05em;
     text-transform:uppercase;
     white-space:nowrap;
+    transition:background-color .18s ease, color .18s ease, border-color .18s ease;
   }
 
   .comment-delete-btn:hover{
-    background:rgba(255,255,255,.16);
-    color:#000;
+    background:rgba(255,255,255,.12);
+    color:var(--text);
+    border-color:rgba(255,255,255,.16);
+  }
+
+  .comment-edit-btn{
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.16);
+    background:transparent;
+    color:var(--text);
+    font-size:11px;
+    padding:6px 14px;
+    cursor:pointer;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    white-space:nowrap;
+    transition:background-color .18s ease, color .18s ease, border-color .18s ease;
+  }
+
+  .comment-edit-btn:hover{
+    background:rgba(255,255,255,.12);
+    color:var(--text);
+    border-color:rgba(255,255,255,.16);
   }
 
   .comment-meta{
@@ -1349,6 +1382,7 @@
     <form class="comment-form" method="post"
           action="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="comment_id" id="commentIdInput" value="">
       <textarea
         id="commentContent"
         name="content"
@@ -1431,17 +1465,29 @@
             </div>
           </div>
 
-          {% if c.can_delete %}
-          <form class="comment-delete-form"
-                method="post"
-                action="{{ url_for('novel.delete_comment',
-                                  novels_id=novel.novels_id,
-                                  cm_id=c.cm_id) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="comment-delete-btn">
-              ลบความคิดเห็น
-            </button>
-          </form>
+          {% if c.can_delete or c.can_edit %}
+          <div class="comment-actions">
+            {% if c.can_delete %}
+            <form class="comment-delete-form"
+                  method="post"
+                  action="{{ url_for('novel.delete_comment',
+                                    novels_id=novel.novels_id,
+                                    cm_id=c.cm_id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="comment-delete-btn">
+                ลบความคิดเห็น
+              </button>
+            </form>
+            {% endif %}
+            {% if c.can_edit %}
+              <button type="button"
+                      class="comment-edit-btn"
+                      data-cm-id="{{ c.cm_id }}"
+                      data-content="{{ c.content|replace('\n','&#10;')|e }}">
+                แก้ไข
+              </button>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
       </article>
@@ -1944,6 +1990,10 @@
     const textarea = form ? form.querySelector('textarea[name="content"]') : null;
     const counter  = document.getElementById('commentCharCount');
     const maxChars = textarea ? Number(textarea.getAttribute('maxlength') || 500) : 500;
+    const commentIdInput = form ? form.querySelector('#commentIdInput') : null;
+    const submitBtn = form ? form.querySelector('.comment-submit-btn') : null;
+    const defaultSubmitText = submitBtn ? submitBtn.textContent : '';
+    let editingCard = null;
 
     function updateTextareaState(){
       if (!textarea) return;
@@ -1964,6 +2014,38 @@
     if (textarea) {
       updateTextareaState();
       textarea.addEventListener('input', updateTextareaState);
+    }
+
+    function resetEditMode(){
+      if (commentIdInput) commentIdInput.value = '';
+      if (submitBtn) submitBtn.textContent = defaultSubmitText;
+      if (editingCard) {
+        editingCard.classList.remove('is-editing');
+      }
+      editingCard = null;
+    }
+
+    function enterEditMode(cmId, content, card){
+      if (commentIdInput) commentIdInput.value = cmId || '';
+      if (textarea) {
+        textarea.value = content || '';
+        updateTextareaState();
+        textarea.focus();
+        textarea.scrollIntoView({ behavior:'smooth', block:'center' });
+      }
+      if (submitBtn) submitBtn.textContent = 'บันทึกการแก้ไข';
+      if (editingCard) editingCard.classList.remove('is-editing');
+      editingCard = card || null;
+      if (editingCard) editingCard.classList.add('is-editing');
+    }
+
+    function attachEditHandler(btn){
+      if (!btn) return;
+      btn.addEventListener('click', function (){
+        const cmId = btn.dataset.cmId;
+        const content = btn.dataset.content || '';
+        enterEditMode(cmId, content, btn.closest('.comment-card'));
+      });
     }
 
     function attachDeleteHandler(delForm){
@@ -1999,6 +2081,13 @@
           }
 
           if (card) card.remove();
+          if (editingCard && editingCard === card) {
+            resetEditMode();
+            if (textarea) {
+              textarea.value = '';
+              updateTextareaState();
+            }
+          }
           if (!track.querySelector('.comment-card') && noMsg) {
             noMsg.style.display = '';
           }
@@ -2011,6 +2100,7 @@
     }
 
     document.querySelectorAll('.comment-delete-form').forEach(attachDeleteHandler);
+    document.querySelectorAll('.comment-edit-btn').forEach(attachEditHandler);
 
     if (!form) return;
 
@@ -2025,6 +2115,7 @@
         return;
       }
 
+      const isEditing = !!(commentIdInput && commentIdInput.value);
       const fd = new FormData(form);
       const headers = { 'X-Requested-With': 'XMLHttpRequest' };
       const csrf = getCSRFTokenValue();
@@ -2059,6 +2150,22 @@
           noMsg.style.display = 'none';
         }
 
+        // ถ้าอยู่ในโหมดแก้ไขและมีการ์ดเดิม ให้แก้ข้อความแล้วจบ
+        if (isEditing) {
+          const existing = track.querySelector(`.comment-card[data-cm-id="${c.cm_id}"]`);
+          if (existing) {
+            const textEl = existing.querySelector('.comment-text');
+            if (textEl) textEl.textContent = c.content;
+            const dateEl = existing.querySelector('.comment-author-sub');
+            if (dateEl && c.created_at) dateEl.textContent = c.created_at;
+          }
+          resetEditMode();
+          textarea.value = '';
+          updateTextareaState();
+          return;
+        }
+
+        // ---------- สร้างการ์ดใหม่ ----------
         const card = document.createElement('article');
         card.className = 'comment-card show';
         card.dataset.cmId = c.cm_id;
@@ -2107,6 +2214,9 @@
         author.appendChild(subDiv);
         meta.appendChild(author);
 
+        const actions = document.createElement('div');
+        actions.className = 'comment-actions';
+
         if (c.can_delete && novelId) {
           const delForm = document.createElement('form');
           delForm.className = 'comment-delete-form';
@@ -2128,8 +2238,23 @@
           delBtn.textContent = 'ลบความคิดเห็น';
           delForm.appendChild(delBtn);
 
-          meta.appendChild(delForm);
+          actions.appendChild(delForm);
           attachDeleteHandler(delForm);
+        }
+
+        if (c.can_edit) {
+          const editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'comment-edit-btn';
+          editBtn.dataset.cmId = c.cm_id;
+          editBtn.dataset.content = c.content || '';
+          editBtn.textContent = 'แก้ไข';
+          actions.appendChild(editBtn);
+          attachEditHandler(editBtn);
+        }
+
+        if (actions.children.length) {
+          meta.appendChild(actions);
         }
 
         card.appendChild(bubble);
@@ -2138,6 +2263,7 @@
         track.prepend(card);
 
         textarea.value = '';
+        resetEditMode();
         updateTextareaState();
       })
       .catch(err => {

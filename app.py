@@ -179,7 +179,8 @@ def writerwork():
 @app.route('/bookshelf')
 @roles_required('user')
 def bookshelf():
-    return render_template('bookshelf.html')
+    # redirect มาที่ blueprint bookshelf เพื่อใช้ logic+query เดียวกัน
+    return redirect(url_for('bookshelf.bookshelf_index'))
 
 
 @app.route('/mywrite')

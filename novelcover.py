@@ -114,13 +114,25 @@ def _process_avatar_url(raw: str | None) -> str | None:
 
 def _current_user_id() -> int | None:
     """ดึง users_id ปัจจุบันจาก session / g.user"""
-    uid = session.get("users_id")
-    if not uid and getattr(g, "user", None):
-        try:
-            uid = g.user["users_id"]
-        except Exception:
-            uid = None
-    return uid
+    # รองรับหลาย key ที่ login ตั้งไว้
+    for key in ("users_id", "user_id", "uid"):
+        val = session.get(key)
+        if val not in (None, ""):
+            try:
+                return int(val)
+            except Exception:
+                return None
+
+    u = getattr(g, "user", None)
+    if isinstance(u, dict):
+        for key in ("users_id", "user_id", "id"):
+            val = u.get(key)
+            if val not in (None, ""):
+                try:
+                    return int(val)
+                except Exception:
+                    return None
+    return None
 
 def _is_novel_owner(cur, users_id: int | None, novels_id: int) -> bool:
     """
@@ -153,6 +165,24 @@ def _is_novel_owner(cur, users_id: int | None, novels_id: int) -> bool:
     except Exception:
         return False
 
+# ---------- AI summary helpers ----------
+AI_FALLBACK_PREFIX = "ไม่สามารถติดต่อบริการสรุปด้วย AI ได้ในขณะนี้"
+AI_NOT_CONFIGURED_SUFFIX = "(ยังไม่ได้ตั้งค่า OPENAI_CLIENT ใน app.py)"
+
+# ถ้าข้อความสรุปมีคำพวกนี้ ให้ถือว่าเป็นแคชเสีย/ไม่ควรใช้
+BAD_CACHE_MARKERS = (
+    "OPENAI_CLIENT",
+    "ไม่สามารถเรียกใช้โมเดล AI ได้",
+    AI_FALLBACK_PREFIX,
+)
+
+def _get_openai_client():
+    """
+    ดึง OpenAI client จาก app.py แบบทนทาน:
+    - รองรับทั้ง app.config และ app.extensions
+    """
+    return current_app.config.get("OPENAI_CLIENT") or current_app.extensions.get("OPENAI_CLIENT")
+# ---------------------------------------
 
 
 def generate_comment_summary(base_summary, comments, novel_title: str = "") -> str:
@@ -197,7 +227,10 @@ def generate_comment_summary(base_summary, comments, novel_title: str = "") -> s
         "You are an assistant that summarizes reader comments for an online novel. "
         "You can read Thai and English comments and you must answer in Thai. "
         "Summarize the key sentiments (what readers like, dislike, and suggestions) "
-        "into 3-5 concise bullet-style lines in Thai."
+        "into short message a few lines in Thai and do not spoil the story."
+        "Example output format:\n"
+        "- ความคิดเห็นที่สำคัญ: [สรุปสั้น ๆ]\n"
+        "- ความคิดเห็นอื่น ๆ: [สรุปสั้น ๆ]"
     )
 
     if novel_title:
@@ -267,6 +300,11 @@ def detail(novels_id: int):
         request.method == "POST"
         and request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
     )
+    # cm_id สำหรับโหมดแก้ไขความคิดเห็น (ถ้ามี)
+    try:
+        comment_id_for_update = int(request.form.get("comment_id") or 0)
+    except Exception:
+        comment_id_for_update = 0
 
     try:
         conn = get_db_connection()
@@ -304,15 +342,54 @@ def detail(novels_id: int):
                     flash(msg, "error")
                     return redirect(url_for("novel.detail", novels_id=novels_id))
 
-                # บันทึก comment
-                cur.execute(
-                    """
-                    INSERT INTO comments (users_id, novels_id, content)
-                    VALUES (%s, %s, %s)
-                    """,
-                    (users_id, novels_id, content),
-                )
-                new_cm_id = cur.lastrowid
+                # ---------- Insert หรือ Update comment ----------
+                is_editing = comment_id_for_update > 0
+                target_cm_id = None
+
+                if is_editing:
+                    cur.execute(
+                        """
+                        SELECT cm_id, users_id, novels_id
+                        FROM comments
+                        WHERE cm_id = %s
+                        LIMIT 1
+                        """,
+                        (comment_id_for_update,),
+                    )
+                    row = cur.fetchone()
+                    if (not row) or int(row.get("novels_id") or 0) != novels_id:
+                        msg = "ไม่พบบันทึกความคิดเห็นนี้"
+                        if is_ajax_comment:
+                            return jsonify({"ok": False, "error": msg}), 404
+                        flash(msg, "error")
+                        return redirect(url_for("novel.detail", novels_id=novels_id))
+
+                    comment_owner_id = int(row.get("users_id") or 0)
+                    if users_id != comment_owner_id:
+                        msg = "คุณสามารถแก้ไขความคิดเห็นของตนเองเท่านั้น"
+                        if is_ajax_comment:
+                            return jsonify({"ok": False, "error": msg}), 403
+                        flash(msg, "error")
+                        return redirect(url_for("novel.detail", novels_id=novels_id))
+
+                    cur.execute(
+                        """
+                        UPDATE comments
+                        SET content = %s
+                        WHERE cm_id = %s
+                        """,
+                        (content, comment_id_for_update),
+                    )
+                    target_cm_id = comment_id_for_update
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO comments (users_id, novels_id, content)
+                        VALUES (%s, %s, %s)
+                        """,
+                        (users_id, novels_id, content),
+                    )
+                    target_cm_id = cur.lastrowid
 
                 # ทำให้ summary เป็น dirty (ให้ไปสรุปใหม่)
                 if _has_table(cur, "comment_summaries"):
@@ -344,7 +421,7 @@ def detail(novels_id: int):
                         WHERE c.cm_id = %s
                         LIMIT 1
                         """,
-                        (new_cm_id,),
+                        (target_cm_id,),
                     )
                     cm = cur.fetchone()
                     if not cm:
@@ -363,6 +440,7 @@ def detail(novels_id: int):
                         current_uid
                         and (current_uid == cm.get("users_id") or is_owner)
                     )
+                    can_edit = bool(current_uid and current_uid == cm.get("users_id"))
 
                     display_name = cm.get("username") or f"ผู้ใช้ #{cm['users_id']}"
                     created_display = (
@@ -374,7 +452,7 @@ def detail(novels_id: int):
                     return jsonify(
                         {
                             "ok": True,
-                            "message": "ส่งความคิดเห็นเรียบร้อยแล้ว",
+                            "message": "แก้ไขความคิดเห็นสำเร็จ" if is_editing else "ส่งความคิดเห็นเรียบร้อยแล้ว",
                             "comment": {
                                 "cm_id": cm["cm_id"],
                                 "content": cm["content"],
@@ -382,12 +460,13 @@ def detail(novels_id: int):
                                 "avatar_url": cm["avatar_url"],
                                 "created_at": created_display,
                                 "can_delete": can_delete,
+                                "can_edit": can_edit,
                             },
                         }
-                    ), 201
+                    ), 200 if is_editing else 201
 
                 # ----- ไม่ใช่ AJAX → redirect ตามปกติ -----
-                flash("ส่งความคิดเห็นเรียบร้อยแล้ว", "success")
+                flash("แก้ไขความคิดเห็นสำเร็จ" if is_editing else "ส่งความคิดเห็นเรียบร้อยแล้ว", "success")
                 return redirect(url_for("novel.detail", novels_id=novels_id))
 
             # ==================== GET: โหลดข้อมูลหน้า novel cover ====================
@@ -674,6 +753,7 @@ def detail(novels_id: int):
                         current_uid
                         and (current_uid == cm.get("users_id") or is_owner)
                     )
+                    cm["can_edit"] = bool(current_uid and current_uid == cm.get("users_id"))
 
         return render_template(
             "novelcover.html",
@@ -695,80 +775,42 @@ def writerwork():
 
 @novel_bp.route("/novel/<int:novels_id>/bookshelf", methods=["POST"])
 def toggle_bookshelf(novels_id: int):
-    """กด/ยกเลิก เติมเข้าชั้นหนังสือ สำหรับนิยายทั้งเรื่อง"""
-    sort = request.form.get("next_sort") or request.args.get("sort", "asc")
-    is_ajax = request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify(ok=False, error="login_required"), 401
 
-    users_id = _current_user_id()
-    if not users_id:
-        msg = "กรุณาเข้าสู่ระบบก่อนเพิ่มนิยายเข้าชั้นหนังสือ"
-        if is_ajax:
-            return jsonify({"ok": False, "error": msg, "need_login": True}), 401
-        flash(msg, "error")
-        return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
-
-    in_bookshelf = False
-    message = ""
-
+    conn = get_db_connection()
     try:
-        conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
-            if not _has_table(cur, "bookshelf"):
-                msg = "ยังไม่พบตาราง bookshelf ในฐานข้อมูล"
-                if is_ajax:
-                    return jsonify({"ok": False, "error": msg}), 500
-                flash(msg, "error")
-                return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
+            # ????????????????????
+            cur.execute(
+                "SELECT 1 FROM bookshelf WHERE users_id=%s AND novels_id=%s LIMIT 1",
+                (user_id, novels_id),
+            )
+            exists = cur.fetchone() is not None
 
+            if exists:
+                cur.execute(
+                    "DELETE FROM bookshelf WHERE users_id=%s AND novels_id=%s",
+                    (user_id, novels_id),
+                )
+                conn.commit()
+                return jsonify(ok=True, in_bookshelf=False)
+
+            # ?????????????
             cur.execute(
                 """
-                SELECT bookshelf_id
-                FROM bookshelf
-                WHERE users_id = %s AND novels_id = %s
-                LIMIT 1
+                INSERT INTO bookshelf (users_id, novels_id, created_at)
+                VALUES (%s, %s, NOW())
+                ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)
                 """,
-                (users_id, novels_id),
+                (user_id, novels_id),
             )
-            row = cur.fetchone()
-
-            if row:
-                cur.execute(
-                    "DELETE FROM bookshelf WHERE bookshelf_id = %s",
-                    (row["bookshelf_id"],),
-                )
-                in_bookshelf = False
-                message = "นำออกจากชั้นหนังสือแล้ว"
-                if not is_ajax:
-                    flash(message, "info")
-            else:
-                cur.execute(
-                    """
-                    INSERT INTO bookshelf (users_id, novels_id)
-                    VALUES (%s, %s)
-                    """,
-                    (users_id, novels_id),
-                )
-                in_bookshelf = True
-                message = "เพิ่มนิยายเข้าชั้นหนังสือแล้ว"
-                if not is_ajax:
-                    flash(message, "success")
-
             conn.commit()
+            return jsonify(ok=True, in_bookshelf=True)
 
-    except Exception as e:
-        print(f"[novel.toggle_bookshelf] error: {e}")
-        message = "เกิดข้อผิดพลาดขณะบันทึกชั้นหนังสือ"
-        if is_ajax:
-            return jsonify({"ok": False, "error": message}), 500
-        flash(message, "error")
-        return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
-
-    if is_ajax:
-        return jsonify({"ok": True, "in_bookshelf": in_bookshelf, "message": message})
-
-    return redirect(url_for("novel.detail", novels_id=novels_id, sort=sort))
-
-# ---------- route: สรุปความคิดเห็นด้วย AI (API JSON) ----------
+    finally:
+        conn.close()
 
 @novel_bp.route("/novel/<int:novels_id>/comment-summary", methods=["POST"])
 def comment_summary(novels_id: int):
