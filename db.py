@@ -13,9 +13,9 @@ import MySQLdb.cursors
 
 # ---------------- Defaults ----------------
 DEFAULTS = {
-    "MYSQL_HOST": "172.20.10.6",
+    "MYSQL_HOST": "127.0.0.1",
     "MYSQL_USER": "root",
-    "MYSQL_PASSWORD": "sDKCplmoXzAembTSMjzPtXsQVPKfkkUx",
+    "MYSQL_PASSWORD": "",
     "MYSQL_DB": "readweb",
     "MYSQL_PORT": 3306,
     "MYSQL_CHARSET": "utf8mb4",
