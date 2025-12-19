@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}My Profile — MY SHELF{% endblock %}
 
@@ -55,6 +55,18 @@
     display:grid;
     place-items:center;
     gap:14px;
+  }
+  .profile-page .avatar-button{
+    border:0;
+    padding:0;
+    background:transparent;
+    border-radius:50%;
+    cursor:pointer;
+    display:inline-block;
+  }
+  .profile-page .avatar-button:focus-visible{
+    outline:2px dashed #bdbdbd;
+    outline-offset:4px;
   }
   .profile-page .avatar{
     width:220px;
@@ -124,6 +136,7 @@
     gap:12px;
     flex-wrap:wrap;
     margin-top:8px;
+    justify-content:flex-end;
   }
 
   .profile-page .btn{
@@ -185,17 +198,15 @@
 
         <!-- LEFT: Avatar -->
         <div class="avatar-wrap">
-          <img
-            id="avatarPreview"
-            class="avatar"
-            src="{{ user.avatar_url or url_for('static', filename='profile/default.png') }}"
-            alt="avatar"
-          >
-          <div class="avatar-ctls">
-            <label class="btn" for="avatarInput">📷 เปลี่ยนรูปโปรไฟล์</label>
-            <input id="avatarInput" type="file" name="avatar" accept="image/*" hidden>
-            <button class="btn" type="button" id="removeAvatar">ลบรูป</button>
-          </div>
+          <button class="avatar-button" type="button" id="avatarButton" aria-label="เปลี่ยนรูปโปรไฟล์">
+            <img
+              id="avatarPreview"
+              class="avatar"
+              src="{{ user.avatar_url or url_for('static', filename='profile/default.png') }}"
+              alt="avatar"
+            >
+          </button>
+          <input id="avatarInput" type="file" name="avatar" accept="image/*" hidden>
           <input type="hidden" name="remove_avatar" id="removeFlag" value="">
           <div class="hint">รองรับ JPG/PNG (สูงสุด 2MB)</div>
         </div>
@@ -311,8 +322,15 @@
   // Preview avatar
   const avatarInput   = profileRoot ? profileRoot.querySelector('#avatarInput')   : null;
   const avatarPreview = profileRoot ? profileRoot.querySelector('#avatarPreview') : null;
+  const avatarButton  = profileRoot ? profileRoot.querySelector('#avatarButton')  : null;
   const removeBtn     = profileRoot ? profileRoot.querySelector('#removeAvatar')  : null;
   const removeFlag    = profileRoot ? profileRoot.querySelector('#removeFlag')    : null;
+
+  if (avatarButton && avatarInput) {
+    avatarButton.addEventListener('click', ()=>{
+      avatarInput.click();
+    });
+  }
 
   if (avatarInput && avatarPreview) {
     avatarInput.addEventListener('change', (e)=>{

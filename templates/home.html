@@ -783,15 +783,20 @@
   if(!track || !prev || !next) return;
 
   const step = () => Math.max(track.clientWidth * 0.66, 280);
+  const maxScroll = () => Math.max(track.scrollWidth - track.clientWidth - 1, 0);
 
   function updateNav(){
-    const max = track.scrollWidth - track.clientWidth - 1;
+    const max = maxScroll();
     prev.disabled = track.scrollLeft <= 0;
     next.disabled = track.scrollLeft >= max;
   }
 
-  prev.addEventListener('click', ()=> track.scrollBy({left: -step(), behavior: 'smooth'}));
-  next.addEventListener('click', ()=> track.scrollBy({left:  step(), behavior: 'smooth'}));
+  const goPrev = () => track.scrollBy({left: -step(), behavior: 'smooth'});
+  const goNext = () => track.scrollBy({left:  step(), behavior: 'smooth'});
+  const goStart = () => track.scrollTo({left: 0, behavior: 'smooth'});
+
+  prev.addEventListener('click', goPrev);
+  next.addEventListener('click', goNext);
 
   track.addEventListener('scroll', ()=> requestAnimationFrame(updateNav));
   window.addEventListener('resize', updateNav);
@@ -799,13 +804,28 @@
   updateNav();
 
   track.addEventListener('keydown', (e)=>{
-    if(e.key === 'ArrowRight') next.click();
-    if(e.key === 'ArrowLeft')  prev.click();
+    if(e.key === 'ArrowRight') goNext();
+    if(e.key === 'ArrowLeft')  goPrev();
   });
 
-  let timer = setInterval(()=> next.click(), 4000);
+  let timer = setInterval(()=>{
+    if(track.scrollLeft >= maxScroll()){
+      goStart();
+      return;
+    }
+    goNext();
+  }, 4000);
   const stop = ()=> { clearInterval(timer); timer = null; };
-  const start = ()=> { if(!timer) timer = setInterval(()=> next.click(), 4000); };
+  const start = () => {
+    if (timer) return;
+    timer = setInterval(() => {
+      if (track.scrollLeft >= maxScroll()) {
+        goStart();
+        return;
+      }
+      goNext();
+    }, 4000);
+  };
 
   track.addEventListener('mouseenter', stop);
   track.addEventListener('mouseleave', start);

@@ -1489,21 +1489,17 @@
     });
 
     const step = ()=> track.clientWidth * 0.7;
+    const goPrev = () => track.scrollBy({left:-step(), behavior:'smooth'});
+    const goNext = () => track.scrollBy({left: step(), behavior:'smooth'});
     if (prevBtn && nextBtn){
-      prevBtn.addEventListener('click', ()=> {
-        track.scrollBy({left:-step(), behavior:'smooth'});
-      });
-      nextBtn.addEventListener('click', ()=> {
-        track.scrollBy({left: step(), behavior:'smooth'});
-      });
+      prevBtn.addEventListener('click', goPrev);
+      nextBtn.addEventListener('click', goNext);
     }
 
     let timer = null;
     const startAuto = ()=>{
       if (timer) return;
-      timer = setInterval(()=> {
-        if (nextBtn) nextBtn.click();
-      }, 5000);
+      timer = setInterval(goNext, 5000);
     };
     const stopAuto = ()=>{
       if (!timer) return;

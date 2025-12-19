@@ -1,271 +1,37 @@
-{% set _container_id = container_id|default('notiContainer') %}
-
-<div id="{{ _container_id }}"
-     class="relative bg-white rounded-2xl shadow-sm max-w-2xl ring-1 ring-slate-200 overflow-hidden"
-     aria-live="polite">
-
-  <!-- CSRF สำหรับยิง AJAX -->
+<div id="notiPanel"
+     role="dialog"
+     aria-label="การแจ้งเตือน"
+     data-list-url="{{ url_for('noti.notifications_list') }}"
+     data-mark-all-url="{{ url_for('noti.mark_all_read') }}"
+     data-mark-read-url-template="{{ url_for('noti.mark_read', nid=0) }}"
+     data-unread-url="{{ url_for('noti.unread_count') }}"
+     data-max-items="100"
+     class="absolute right-0 top-full mt-2 w-[90vw] sm:w-[380px] hidden z-[60]
+            rounded-2xl border border-white/10 bg-[#18191b] shadow-2xl">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-  <!-- Header -->
-  <div class="flex items-center justify-between px-4 py-3 border-b">
-    <div class="flex items-center gap-2">
-      <svg class="w-5 h-5 text-slate-700" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round"
-              d="M15 17h5l-1.4-1.4A4 4 0 0 1 18 12V9a6 6 0 1 0-12 0v3c0 1.1-.4 2.1-1.1 2.9L3 17h5m6 0v1a3 3 0 1 1-6 0v-1" />
-      </svg>
-      <span class="font-semibold">Notifications</span>
-      <span data-role="unread-count"
-            class="ml-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-        {{ unread_count or 0 }}
-      </span>
-    </div>
+  <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+    <span class="font-semibold text-zinc-100">การแจ้งเตือน</span>
+    <span id="notiPanelCount" class="text-xs text-zinc-400"></span>
+  </div>
+  <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-white/10 text-xs text-zinc-300">
+    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+      <input id="notiUnreadToggle" type="checkbox" class="accent-white">
+      แสดงเฉพาะยังไม่อ่าน
+    </label>
+    <button id="notiMarkAllBtn" type="button"
+            class="px-3 py-1 rounded-full border border-white/15 bg-white/5 text-xs text-zinc-200 hover:text-white hover:border-white/30">
+      ทำเครื่องหมายว่าอ่านแล้ว
+    </button>
+  </div>
 
-    <div class="flex items-center gap-2">
-      <!-- ทำเป็นอ่านแล้วทั้งหมด -->
-      <button data-action="mark-all"
-              data-url="{{ url_for('noti.mark_all_read') }}"
-              class="p-1.5 rounded-lg hover:bg-slate-100"
-              title="ทำเป็นอ่านแล้วทั้งหมด">
-        <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      </button>
+  <div id="notiScroll" class="max-h-[420px] overflow-y-auto">
+    <ul id="notiList" class="divide-y divide-white/10"></ul>
+    <div id="notiEmpty" class="hidden px-4 py-6 text-center text-sm text-zinc-400">
+      ไม่มีการแจ้งเตือน
     </div>
   </div>
 
-  <!-- รายการแจ้งเตือน -->
-  <ul class="divide-y divide-slate-100 max-h-[70vh] overflow-y-auto">
-    {% if notifications %}
-      {% for n in notifications %}
-        <li data-unread="{{ 0 if n.is_read else 1 }}"
-            class="{{ '' if n.is_read else 'bg-slate-50' }}">
-          <div class="flex items-start gap-3 p-4">
-            <!-- ไอคอนวงกลม -->
-            <div data-role="noti-icon"
-                 class="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full
-                        {{ 'bg-slate-200 text-slate-700' if not n.is_read else 'bg-slate-100 text-slate-500' }}">
-              {% if n.type == 'new_chapter' %}
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 4a2 2 0 0 0-2 2v12.5A2.5 2.5 0 0 0 6.5 21H19V6a2 2 0 0 0-2-2H6zM6.5 19a.5.5 0 0 1-.5-.5V6h11v13h-10.5z"/>
-                </svg>
-              {% elif n.type == 'chapter_updated' %}
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.85-9.1a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                </svg>
-              {% elif n.type == 'comment' %}
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 2H4a2 2 0 0 0-2 2v14l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
-                </svg>
-              {% elif n.type == 'favorite' %}
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 17.3 6.18 21l1.64-7.03L3 9.24l7.19-.62L12 2l1.81 6.62L21 9.24l-4.82 4.73L17.82 21z"/>
-                </svg>
-              {% elif n.type == 'bookshelf_add' %}
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7 4h10v2H7V4zm0 4h10v2H7V8zm0 4h6v2H7v-2zm-2 6h14v2H5v-2zm0-2h2V4H5v16z"/>
-                </svg>
-              {% elif n.type == 'rating' %}
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 17.3 8.24 19.5 9.24 15.1 6 12.24l4.38-.38L12 7.9l1.62 3.96 4.38.38-3.24 2.86 1 4.4z"/>
-                </svg>
-              {% else %}
-                <span class="text-lg">🔔</span>
-              {% endif %}
-            </div>
-
-            <!-- เนื้อหา -->
-            <div class="flex-1 min-w-0">
-              <div class="flex items-start justify-between gap-2">
-                <div class="font-semibold text-slate-900">
-                  {{ n.type_label }}
-                  {% if n.novel_title %}
-                    — <span class="font-normal text-slate-700">
-                      {{ n.novel_title }}{% if n.chapter_no %} • ตอน {{ n.chapter_no }}{% endif %}
-                    </span>
-                  {% endif %}
-                </div>
-                <div class="text-xs text-slate-400 whitespace-nowrap">
-                  {{ n.created_at_display }}
-                </div>
-              </div>
-
-              <p class="mt-0.5 text-sm text-slate-600 line-clamp-2">{{ n.message }}</p>
-
-              <div class="mt-3 flex items-center gap-2">
-                {% if n.is_read %}
-                  <button data-action="toggle-read"
-                          data-url="{{ url_for('noti.mark_read', nid=n.notification_id) }}"
-                          data-read="0"
-                          class="btn-read px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-50">
-                    ทำเป็นยังไม่ได้อ่าน
-                  </button>
-                {% else %}
-                  <button data-action="toggle-read"
-                          data-url="{{ url_for('noti.mark_read', nid=n.notification_id) }}"
-                          data-read="1"
-                          class="btn-read px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm hover:bg-black">
-                    ทำเป็นอ่านแล้ว
-                  </button>
-                {% endif %}
-
-                <button data-action="delete"
-                        data-url="{{ url_for('noti.delete_notification', nid=n.notification_id) }}"
-                        class="btn-del px-3 py-1.5 rounded-lg border border-red-300 text-red-600 text-sm hover:bg-red-50">
-                  ลบ
-                </button>
-              </div>
-            </div>
-          </div>
-        </li>
-      {% endfor %}
-    {% else %}
-      <li>
-        <div class="p-8 text-center text-slate-500">
-          ไม่มีการแจ้งเตือน
-        </div>
-      </li>
-    {% endif %}
-  </ul>
+  <div id="notiLoading" class="hidden px-4 py-2 text-xs text-zinc-400">กำลังโหลด...</div>
+  <div id="notiEnd" class="hidden px-4 py-2 text-xs text-zinc-500">แสดงครบ 100 รายการล่าสุด</div>
 </div>
-
-<!-- สคริปต์ผูกอีเวนต์ & อัปเดต DOM แบบไม่รีเฟรชทั้งหน้า -->
-<script>
-  (function(){
-    const containerId = "{{ _container_id }}";
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    function getCsrfToken(){
-      const input = container.querySelector('input[name="csrf_token"]');
-      return input ? input.value : "";
-    }
-
-    async function apiPost(url, payload){
-      const body = new URLSearchParams(payload || {});
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
-        },
-        body: body.toString()
-      });
-      if (!res.ok){
-        throw new Error("HTTP " + res.status);
-      }
-      return await res.json();
-    }
-
-    function updateBadge(){
-      const badge = container.querySelector("[data-role='unread-count']");
-      if (!badge) return;
-      const count = container.querySelectorAll("li[data-unread='1']").length;
-      badge.textContent = count;
-    }
-
-    function applyReadState(li, isRead){
-      if (!li) return;
-      li.dataset.unread = isRead ? "0" : "1";
-      li.className = isRead ? "" : "bg-slate-50";
-
-      const icon = li.querySelector("[data-role='noti-icon']");
-      if (icon){
-        icon.className =
-          "shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full " +
-          (isRead ? "bg-slate-100 text-slate-500" : "bg-slate-200 text-slate-700");
-      }
-
-      const btn = li.querySelector("[data-action='toggle-read']");
-      if (btn){
-        if (isRead){
-          btn.textContent = "ทำเป็นยังไม่ได้อ่าน";
-          btn.dataset.read = "0";
-          btn.className =
-            "btn-read px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-50";
-        } else {
-          btn.textContent = "ทำเป็นอ่านแล้ว";
-          btn.dataset.read = "1";
-          btn.className =
-            "btn-read px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm hover:bg-black";
-        }
-      }
-    }
-
-    async function handleToggleRead(btn){
-      const url = btn.dataset.url;
-      const readVal = btn.dataset.read || "1";  // 1 = ทำเป็นอ่านแล้ว, 0 = ทำเป็นยังไม่ได้อ่าน
-      const li = btn.closest("li");
-      await apiPost(url, {
-        read: readVal,
-        csrf_token: getCsrfToken()
-      });
-      const isRead = (readVal === "1");
-      applyReadState(li, isRead);
-      updateBadge();
-    }
-
-    async function handleDelete(btn){
-      if (!confirm("ต้องการลบการแจ้งเตือนนี้ใช่ไหม?")) return;
-      const url = btn.dataset.url;
-      const li = btn.closest("li");
-      await apiPost(url, { csrf_token: getCsrfToken() });
-      if (li) li.remove();
-      updateBadge();
-
-      const anyItem = container.querySelector("li[data-unread]");
-      if (!anyItem){
-        const ul = container.querySelector("ul");
-        if (ul){
-          const empty = document.createElement("li");
-          empty.innerHTML =
-            '<div class="p-8 text-center text-slate-500">ไม่มีการแจ้งเตือน</div>';
-          ul.appendChild(empty);
-        }
-      }
-    }
-
-    async function handleMarkAll(btn){
-      const url = btn.dataset.url;
-      await apiPost(url, { csrf_token: getCsrfToken() });
-      container.querySelectorAll("li[data-unread]").forEach((li)=>{
-        applyReadState(li, true);
-      });
-      updateBadge();
-    }
-
-    async function guardedAction(btn, fn){
-      if (!btn) return;
-      if (btn._loading) return;
-      btn._loading = true;
-      btn.disabled = true;
-      btn.classList.add("opacity-60");
-      try {
-        await fn();
-      } catch (e){
-        console.error(e);
-        alert("ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง");
-      } finally {
-        btn.disabled = false;
-        btn.classList.remove("opacity-60");
-        btn._loading = false;
-      }
-    }
-
-    // Event delegation ใน panel เดียว
-    container.addEventListener("click", (ev)=>{
-      const btn = ev.target.closest("[data-action]");
-      if (!btn || !container.contains(btn)) return;
-      const action = btn.dataset.action;
-      if (action === "toggle-read"){
-        guardedAction(btn, ()=>handleToggleRead(btn));
-      } else if (action === "delete"){
-        guardedAction(btn, ()=>handleDelete(btn));
-      } else if (action === "mark-all"){
-        guardedAction(btn, ()=>handleMarkAll(btn));
-      }
-    });
-
-  })();
-</script>

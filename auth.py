@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
+from pathlib import Path
+import html
 import re
 
 from db import mysql, query_one, execute
@@ -10,6 +12,31 @@ auth_bp = Blueprint('auth', __name__, template_folder='templates')
 
 # ---------- Utilities ----------
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+def _avatar_initial(username: str) -> str:
+    name = (username or "").strip()
+    if not name:
+        return "?"
+    return name[0].upper()
+
+def _default_avatar_svg(initial: str) -> str:
+    safe_initial = html.escape(initial or "?")
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'
+        '<rect width="512" height="512" fill="#bdbdbd"/>'
+        '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" '
+        'font-size="240" font-family="Niramit, Segoe UI, sans-serif" fill="#2f2f2f">'
+        f"{safe_initial}</text></svg>"
+    )
+
+def _save_default_avatar(users_id: int, username: str) -> str:
+    initial = _avatar_initial(username)
+    svg = _default_avatar_svg(initial)
+    profile_dir = Path(current_app.root_path) / "static" / "profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"u{users_id}_default.svg"
+    (profile_dir / filename).write_text(svg, encoding="utf-8")
+    return f"profile/{filename}"
 
 def is_safe_next(next_url: str) -> bool:
     if not next_url:
@@ -159,10 +186,19 @@ def register():
     pw_hash = generate_password_hash(password, method='scrypt')
 
     try:
-        execute("""
+        _, new_id = execute("""
             INSERT INTO users (username, email, gender, password_hash, role, is_active, created_at)
             VALUES (%s, %s, %s, %s, 'user', 'บัญชีปกติ', NOW())
         """, (username, email, gender, pw_hash))
+        if new_id:
+            try:
+                pfpic_path = _save_default_avatar(int(new_id), username)
+                execute(
+                    "UPDATE users SET pfpic=%s, pfpic_updated_at=NOW() WHERE users_id=%s",
+                    (pfpic_path, int(new_id)),
+                )
+            except Exception:
+                current_app.logger.exception("default avatar create failed")
     except Exception:
         current_app.logger.exception("register failed")
         flash('สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', 'error')

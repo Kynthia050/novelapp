@@ -139,14 +139,15 @@
     .msg-error{color:#f87171}
     .msg-ok{color:#4ade80}
 
+    .req{color:#f87171;margin-left:.25rem}
+
     .hidden{display:none}
   </style>
 {% endblock %}
 
 {% block content %}
   <main class="site">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-lg md:text-xl font-semibold tracking-wide">สร้างนิยายใหม่</h1>
+    <div class="flex items-center justify-between mb-4 mt-2">
     </div>
 
     <form id="novelForm" class="panel p-5 md:p-6" enctype="multipart/form-data" novalidate>
@@ -158,26 +159,26 @@
       <div class="grid md:grid-cols-[320px_1fr] gap-5 items-start">
         <!-- COVER -->
         <div class="space-y-3">
-          <label class="block text-sm text-[var(--muted)]">รูปปก</label>
+          <label class="block text-sm text-[var(--muted)]">รูปปก<span class="req">*</span></label>
 
           <div id="coverUpload"
                class="cover-upload"
                tabindex="0"
                role="button"
-               aria-label="อัปโหลดรูปปก (รองรับ .jpg .png .webp)">
+               aria-label="อัปโหลดรูปปก (รองรับ .jpg .jpeg .png)">
             <div class="upload-icon">⬆️</div>
             <div class="upload-text">อัปโหลดรูปปก</div>
-            <div class="upload-guidelines">รองรับ .jpg .jpeg .png .webp</div>
+            <div class="upload-guidelines">รองรับ .jpg .jpeg .png </div>
             <div class="upload-dimensions">(800×800 px)</div>
           </div>
 
-          <input id="coverInput" name="cover" type="file" accept=".jpg,.jpeg,.png,.webp" class="hidden" />
+          <input id="coverInput" name="cover" type="file" accept=".jpg,.jpeg,.png" class="hidden" />
         </div>
 
         <!-- META -->
         <div class="grid gap-4">
           <div>
-            <label class="block text-sm text-[var(--muted)] mb-1" for="titleField">ชื่อเรื่อง</label>
+            <label class="block text-sm text-[var(--muted)] mb-1" for="titleField">ชื่อเรื่อง<span class="req">*</span></label>
             <input id="titleField"
                    name="title"
                    required
@@ -199,7 +200,7 @@
           </div>
 
           <div>
-            <label class="block text-sm text-[var(--muted)] mb-1" for="cateId">หมวดหมู่</label>
+            <label class="block text-sm text-[var(--muted)] mb-1" for="cateId">หมวดหมู่<span class="req">*</span></label>
             <select id="cateId" name="cate_id" class="select" required>
               <option value="">— เลือกหมวดหมู่ —</option>
               {% for c in categories %}
@@ -248,14 +249,14 @@
       </section>
 
       <div class="flex gap-3 items-center justify-end mt-5">
-        <button id="submitBtn" type="submit" class="btn btn-primary px-5 py-2 rounded-full font-semibold">
-          สร้างนิยายใหม่
-        </button>
-
         <button type="button"
                 class="btn btn-ghost px-5 py-2 rounded-full"
                 onclick="history.back()">
           ยกเลิก
+        </button>
+
+        <button id="submitBtn" type="submit" class="btn btn-primary px-5 py-2 rounded-full font-semibold">
+          สร้างนิยายใหม่
         </button>
       </div>
     </form>
@@ -285,6 +286,7 @@
 
   const titleField = document.getElementById('titleField');
   const descField  = document.getElementById('descriptionField');
+  const cateEl = document.getElementById('cateId');
   bindCounter(titleField, document.getElementById('titleCount'));
   bindCounter(descField,  document.getElementById('descriptionCount'));
 
@@ -315,6 +317,7 @@
   coverInput?.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     previewCover(file);
+    updateSubmitState();
   });
 
   const tagList  = document.getElementById('tagList');
@@ -347,6 +350,7 @@
     if(hasTag(t)) return;
     tags.push(t);
     renderTags();
+    updateSubmitState();
   }
   function commitTag(){
     addTag(tagInput.value);
@@ -368,22 +372,44 @@
     const key  = String(name).toLowerCase();
     tags = tags.filter(t => t.toLowerCase() !== key);
     renderTags();
+    updateSubmitState();
   });
 
   const form = document.getElementById('novelForm');
   const submitBtn = document.getElementById('submitBtn');
 
+  function hasRequiredInput(){
+    const title = (titleField.value || '').trim();
+    const cateId = (cateEl?.value || '').trim();
+    return Boolean(title && cateId);
+  }
+
+  function updateSubmitState(){
+    if(!submitBtn) return;
+    submitBtn.disabled = !hasRequiredInput();
+  }
+
+  updateSubmitState();
+  titleField?.addEventListener('input', updateSubmitState);
+  descField?.addEventListener('input', updateSubmitState);
+  cateEl?.addEventListener('change', updateSubmitState);
+  tagInput?.addEventListener('input', updateSubmitState);
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     setMsg('');
 
-    const cateEl = document.getElementById('cateId');
     const title = (titleField.value || '').trim();
     const description = (descField.value || '').trim();
     const cateId = (cateEl.value || '').trim();
 
-    if(!title){ setMsg('กรุณากรอกชื่อเรื่อง'); titleField.focus(); return; }
-    if(!cateId){ setMsg('กรุณาเลือกหมวดหมู่'); cateEl.focus(); return; }
+    if(!title || !cateId){
+      setMsg('กรุณากรอกข้อมูลให้ครบ (ชื่อเรื่องและหมวดหมู่)');
+      if(!title){ titleField.focus(); }
+      else{ cateEl.focus(); }
+      updateSubmitState();
+      return;
+    }
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'กำลังบันทึก...';
@@ -434,8 +460,8 @@
     }catch(err){
       setMsg(err.message || 'เกิดข้อผิดพลาด');
     }finally{
-      submitBtn.disabled = false;
       submitBtn.textContent = 'สร้างนิยายใหม่';
+      updateSubmitState();
     }
   });
 </script>

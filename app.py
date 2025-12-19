@@ -79,7 +79,27 @@ app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 # ทำให้ใช้ {{ csrf_token() }} ในทุก template ได้
 @app.context_processor
 def inject_csrf_token():
-    return dict(csrf_token=generate_csrf)
+    unread_count = 0
+    try:
+        uid = session.get("users_id") or session.get("user_id") or session.get("uid")
+        if not uid and isinstance(session.get("user"), dict):
+            uid = session.get("user", {}).get("users_id")
+        if uid:
+            from db import get_db_connection
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT COUNT(*) AS cnt FROM notifications WHERE users_id=%s AND is_read=0",
+                        (int(uid),)
+                    )
+                    unread_count = cur.fetchone()["cnt"]
+            finally:
+                conn.close()
+    except Exception:
+        unread_count = 0
+
+    return dict(csrf_token=generate_csrf, unread_count=unread_count)
 
 
 # ---------- Force Login First (สำคัญ) ----------

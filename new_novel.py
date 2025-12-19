@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from contextlib import closing
 from pathlib import Path
 from datetime import datetime
+from html import escape
 import uuid
 import json
 
@@ -204,6 +205,36 @@ def _save_cover_file(cover_file, novels_id: int) -> tuple[str | None, Path | Non
     return cover_filename, saved_path
 
 
+def _default_cover_svg(username: str) -> str:
+    name = " ".join((username or "").split()).strip()
+    if not name:
+        name = "ผู้ใช้"
+    size = 52
+    if len(name) > 24:
+        size = 32
+    elif len(name) > 18:
+        size = 38
+    elif len(name) > 12:
+        size = 44
+    safe_name = escape(name)
+    return (
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"800\" height=\"800\" viewBox=\"0 0 800 800\">"
+        "<rect width=\"800\" height=\"800\" fill=\"#d1d5db\"/>"
+        "<text x=\"50%\" y=\"50%\" text-anchor=\"middle\" dominant-baseline=\"middle\" "
+        "font-family=\"Niramit, sans-serif\" font-size=\"%d\" fill=\"#111827\">%s</text>"
+        "</svg>"
+        % (size, safe_name)
+    )
+
+
+def _save_default_cover(username: str, novels_id: int) -> tuple[str, Path]:
+    upload_dir = _upload_dir()
+    cover_filename = f"default_{novels_id}_{uuid.uuid4().hex}.svg"
+    saved_path = upload_dir / cover_filename
+    saved_path.write_text(_default_cover_svg(username), encoding="utf-8")
+    return cover_filename, saved_path
+
+
 def _tag_find_or_create(cur, name: str) -> int:
     """
     ✅ ปลอดภัย: ถ้า tags ไม่มีคอลัมน์ slug ก็ยังทำงานได้
@@ -328,6 +359,9 @@ def api_create_novel():
 
                     if will_upload_cover:
                         cover_filename, saved_cover_path = _save_cover_file(cover_file, novels_id)
+                    else:
+                        username = _current_username(conn, users_id)
+                        cover_filename, saved_cover_path = _save_default_cover(username, novels_id)
 
                     cur.execute(
                         """

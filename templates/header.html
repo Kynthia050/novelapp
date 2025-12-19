@@ -65,32 +65,38 @@
         </a>
 
         {# --- แจ้งเตือน: ใช้ SVG ใหม่ + จุดแดง --- #}
-        <button
-          type="button"
-          id="btnNotifications"
-          class="{{ iconBtn }} relative"
-          aria-haspopup="dialog"
-          aria-controls="notificationsModal"
-          aria-label="แจ้งเตือน"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
-            <path
-              d="M5.85 3.5a.75.75 0 0 0-1.117-1 9.719 9.719 0 0 0-2.348 4.876.75.75 0 0 0 1.479.248A8.219 8.219 0 0 1 5.85 3.5ZM19.267 2.5a.75.75 0 1 0-1.118 1 8.22 8.22 0 0 1 1.987 4.124.75.75 0 0 0 1.48-.248A9.72 9.72 0 0 0 19.266 2.5Z"
-            />
-            <path
-              fill-rule="evenodd"
-              d="M12 2.25A6.75 6.75 0 0 0 5.25 9v.75a8.217 8.217 0 0 1-2.119 5.52.75.75 0 0 0 .298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 1 0 7.48 0 24.583 24.583 0 0 0 4.83-1.244.75.75 0 0 0 .298-1.205 8.217 8.217 0 0 1-2.118-5.52V9A6.75 6.75 0 0 0 12 2.25ZM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 0 0 4.496 0l.002.1a2.25 2.25 0 1 1-4.5 0Z"
-              clip-rule="evenodd"
-            />
-          </svg>
+        <div class="relative" id="notiWrap">
+          <button
+            type="button"
+            id="btnNotifications"
+            class="{{ iconBtn }} relative"
+            aria-haspopup="dialog"
+            aria-controls="notiPanel"
+            aria-expanded="false"
+            aria-label="Notifications"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+              <path
+                d="M5.85 3.5a.75.75 0 0 0-1.117-1 9.719 9.719 0 0 0-2.348 4.876.75.75 0 0 0 1.479.248A8.219 8.219 0 0 1 5.85 3.5ZM19.267 2.5a.75.75 0 1 0-1.118 1 8.22 8.22 0 0 1 1.987 4.124.75.75 0 0 0 1.48-.248A9.72 9.72 0 0 0 19.266 2.5Z"
+              />
+              <path
+                fill-rule="evenodd"
+                d="M12 2.25A6.75 6.75 0 0 0 5.25 9v.75a8.217 8.217 0 0 1-2.119 5.52.75.75 0 0 0 .298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 1 0 7.48 0 24.583 24.583 0 0 0 4.83-1.244.75.75 0 0 0 .298-1.205 8.217 8.217 0 0 1-2.118-5.52V9A6.75 6.75 0 0 0 12 2.25ZM9.75 18c0-.034 0-.067.002-.1a25.05 25.05 0 0 0 4.496 0l.002.1a2.25 2.25 0 1 1-4.5 0Z"
+                clip-rule="evenodd"
+              />
+            </svg>
 
-          {# จุดแดงบอกว่ามีแจ้งเตือนใหม่ #}
-          <span
-            id="headerNotiDot"
-            class="absolute -top-0.5 -right-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#111214]
-                   {% if not (unread_count is defined and unread_count|int > 0) %}hidden{% endif %}"
-          ></span>
-        </button>
+            {% set unread_num = (unread_count|int) if unread_count is defined else 0 %}
+            {% set unread_label = '99+' if unread_num > 99 else unread_num %}
+            <span
+              id="headerNotiDot"
+              class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none ring-2 ring-[#111214]
+                     {% if unread_num <= 0 %}hidden{% endif %}"
+            >{{ unread_label }}</span>
+          </button>
+
+          {% include 'notification_panel.html' %}
+        </div>
 
         {# --- ชั้นหนังสือ/หัวใจ: ใช้ SVG ใหม่ --- #}
         <a href="{{ url_for('bookshelf') }}" class="{{ iconBtn }}" aria-label="ชั้นหนังสือ">
@@ -102,93 +108,354 @@
         </a>
 
         {# --- โปรไฟล์: ใช้รูปจาก users.pfpic อย่างปลอดภัย --- #}
-        {% if current_user is defined and current_user.is_authenticated and current_user.pfpic %}
-          {% set profile_img = url_for('static', filename=current_user.pfpic) %}
+        {% set raw_pfpic = "" %}
+        {% if g.user and g.user.pfpic %}
+          {% set raw_pfpic = g.user.pfpic %}
+        {% elif current_user is defined and current_user.is_authenticated and current_user.pfpic %}
+          {% set raw_pfpic = current_user.pfpic %}
+        {% endif %}
+
+        {% if raw_pfpic %}
+          {% set pfpic = (raw_pfpic|string)|trim %}
+          {% if pfpic.startswith('http://') or pfpic.startswith('https://') or pfpic.startswith('/static/') %}
+            {% set profile_img = pfpic %}
+          {% else %}
+            {% set profile_img = url_for('static', filename=pfpic) %}
+          {% endif %}
         {% else %}
           {% set profile_img = url_for('static', filename='profile/default-avatar.png') %}
         {% endif %}
 
-        <a href="{{ url_for('profile.profileusers') }}" class="{{ iconBtn }}" aria-label="โปรไฟล์">
-          <img src="{{ profile_img }}" alt="โปรไฟล์ของฉัน" class="w-6 h-6 rounded-full object-cover" loading="lazy" />
+        <a href="{{ url_for('profile.profileusers') }}" class="{{ iconBtn }} overflow-hidden" aria-label="โปรไฟล์">
+          <img src="{{ profile_img }}" alt="โปรไฟล์ของฉัน" class="w-full h-full rounded-full object-cover" loading="lazy" />
         </a>
       </div>
     </nav>
   </div>
 </header>
 
-<!-- Notifications Modal -->
-<div id="notificationsModal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="notiTitle">
-  <div id="notiBackdrop" class="absolute inset-0 bg-black/50"></div>
-  <div class="absolute inset-0 flex items-start md:items-center justify-center p-4 md:p-6 overflow-y-auto">
-    <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200" id="notiContainer">
-      <button type="button" class="absolute top-3 right-3 p-2 rounded-lg hover:bg-slate-100" aria-label="ปิด" id="notiClose">
-        ✕
-      </button>
-      {% set container_id = 'notiContent' %}
-      {% include 'notification_panel.html' %}
-    </div>
-  </div>
-</div>
-
-<!-- Notifications modal loader + search clear -->
+<!-- Notifications panel + search clear -->
 <script>
   (function () {
-    // --- Notifications modal ---
     const btn = document.getElementById("btnNotifications");
-    const modal = document.getElementById("notificationsModal");
-    const btnClose = document.getElementById("notiClose");
-    const backdrop = document.getElementById("notiBackdrop");
+    const panel = document.getElementById("notiPanel");
+    const wrap = document.getElementById("notiWrap");
+    const list = document.getElementById("notiList");
+    const scroll = document.getElementById("notiScroll");
+    const empty = document.getElementById("notiEmpty");
+    const loadingEl = document.getElementById("notiLoading");
+    const endEl = document.getElementById("notiEnd");
+    const countEl = document.getElementById("notiPanelCount");
+    const badge = document.getElementById("headerNotiDot");
+    const unreadToggle = document.getElementById("notiUnreadToggle");
+    const markAllBtn = document.getElementById("notiMarkAllBtn");
 
-    function openModal() {
-      modal.classList.remove("hidden");
+    const maxItems = Number(panel?.dataset?.maxItems || 50);
+    const listUrl = panel?.dataset?.listUrl || "";
+    const markAllUrl = panel?.dataset?.markAllUrl || "";
+    const markReadTpl = panel?.dataset?.markReadUrlTemplate || "";
+    const unreadUrl = panel?.dataset?.unreadUrl || "";
+    const csrfToken = panel?.querySelector('input[name="csrf_token"]')?.value || "";
+
+    let offset = 0;
+    let loading = false;
+    let reachedEnd = false;
+    let onlyUnread = false;
+
+    function setLoading(show) {
+      if (!loadingEl) return;
+      loadingEl.classList.toggle("hidden", !show);
     }
-    function closeModal() {
-      modal.classList.add("hidden");
+
+    function setEmpty(show) {
+      if (!empty) return;
+      empty.classList.toggle("hidden", !show);
     }
 
-    btn &&
-      btn.addEventListener("click", async () => {
-        openModal();
+    function setEnd(show) {
+      if (!endEl) return;
+      endEl.classList.toggle("hidden", !show);
+    }
 
-        // ดึง notiContent สด ๆ ทุกครั้ง
-        let content = document.getElementById("notiContent");
-        if (content) {
-          content.innerHTML =
-            '<div class="p-6 text-center text-slate-500">กำลังโหลด...</div>';
+    function updateCount() {
+      if (!countEl) return;
+      if (!offset) {
+        countEl.textContent = "";
+        return;
+      }
+      const shown = Math.min(offset, maxItems);
+      countEl.textContent = `${shown}/${maxItems}`;
+    }
+
+    async function postForm(url, payload) {
+      const body = new URLSearchParams(payload || {});
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+        body: body.toString(),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }
+
+    function setItemReadState(li, isRead) {
+      if (!li) return;
+      li.dataset.unread = isRead ? "0" : "1";
+      li.classList.toggle("bg-white/5", !isRead);
+
+      const dot = li.querySelector('[data-role="noti-dot"]');
+      if (dot) {
+        dot.className = "mt-1 h-2 w-2 rounded-full " + (isRead ? "bg-white/20" : "bg-white");
+      }
+
+      const msg = li.querySelector('[data-role="noti-msg"]');
+      if (msg) {
+        msg.className = isRead ? "text-sm text-zinc-400" : "text-sm text-zinc-100";
+      }
+
+      const time = li.querySelector('[data-role="noti-time"]');
+      if (time) {
+        time.className = isRead ? "mt-1 text-xs text-zinc-500" : "mt-1 text-xs text-zinc-400";
+      }
+    }
+
+    async function markAllRead() {
+      if (!markAllUrl) return;
+      try {
+        await postForm(markAllUrl, { csrf_token: csrfToken });
+        updateBadge(0);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function markRead(nid) {
+      if (!markReadTpl || !nid) return;
+      const url = markReadTpl.replace("0", String(nid));
+      try {
+        await postForm(url, { read: "1", csrf_token: csrfToken });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function buildItem(n) {
+      const isRead = Boolean(n.is_read);
+      const clickable = Boolean(n.can_open && n.novel_url);
+      const displayMsg = n.display_message || n.message || "";
+
+      const li = document.createElement("li");
+      if (n.notification_id) {
+        li.dataset.nid = String(n.notification_id);
+      }
+      li.dataset.unread = isRead ? "0" : "1";
+      li.className = isRead ? "" : "bg-white/5";
+
+      const wrapper = document.createElement(clickable ? "button" : "div");
+      if (clickable) {
+        wrapper.type = "button";
+        wrapper.dataset.action = "open-noti";
+        wrapper.dataset.url = n.novel_url;
+        wrapper.dataset.nid = n.notification_id;
+      }
+      wrapper.className = "w-full text-left flex gap-3 px-4 py-3" +
+        (clickable ? " hover:bg-white/5 cursor-pointer" : " cursor-default");
+
+      const dot = document.createElement("span");
+      dot.dataset.role = "noti-dot";
+      dot.className = "mt-1 h-2 w-2 rounded-full " + (isRead ? "bg-white/20" : "bg-white");
+
+      const body = document.createElement("div");
+      body.className = "min-w-0 flex-1";
+
+      const msg = document.createElement("div");
+      msg.dataset.role = "noti-msg";
+      msg.className = isRead ? "text-sm text-zinc-400" : "text-sm text-zinc-100";
+      msg.textContent = displayMsg;
+
+      const time = document.createElement("div");
+      time.dataset.role = "noti-time";
+      time.className = isRead ? "mt-1 text-xs text-zinc-500" : "mt-1 text-xs text-zinc-400";
+      time.textContent = n.created_at_display || "";
+
+      body.appendChild(msg);
+      body.appendChild(time);
+
+      wrapper.appendChild(dot);
+      wrapper.appendChild(body);
+      li.appendChild(wrapper);
+
+      return li;
+    }
+
+    async function loadMore(limit, reset = false) {
+      if (!list || !listUrl || loading) return;
+
+      if (reset) {
+        list.innerHTML = "";
+        offset = 0;
+        reachedEnd = false;
+        if (scroll) scroll.scrollTop = 0;
+        setEmpty(false);
+        setEnd(false);
+      } else if (reachedEnd) {
+        return;
+      }
+
+      loading = true;
+      setLoading(true);
+
+      try {
+        const url = new URL(listUrl, window.location.origin);
+        url.searchParams.set("offset", String(offset));
+        url.searchParams.set("limit", String(limit));
+        if (onlyUnread) {
+          url.searchParams.set("unread", "1");
         }
 
-        try {
-          const res = await fetch(
-            '{{ url_for("noti.notifications_page") }}?container_id=notiContent',
-            {
-              headers: { "X-Requested-With": "fetch" },
-            }
-          );
-          const html = await res.text();
+        const res = await fetch(url.toString(), {
+          headers: { "X-Requested-With": "fetch" },
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "load failed");
 
-          // ดึง element อีกครั้งหลังจากอาจมีการเปลี่ยน DOM
-          const current = document.getElementById("notiContent");
-          if (current) current.outerHTML = html;
-        } catch (e) {
-          console.error(e);
-          // fallback ถ้าไม่เจอ notiContent
-          let fallback = document.getElementById("notiContent");
-          if (!fallback) {
-            fallback = document.createElement("div");
-            fallback.id = "notiContent";
-            const container = document.getElementById("notiContainer");
-            if (container) container.appendChild(fallback);
-          }
-          fallback.innerHTML =
-            '<div class="p-6 text-center text-red-600">โหลดไม่สำเร็จ</div>';
+        const items = Array.isArray(data.notifications) ? data.notifications : [];
+        items.forEach((n) => list.appendChild(buildItem(n)));
+
+        offset += items.length;
+        updateCount();
+
+        if (!items.length || offset >= maxItems || data.has_more === false) {
+          reachedEnd = true;
+        }
+
+        setEmpty(offset === 0);
+        setEnd(reachedEnd && offset > 0);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        loading = false;
+        setLoading(false);
+      }
+    }
+
+    function openPanel() {
+      if (!panel) return;
+      panel.classList.remove("hidden");
+      btn?.setAttribute("aria-expanded", "true");
+      setEmpty(false);
+      setEnd(false);
+      updateCount();
+      loadMore(10, true);
+    }
+
+    function closePanel() {
+      if (!panel) return;
+      panel.classList.add("hidden");
+      btn?.setAttribute("aria-expanded", "false");
+    }
+
+    btn && btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!panel) return;
+      if (panel.classList.contains("hidden")) {
+        openPanel();
+      } else {
+        closePanel();
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!panel || panel.classList.contains("hidden")) return;
+      if (wrap && wrap.contains(e.target)) return;
+      closePanel();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closePanel();
+    });
+
+    scroll && scroll.addEventListener("scroll", () => {
+      if (loading || reachedEnd) return;
+      if (scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - 80) {
+        loadMore(2, false);
+      }
+    });
+
+    list && list.addEventListener("click", (e) => {
+      const target = e.target.closest('[data-action="open-noti"]');
+      if (!target) return;
+      const url = target.dataset.url;
+      const nid = target.dataset.nid;
+      if (!url) return;
+      e.preventDefault();
+      markRead(nid).finally(() => {
+        window.location.href = url;
+      });
+    });
+
+    unreadToggle && unreadToggle.addEventListener("change", () => {
+      onlyUnread = Boolean(unreadToggle.checked);
+      loadMore(10, true);
+    });
+
+    markAllBtn && markAllBtn.addEventListener("click", () => {
+      markAllRead().finally(() => {
+        if (onlyUnread) {
+          loadMore(10, true);
+        } else if (list) {
+          list.querySelectorAll("li").forEach((li) => setItemReadState(li, true));
         }
       });
-
-    btnClose && btnClose.addEventListener("click", closeModal);
-    backdrop && backdrop.addEventListener("click", closeModal);
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeModal();
     });
+
+    function updateBadge(count) {
+      if (!badge) return;
+      const n = Number(count || 0);
+      if (!(n > 0)) {
+        badge.classList.add("hidden");
+        badge.textContent = "";
+        return;
+      }
+
+      const label = n > 99 ? "99+" : String(n);
+      badge.textContent = label;
+      badge.classList.remove("hidden");
+    }
+
+    function panelIsOpen() {
+      return panel && !panel.classList.contains("hidden");
+    }
+
+    async function fetchUnreadCount() {
+      if (!unreadUrl) return;
+      try {
+        const res = await fetch(unreadUrl, {
+          headers: { "X-Requested-With": "fetch" },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.ok) {
+          updateBadge(data.unread_count);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (unreadUrl) {
+      const pollUpdates = async () => {
+        await fetchUnreadCount();
+        if (panelIsOpen()) {
+          if (onlyUnread || !scroll || scroll.scrollTop <= 20) {
+            loadMore(10, true);
+          }
+        }
+      };
+
+      pollUpdates();
+      setInterval(pollUpdates, 15000);
+    }
 
     // --- Search clear button ---
     const searchForm = document.querySelector('form[role="search"][data-header-search]');
@@ -212,7 +479,6 @@
           input.focus();
         });
 
-        // ตั้งค่าเริ่มต้นตามค่าที่มาจาก request.args
         toggleClear();
       }
     }

@@ -1004,6 +1004,9 @@ def rate(novels_id: int):
             )
             row = cur.fetchone()
 
+            rating_inserted = False
+            rating_id = None
+
             if row:
                 cur.execute(
                     """
@@ -1022,7 +1025,43 @@ def rate(novels_id: int):
                     (users_id, novels_id, rating),
                 )
 
+                rating_inserted = True
+                rating_id = getattr(cur, "lastrowid", None)
+
             # คำนวณค่าเฉลี่ยใหม่
+            if rating_inserted and rating_id and _has_table(cur, "notifications"):
+                cur.execute(
+                    "SELECT users_id, title FROM novels WHERE novels_id = %s",
+                    (novels_id,),
+                )
+                nrow = cur.fetchone() or {}
+                author_id = nrow.get("users_id")
+                novel_title = (nrow.get("title") or "").strip()
+
+                if author_id and int(author_id) != int(users_id):
+                    cur.execute(
+                        """
+                        SELECT notification_id
+                        FROM notifications
+                        WHERE users_id = %s AND type = 'rating' AND reference_id = %s
+                        LIMIT 1
+                        """,
+                        (author_id, rating_id),
+                    )
+                    if not cur.fetchone():
+                        message = "นิยายของคุณได้รับการให้คะแนนใหม่"
+                        if novel_title:
+                            message = f"นิยายของคุณได้รับการให้คะแนนใหม่: {novel_title}"
+
+                        cur.execute(
+                            """
+                            INSERT INTO notifications (
+                              users_id, actor_user_id, type, novel_id, reference_id, message, is_read, created_at
+                            ) VALUES (%s, %s, 'rating', %s, %s, %s, 0, NOW())
+                            """,
+                            (author_id, users_id, novels_id, rating_id, message),
+                        )
+
             cur.execute(
                 """
                 SELECT AVG(rating) AS avg_rating,

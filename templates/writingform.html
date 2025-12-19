@@ -53,7 +53,7 @@
     .page {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 28px;
+      padding: 48px 28px 40px;
     }
 
     .panel {
@@ -66,6 +66,7 @@
 
     .title-display {
       font-size: clamp(22px, 3.2vw, 40px);
+      font-weight: 700;
       letter-spacing: 0.0 em;
       margin-bottom: 22px;
     }
@@ -74,12 +75,13 @@
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 18px 20px;
-      align-items: center;
+      align-items: start;
       margin-bottom: 18px;
     }
 
     .label {
-      font-size: clamp(16px, 1.4vw, 22px);
+      font-size: 1rem;
+      font-weight: 700;
       letter-spacing: 0.0 em;
     }
 
@@ -104,6 +106,18 @@
       font-size: 1rem;
     }
 
+    .field-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-meta {
+      font-size: 0.85rem;
+      opacity: 0.7;
+      text-align: right;
+    }
+
     .editor-wrap { margin-top: 12px; }
 
     .editor-bar {
@@ -113,7 +127,7 @@
       margin-bottom: 8px;
     }
 
-    .editor-label { font-weight: 700; margin-bottom: 0; }
+    .editor-label { font-size: 1rem; font-weight: 700; margin-bottom: 0; }
     .preview-bar { margin-bottom: 0; }
 
     .actions {
@@ -140,8 +154,10 @@
     }
 
     .btn:hover { filter: brightness(.95); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; filter: none; }
 
     @media (max-width: 720px) {
+      .page { padding: 32px 16px 32px; }
       .fields { grid-template-columns: 1fr; }
       .label { text-align: left; }
     }
@@ -248,13 +264,17 @@
         />
 
         <div class="label">ชื่อตอน :</div>
-        <input
-          type="text"
-          id="epName"
-          class="input"
-          placeholder="ชื่อตอน (เช่น Rising Star)"
-          value="{{ chapter.title if chapter else '' }}"
-        />
+        <div class="field-stack">
+          <input
+            type="text"
+            id="epName"
+            maxlength="150"
+            class="input"
+            placeholder="ชื่อตอน (เช่น Rising Star)"
+            value="{{ chapter.title if chapter else '' }}"
+          />
+          <p class="field-meta"><span id="epNameCount">0</span>/150 ตัวอักษร</p>
+        </div>
       </div>
 
       <!-- ฟอร์มส่งไปบันทึกตอน -->
@@ -414,6 +434,24 @@
       ? serverData.chapterContent
       : quill.root.innerHTML;
 
+    const previewBtn = document.getElementById('previewBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    function updateActionState() {
+      const epNameRaw = document.getElementById('epName').value || '';
+      const epName = epNameRaw.trim();
+      const html = quill.root.innerHTML.trim();
+      const textOnly = html.replace(/<[^>]*>/g,'').replace(/&nbsp;|\s/g,'');
+      const hasImage = /<img\b/i.test(html);
+      const hasTitle = epName.length > 0;
+      const hasContent = Boolean(textOnly || hasImage);
+      const canProceed = hasTitle && hasContent;
+      if (previewBtn) previewBtn.disabled = !canProceed;
+      if (saveBtn) saveBtn.disabled = !canProceed;
+      const nameCount = document.getElementById('epNameCount');
+      if (nameCount) nameCount.textContent = String(epNameRaw.length);
+    }
+    updateActionState();
+
     // ===== อัปโหลดรูปจาก Quill -> /writing/upload =====
     quill.getModule('toolbar').addHandler('image', () => {
       const input = document.createElement('input');
@@ -535,16 +573,19 @@
     quill.on('text-change', () => {
       dirty = true;
       scheduleAutoSave();
+      updateActionState();
     });
 
     document.getElementById('part').addEventListener('change', () => {
       dirty = true;
       scheduleAutoSave();
+      updateActionState();
     });
 
     document.getElementById('epName').addEventListener('input', () => {
       dirty = true;
       scheduleAutoSave();
+      updateActionState();
     });
 
     // ✅ เตือนเฉพาะตอนปิดแท็บ/รีเฟรชเอง (ไม่เตือนตอนกดปุ่มในหน้า)
@@ -597,7 +638,6 @@
     });
 
     // ===== ปุ่ม Preview =====
-    const previewBtn = document.getElementById('previewBtn');
     if (previewBtn) {
       previewBtn.addEventListener('click', async () => {
         await runAutoSave();
@@ -619,7 +659,7 @@
     }
 
     // ===== ปุ่ม Save =====
-    document.getElementById('saveBtn').addEventListener('click', () => {
+    if (saveBtn) saveBtn.addEventListener('click', () => {
       const part = Number(document.getElementById('part').value || 0);
       const epName = (document.getElementById('epName').value || '').trim();
       const html = quill.root.innerHTML.trim();
@@ -640,7 +680,7 @@
       document.getElementById('epNameInput').value = epName;
       document.getElementById('chapter-content').value = html;
 
-      const btn = document.getElementById('saveBtn');
+      const btn = saveBtn;
       const original = btn.textContent;
       btn.textContent = '{% if chapter %}กำลังอัปเดต...{% else %}กำลังบันทึก...{% endif %}';
       btn.disabled = true;
@@ -666,7 +706,7 @@
     window.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        document.getElementById('saveBtn').click();
+        if (saveBtn && !saveBtn.disabled) saveBtn.click();
       }
     });
   </script>

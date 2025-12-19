@@ -24,9 +24,6 @@
   {% set users = users|default([]) %}
   {% set csrf_token = csrf_token if (csrf_token is defined) else None %}
 
-  <header class="sticky top-0 z-30 border-b border-white/10 bg-bg/80 backdrop-blur-md">
-    {% include 'header.html' %}
-  </header>
 
   <div class="min-h-screen flex">
 
@@ -326,7 +323,7 @@
               เพิ่มหมวดหมู่นิยายใหม่ในระบบ (ชื่อไม่ซ้ำ)
             </p>
             <form method="post" action="{{ url_for('dashboard.add_category') }}" class="flex flex-col gap-2">
-              {{ csrf_token() if csrf_token is defined }}
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input
                 type="text"
                 name="name"
