@@ -74,45 +74,44 @@ def bookshelf_index():
     if tab == "favorites":
         tab = "favorite"
 
-    # status filter: all / continue / done
+    # status filter: all / finished / ongoing
     status_filter = (request.args.get("status", "all") or "all").lower()
+
+    order = (request.args.get("order", "asc") or "asc").lower()
+    if order not in ("asc", "desc"):
+        order = "asc"
 
     conn = get_db_connection()
     rows = []
 
+    # ✅ สถานะ “เผยแพร่” ของ chapters (รองรับทั้งอังกฤษ/ไทย เผื่อ DB เก็บต่างกัน)
+    PUBLISHED_STATUSES = ("published", "เผยแพร่", "เผยแพร่แล้ว")
+
     try:
         with conn.cursor(DictCursor) as cur:
-            has_chapter_view = _has_table(cur, "v_novel_chapter_counts")
             has_rating_view = _has_table(cur, "v_novel_rating_stats")
 
-            # ---- SELECT/LEFT JOIN สำหรับ chapter counts ----
-            # ใน DB ของคุณ view ใช้ชื่อคอลัมน์ chapter_count
-            chapters_sel = (
-                "IFNULL(vc.chapter_count, 0) AS total_chapters"
-                if has_chapter_view
-                else (
-                    "(SELECT COUNT(*) "
-                    " FROM chapters c2 "
-                    " WHERE c2.novels_id = n.novels_id AND c2.status='published'"
-                    ") AS total_chapters"
-                )
+            # ---- จำนวนตอน: นับเฉพาะตอนเผยแพร่เท่านั้น (ตาม requirement) ----
+            # ส่งทั้ง published_chapters และ total_chapters (ให้เท่ากัน เพื่อไม่พังกับ template เก่า)
+            published_chapters_sel = (
+                "(SELECT COUNT(*) "
+                " FROM chapters c2 "
+                " WHERE c2.novels_id = n.novels_id "
+                f"   AND c2.status IN {PUBLISHED_STATUSES}"
+                ") AS published_chapters"
             )
-            chapters_join = (
-                "LEFT JOIN v_novel_chapter_counts vc ON vc.novels_id = n.novels_id"
-                if has_chapter_view
-                else ""
-            )
+            total_chapters_sel = "published_chapters AS total_chapters"
 
             # ---- เลขตอนแรกที่ “published” (กัน draft) ----
             first_chapter_sel = (
                 "(SELECT MIN(cmin.chapter_no) "
                 " FROM chapters cmin "
-                " WHERE cmin.novels_id = n.novels_id AND cmin.status='published'"
+                " WHERE cmin.novels_id = n.novels_id "
+                f"   AND cmin.status IN {PUBLISHED_STATUSES}"
                 ") AS first_chapter_no"
             )
 
             # ---- SELECT/LEFT JOIN สำหรับ rating stats ----
-            # ใน DB ของคุณ view ใช้ avg_rating + rating_count
             rating_sel = (
                 "IFNULL(vr.avg_rating, 0) AS avg_rating, IFNULL(vr.rating_count, 0) AS rating_count"
                 if has_rating_view
@@ -131,9 +130,9 @@ def bookshelf_index():
             )
 
             # ---- derived: reading_history ล่าสุดต่อ 1 novels_id (progress ตรง last_read_at) ----
-            # เพราะ reading_history ของคุณเป็นหลายแถวต่อเรื่อง (users_id, novels_id, chapters_id)
+            # ✅ เพิ่ม chapters_id เพื่อทำ “อ่านต่อ” ไปตอนล่าสุดที่อ่าน
             last_rh_derived = """
-                SELECT rh1.novels_id, rh1.progress, rh1.last_read_at
+                SELECT rh1.novels_id, rh1.chapters_id, rh1.progress, rh1.last_read_at
                 FROM reading_history rh1
                 WHERE rh1.users_id = %s
                   AND rh1.rh_id = (
@@ -146,6 +145,15 @@ def bookshelf_index():
                   )
             """
 
+            # ✅ join เพื่อเอา chapter_no ของ “ตอนล่าสุดที่อ่าน” (และต้องเป็นตอนเผยแพร่เท่านั้น)
+            last_chapter_join = (
+                "LEFT JOIN chapters cr ON cr.chapters_id = rh.chapters_id "
+                f"AND cr.status IN {PUBLISHED_STATUSES}"
+            )
+            last_chapter_sel = "cr.chapter_no AS last_chapter_no"
+
+            order_dir = "ASC" if order == "asc" else "DESC"
+
             # =========== เลือก SQL ตาม tab ===========
             if tab == "recent":
                 # เรื่องที่อ่านล่าสุด (ตาม reading_history ล่าสุดต่อเรื่อง)
@@ -154,36 +162,43 @@ def bookshelf_index():
                     rh.novels_id,
                     n.title,
                     n.cover,
+                    COALESCE(n.views, 0) AS views,
                     n.status AS novel_status,
                     u.username AS author_name,
-                    {chapters_sel},
+                    u.users_id AS author_id,
+                    {published_chapters_sel},
                     {first_chapter_sel},
                     {rating_sel},
                     rh.progress,
-                    rh.last_read_at
+                    rh.last_read_at,
+                    {last_chapter_sel}
                 FROM ({last_rh_derived}) AS rh
                 JOIN novels n ON n.novels_id = rh.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
-                {chapters_join}
+                {last_chapter_join}
                 {rating_join}
-                ORDER BY rh.last_read_at DESC, n.title;
+                ORDER BY rh.last_read_at {order_dir}, n.title;
                 """
                 cur.execute(sql, (user_id,))
 
             elif tab == "rated":
                 # เรื่องที่ user เคยให้คะแนน (เอา updated_at ล่าสุดต่อเรื่อง)
+                # ✅ rated ไม่มี reading_history => จะอ่านต่อไปตอนเผยแพร่ตอนแรก
                 sql = f"""
                 SELECT
                     rr.novels_id,
                     n.title,
                     n.cover,
+                    COALESCE(n.views, 0) AS views,
                     n.status AS novel_status,
                     u.username AS author_name,
-                    {chapters_sel},
+                    u.users_id AS author_id,
+                    {published_chapters_sel},
                     {first_chapter_sel},
                     {rating_sel},
                     NULL AS progress,
-                    rr.last_rated_at AS last_read_at
+                    rr.last_rated_at AS last_read_at,
+                    NULL AS last_chapter_no
                 FROM (
                     SELECT novels_id, MAX(updated_at) AS last_rated_at
                     FROM ratings
@@ -192,9 +207,8 @@ def bookshelf_index():
                 ) rr
                 JOIN novels n ON n.novels_id = rr.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
-                {chapters_join}
                 {rating_join}
-                ORDER BY rr.last_rated_at DESC, n.title;
+                ORDER BY rr.last_rated_at {order_dir}, n.title;
                 """
                 cur.execute(sql, (user_id,))
 
@@ -205,23 +219,26 @@ def bookshelf_index():
                     b.novels_id,
                     n.title,
                     n.cover,
+                    COALESCE(n.views, 0) AS views,
                     n.status AS novel_status,
                     u.username AS author_name,
-                    {chapters_sel},
+                    u.users_id AS author_id,
+                    {published_chapters_sel},
                     {first_chapter_sel},
                     {rating_sel},
                     rh.progress,
                     rh.last_read_at,
+                    {last_chapter_sel},
                     b.created_at
                 FROM bookshelf b
                 JOIN novels n ON n.novels_id = b.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
-                {chapters_join}
                 {rating_join}
                 LEFT JOIN ({last_rh_derived}) AS rh
                        ON rh.novels_id = b.novels_id
+                {last_chapter_join}
                 WHERE b.users_id = %s
-                ORDER BY b.created_at DESC, n.title;
+                ORDER BY b.created_at {order_dir}, n.title;
                 """
                 cur.execute(sql, (user_id, user_id))
 
@@ -233,55 +250,124 @@ def bookshelf_index():
     # =========== แปลงผลลัพธ์ให้พร้อมใช้ใน template ===========
     items = []
     for row in (rows or []):
-        total_chapters = int(row.get("total_chapters") or 0)
+        # ✅ published_chapters คือ “จำนวนตอนเผยแพร่” เท่านั้น
+        published_chapters = int(row.get("published_chapters") or 0)
+
+        # ✅ คง total_chapters ให้เท่ากัน (กัน template เก่าพัง)
+        total_chapters = int(row.get("total_chapters") or published_chapters)
+
         avg_rating = float(row.get("avg_rating") or 0.0)
         rating_count = int(row.get("rating_count") or 0)
         progress = int(row.get("progress") or 0)
-        novel_status = row.get("novel_status")  # 'แบบร่าง' | 'เผยแพร่' | 'จบแล้ว'
+        views = int(row.get("views") or 0)
+
+        novel_status = row.get("novel_status")  # 'แบบร่าง' | 'เผยแพร่' | 'จบแล้ว' ฯลฯ
+
         first_chapter_no = row.get("first_chapter_no")
         first_chapter_no = int(first_chapter_no) if first_chapter_no not in (None, "") else None
 
-        # สถานะการอ่าน (ใช้กรอง dropdown)
-        if progress >= 100 or novel_status == "จบแล้ว":
+        last_chapter_no = row.get("last_chapter_no")
+        last_chapter_no = int(last_chapter_no) if last_chapter_no not in (None, "") else None
+
+        # สถานะการอ่าน (ใช้กรอง dropdown legacy)
+        if progress >= 100 or str(novel_status).strip() in ("จบแล้ว", "finished", "done", "complete"):
             read_status = "done"
         elif 0 < progress < 100:
             read_status = "continue"
         else:
             read_status = "new"
 
-        has_published_chapter = first_chapter_no is not None
+        # Novel status normalized: finished / ongoing / unknown
+        ns = (str(novel_status or "").strip().lower())
+        if ns in ("จบแล้ว", "finished", "done", "complete", "completed"):
+            novel_status_key = "finished"
+        elif ns:
+            novel_status_key = "ongoing"
+        else:
+            novel_status_key = "unknown"
+
+        # ✅ มีตอนเผยแพร่จริงไหม
+        has_published_chapter = first_chapter_no is not None and published_chapters > 0
+
+        # ✅ “อ่านต่อ” ไปตอนล่าสุดที่อ่าน (ถ้ามี) ไม่งั้นไปตอนเผยแพร่ตอนแรก
+        chapter_no_for_read = last_chapter_no or first_chapter_no
 
         item = {
             "novels_id": row["novels_id"],
             "title": row.get("title") or "",
             "cover": _cover_url(row.get("cover")),
             "author_name": row.get("author_name") or "-",
+            "author_id": row.get("author_id"),
+            "novel_status": novel_status,
+            "novel_status_key": novel_status_key,
+            "views": views,
+
+            # ส่งทั้ง 2 ฟิลด์ (published_chapters ใช้ใน card ใหม่)
+            "published_chapters": published_chapters,
             "total_chapters": total_chapters,
+
             "avg_rating": avg_rating,
             "rating_count": rating_count,
             "progress": progress,
             "read_status": read_status,
             "last_read_at": row.get("last_read_at"),
             "has_published_chapter": has_published_chapter,
-            # ถ้าไม่มีตอน published ให้ส่ง None (ให้ template ปิดปุ่มอ่านต่อได้)
+
+            # ✅ ปลอดภัยกับ template ที่ใส่ href ตรง ๆ (อย่าให้ None)
             "read_url": (
-                url_for("reading.read_chapter", novels_id=row["novels_id"], chapter_no=first_chapter_no)
-                if has_published_chapter
-                else None
+                url_for("reading.read_chapter", novels_id=row["novels_id"], chapter_no=chapter_no_for_read)
+                if has_published_chapter and chapter_no_for_read is not None
+                else "#"
             ),
+            "detail_url": url_for("novel.novel_detail", novels_id=row["novels_id"])
+            if "novel" in (getattr(bookshelf_bp, "name", "") or "").lower()  # แค่กันพังแบบหยาบ
+            else url_for("novel_detail", novels_id=row["novels_id"]) if False else None,
         }
+
+        # ถ้า detail_url หาชื่อ endpoint ไม่เจอ ให้ fallback = read_url
+        if not item["detail_url"]:
+            item["detail_url"] = item["read_url"] if item["read_url"] != "#" else url_for("bookshelf.bookshelf_index")
+
         items.append(item)
 
     # filter ตาม dropdown (status)
-    if status_filter == "done":
-        items = [i for i in items if i["read_status"] == "done"]
-    elif status_filter == "continue":
-        items = [i for i in items if i["read_status"] == "continue"]
+    if status_filter in ("done", "finished"):
+        items = [i for i in items if i.get("novel_status_key") == "finished"]
+    elif status_filter in ("continue", "ongoing"):
+        items = [i for i in items if i.get("novel_status_key") == "ongoing"]
     # all = ไม่กรอง
+
+    total = len(items)
+
+    # pagination (20 per page)
+    try:
+        page = int(request.args.get("page", 1))
+    except Exception:
+        page = 1
+    if page < 1:
+        page = 1
+    per_page = 20
+    total_pages = (total + per_page - 1) // per_page
+    if total_pages < 1:
+        total_pages = 1
+    if page > total_pages:
+        page = total_pages
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated = items[start_idx:end_idx]
+
+    start_item = start_idx + 1 if total > 0 else 0
+    end_item = min(end_idx, total)
 
     return render_template(
         "bookshelf.html",
-        items=items,
+        items=paginated,
         active_tab=tab,
         status_filter=status_filter,
+        order=order,
+        page=page,
+        total=total,
+        total_pages=total_pages,
+        start_item=start_item,
+        end_item=end_item,
     )

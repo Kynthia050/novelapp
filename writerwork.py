@@ -161,6 +161,7 @@ def writer_works(writer_id: int):
                 "rating_avg": float(r.get("rating_avg") or 0.0),
                 "writer_name": writer_out["username"],
                 "owner_id": writer_id,  # เผื่อใช้ใน template
+                "detail_url": url_for("novel.detail", novels_id=r["novels_id"]),
             })
 
         return render_template(

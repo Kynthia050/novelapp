@@ -290,6 +290,24 @@ def read_chapter(novels_id: int, chapter_no: int):
 
             # ✅ touch history เมื่อเข้าอ่าน (นับต่อ chapter)
             if current_user_id and (not is_preview) and _table_exists(cur, "reading_history"):
+                has_views_col = "views" in _columns(cur, "novels")
+                already_viewed = False
+                if has_views_col:
+                    try:
+                        cur.execute(
+                            """
+                            SELECT 1
+                            FROM reading_history
+                            WHERE users_id=%s AND novels_id=%s
+                            LIMIT 1
+                            """,
+                            (int(current_user_id), int(row["novels_id"])),
+                        )
+                        already_viewed = cur.fetchone() is not None
+                    except Exception as e:
+                        print(f"[reading.view_check] error: {e}")
+                        already_viewed = True  # กันนับซ้ำถ้า query พลาด
+
                 try:
                     _upsert_reading_history_per_chapter(
                         cur,
@@ -298,6 +316,11 @@ def read_chapter(novels_id: int, chapter_no: int):
                         chapters_id=int(row["chapters_id"]),
                         progress=0,
                     )
+                    if has_views_col and not already_viewed:
+                        cur.execute(
+                            "UPDATE novels SET views = COALESCE(views, 0) + 1 WHERE novels_id = %s",
+                            (int(row["novels_id"]),),
+                        )
                     conn.commit()
                 except Exception as e:
                     print(f"[reading.touch_history] error: {e}")

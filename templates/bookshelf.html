@@ -1,280 +1,504 @@
-{# templates/novelcover.html หรือ bookshelf.html แล้วแต่ที่คุณใช้ #}
 {% extends "base.html" %}
 
 {% block title %}My Shelf — Bookshelf{% endblock %}
 
 {% block extra_head %}
+  {% if csrf_token is defined %}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+  {% endif %}
+
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            bg:    '#1f1f21',
-            textc: '#f5f5f7',
-            muted: '#9f9fa5',
-          }
-        },
-      },
-    };
+    // ✅ merge tailwind config (ไม่ทับของเดิม) ตาม writerwork
+    window.tailwind = window.tailwind || {};
+    tailwind.config = tailwind.config || {};
+    tailwind.config.theme = tailwind.config.theme || {};
+    tailwind.config.theme.extend = tailwind.config.theme.extend || {};
+    const ex = tailwind.config.theme.extend;
+
+    ex.colors = Object.assign({}, ex.colors || {}, {
+      muted: 'rgba(255,255,255,.65)',
+      textc: 'rgba(255,255,255,.92)',
+      accent: '#a3a3a3',
+      bg: '#0b0b0b',
+    });
+
+    ex.boxShadow = Object.assign({}, ex.boxShadow || {}, {
+      soft: '0 10px 24px rgba(0,0,0,.45)'
+    });
   </script>
 
   <style>
-    :root{
-      --bg:#222;
-      --text:#eee;
-      --muted:#bbb;
-      --panel:rgba(34,34,34,.9);
-      --card:#2a2a2d;
-      --line:rgba(255,255,255,.08);
-      --soft:#444;
-      --brand:#fff;
-      --ok:#00e0cc;
-      --star:#ffe402;
-      --radius:16px;
-      --shadow:0 10px 24px rgba(0,0,0,.45);
+    body{ background:#0b0b0b !important; }
+    body > main{ background:#0b0b0b !important; }
+    main{ background:#0b0b0b !important; }
+
+    .bs-page{
+      padding-top:16px !important;
+    }
+    @media(max-width:768px){
+      .bs-page{
+        padding-top:16px !important;
+      }
     }
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      /* ไม่กำหนด font-family ที่นี่ เพื่อให้ใช้ Niramit จาก global.css */
-      background: var(--bg) url('/static/img/bg-login.jpg') center/cover fixed no-repeat;
-      color:var(--text);
-      line-height:1.6;
-    }
-
-    /* ---------- BOOKSHELF LAYOUT (ไม่ไปยุ่งกับ header.html) ---------- */
-
-    .bs-site{
-      max-width:1200px;
-      margin:0 auto;
-      padding:26px 22px 32px;
-    }
-    .bs-panel{
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:20px;
-    }
-
-    .bs-fav-head{
+    .pagination{
+      margin-top:12px;
       display:flex;
       align-items:center;
-      gap:14px;
-      margin-bottom:12px;
       justify-content:center;
-    }
-    .bs-fav-title{
-      /* ถ้าไม่อยากใช้ Georgia ก็ลบบรรทัดนี้ได้ */
-      font-family: Georgia, 'Times New Roman', serif;
-      letter-spacing:.35em;
-      font-size:clamp(20px,3vw,32px);
-    }
-    .bs-book-icon{
-      width:48px;
-      height:48px;
-      border-radius:999px;
-      background:#dcdcdc;
-      display:grid;
-      place-items:center;
-      color:#e57c8e;
-      font-size:22px;
-    }
-
-    .bs-toolbar{
-      display:flex;
-      gap:14px;
-      align-items:center;
+      gap:8px;
       flex-wrap:wrap;
-      margin-bottom:14px;
     }
-    .bs-pill{
-      padding:8px 12px;
-      border:1px solid var(--line);
-      border-radius:999px;
-      background:#111214;
-      color:var(--text);
-      cursor:pointer;
+    .page-link{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:34px;
+      height:34px;
+      padding:0 12px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);
+      color:#fff;
       text-decoration:none;
-      font-size:.9rem;
-      white-space:nowrap;
+      transition:background .15s ease, border-color .15s ease, color .15s ease;
     }
-    .bs-pill.active{
+    .page-link:hover{
+      background:rgba(255,255,255,.12);
+      border-color:rgba(255,255,255,.18);
+    }
+    .page-link.is-active{
       background:#fff;
       color:#000;
       border-color:#fff;
     }
-
-    .bs-select{
-      appearance:none;
-      background:#111214;
-      color:var(--text);
-      border:1px solid var(--line);
-      padding:10px 12px;
-      border-radius:10px;
-      font-size:.9rem;
+    .page-link.is-disabled{
+      pointer-events:none;
+      opacity:.35;
+    }
+    .page-ellipsis{
+      color:rgba(255,255,255,.6);
     }
 
-    .bs-shelf-list{
-      display:grid;
-      gap:16px;
-    }
-    @media(min-width:920px){
-      .bs-shelf-list{grid-template-columns:1fr 1fr;}
-    }
-
-    .bs-row{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:14px;
-      padding:12px;
-    }
-    .bs-row-cover{
-      flex:0 0 110px;
-      height:110px;
-      border-radius:10px;
-      object-fit:cover;
-      background:#cfcfd2;
-    }
-    .bs-meta{flex:1;}
-    .bs-titleline{
-      display:flex;
+    /* Custom dropdown (อิง ref จากหน้า Home) */
+    .bs-dd{ position:relative; }
+    .bs-dd details{ position:relative; }
+    .bs-dd summary{ list-style:none; }
+    .bs-dd summary::-webkit-details-marker{ display:none; }
+    .bs-pill{
+      display:inline-flex;
       align-items:center;
-      justify-content:space-between;
       gap:10px;
-    }
-    .bs-name{
-      font-weight:700;
-      letter-spacing:.08em;
-      font-size:0.95rem;
-    }
-    .bs-author{
-      color:var(--muted);
-      font-size:.9rem;
-    }
-    .bs-stats{
-      display:flex;
-      gap:12px;
-      color:var(--muted);
-      font-size:.85rem;
-      margin-top:6px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-    .bs-stars{
-      display:flex;
-      gap:4px;
-      align-items:center;
-    }
-    .bs-star{
-      font-size:0.9rem;
-      color:#999;
-    }
-    .bs-star.on{
-      color:var(--star);
-    }
-    .bs-read-btn{
-      margin-left:auto;
-      background:#00c4b4;
-      color:#fff;
-      border:0;
+      padding:9px 14px;
       border-radius:999px;
-      padding:6px 12px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(45,45,48,.92);
+      box-shadow:0 10px 24px rgba(0,0,0,.38);
       cursor:pointer;
-      font-size:.85rem;
-      text-decoration:none;
+      user-select:none;
+      font-size:14px;
+      font-weight:600;
+      color:#f4f4f4;
       white-space:nowrap;
+      min-width:120px;
+      justify-content:space-between;
+      transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
     }
-    .bs-read-btn:hover{
-      opacity:.92;
+    .bs-pill:hover{
+      transform:translateY(-1px);
+      box-shadow:0 14px 28px rgba(0,0,0,.5);
+      border-color:rgba(255,255,255,.3);
+      background:rgba(52,52,56,.95);
     }
+    .bs-pill:focus-visible{
+      outline:2px solid rgba(255,255,255,.35);
+      outline-offset:2px;
+    }
+    .bs-dd .caret{ color:rgba(255,255,255,.85); font-size:12px; }
+    .bs-menu{
+      position:absolute;
+      right:0;
+      top:calc(100% + 10px);
+      min-width:260px;
+      background:rgba(27,27,29,.97);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:14px;
+      box-shadow:0 18px 40px rgba(0,0,0,.6);
+      padding:6px 0;
+      z-index:60;
+      overflow:hidden;
+    }
+    .bs-item{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:11px 14px;
+      color:#eaeaea;
+      text-decoration:none;
+      font-size:14px;
+      cursor:pointer;
+      background:transparent;
+      border:0;
+      width:100%;
+      text-align:left;
+      transition:background .12s ease, color .12s ease;
+    }
+    .bs-item:hover{ background:rgba(255,255,255,.07); }
+    .bs-item .check{
+      width:18px;height:18px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      opacity:0;
+    }
+    .bs-item.is-active{
+      font-weight:700;
+      background:rgba(255,255,255,.09);
+    }
+    .bs-item.is-active .check{ opacity:1; }
 
-    .muted{color:var(--muted);font-size:.9rem;}
+    /* Order toggle แบบ novelcover chapters */
+    .bs-order-toggle{
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:14px;
+      font-weight:600;
+      background:#2b2b2e;
+      border:1px solid rgba(255,255,255,.16);
+      color:#f0f0f0;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      cursor:pointer;
+      transition:background .15s ease, border-color .15s ease, color .15s ease;
+      min-width:120px;
+      justify-content:center;
+    }
+    .bs-order-toggle:hover{
+      background:rgba(255,255,255,.12);
+      border-color:rgba(255,255,255,.24);
+    }
+    .bs-order-toggle.desc{
+      background:#f0f0f0;
+      color:#111;
+      border-color:transparent;
+    }
+    .bs-order-icon{
+      font-size:12px;
+    }
   </style>
 {% endblock %}
 
 {% block content %}
-  <main class="bs-site">
+<div class="min-h-screen bg-[#0b0b0b] text-zinc-100 selection:text-zinc-100">
+  <main id="bookshelfApp" class="bs-page max-w-6xl mx-auto px-5 pb-5">
     <!-- Title -->
-    <div class="bs-fav-head">
-      <h2 id="fav-title" class="bs-fav-title">ชั้นหนังสือ</h2>
-      <div class="bs-book-icon">📚</div>
+    <div class="flex items-center justify-center gap-3 mb-4">
+      <h1 class="text-[clamp(20px,3vw,32px)] font-semibold tracking-[.25em]">
+        ชั้นหนังสือ
+      </h1>
     </div>
 
-    <!-- Panel -->
-    <section class="bs-panel" style="margin-top:16px" aria-label="bookshelf">
-      <!-- Toolbar -->
-      <div class="bs-toolbar" style="margin-bottom:6px">
-        <!-- Tab pills -->
-        <a
-          href="{{ url_for('bookshelf.bookshelf_index', tab='favorite', status=status_filter) }}"
-          class="bs-pill {% if active_tab == 'favorite' %}active{% endif %}">
-          นิยายเรื่องโปรด
-        </a>
+    <!-- PANEL -->
+    <section class="bg-neutral-900/70 border border-white/10 rounded-2xl shadow-soft">
+      <!-- TOOLBAR -->
+      <div class="px-5 pt-4">
+        <div class="mt-1 mb-4 flex flex-wrap items-center gap-3">
+          <!-- Tabs (เหมือน writerwork style pill group) -->
+          <div class="inline-flex rounded-full border border-white/10 p-1 bg-neutral-900">
+            <a data-bs-nav="1"
+              href="{{ url_for('bookshelf.bookshelf_index', tab='favorite', status=status_filter, order=order, page=1) }}"
+              class="px-3 py-1.5 rounded-full text-sm transition
+                     {% if active_tab == 'favorite' %} bg-white text-black {% else %} hover:bg-white/10 {% endif %}">
+              หนังสือบนชั้น
+            </a>
+            <a data-bs-nav="1"
+              href="{{ url_for('bookshelf.bookshelf_index', tab='rated', status=status_filter, order=order, page=1) }}"
+              class="px-3 py-1.5 rounded-full text-sm transition
+                     {% if active_tab == 'rated' %} bg-white text-black {% else %} hover:bg-white/10 {% endif %}">
+              ให้คะแนนแล้ว
+            </a>
+            <a data-bs-nav="1"
+              href="{{ url_for('bookshelf.bookshelf_index', tab='recent', status=status_filter, order=order, page=1) }}"
+              class="px-3 py-1.5 rounded-full text-sm transition
+                     {% if active_tab == 'recent' %} bg-white text-black {% else %} hover:bg-white/10 {% endif %}">
+              ประวัติการอ่าน
+            </a>
+          </div>
 
-        <a
-          href="{{ url_for('bookshelf.bookshelf_index', tab='recent', status=status_filter) }}"
-          class="bs-pill {% if active_tab == 'recent' %}active{% endif %}">
-          อ่านล่าสุด
-        </a>
+          <div class="flex-1"></div>
 
-        <a
-          href="{{ url_for('bookshelf.bookshelf_index', tab='rated', status=status_filter) }}"
-          class="bs-pill {% if active_tab == 'rated' %}active{% endif %}">
-          ติดดาวแล้ว
-        </a>
+          <!-- Status filter (เหมือน writerwork) -->
+          <div class="inline-flex items-center gap-2 text-sm text-zinc-300">
+            <span>สถานะ</span>
+            <div class="bs-dd" data-bs-dd="status">
+              <details class="sort-dd">
+                <summary class="bs-pill">
+                  <span id="bsStatusLabel">
+                    {% if status_filter in ['finished','done'] %}จบแล้ว{% elif status_filter in ['ongoing','continue'] %}ยังไม่จบ{% else %}ทั้งหมด{% endif %}
+                  </span>
+                  <span class="caret">▾</span>
+                </summary>
+                <div class="bs-menu">
+                  {% for val,label in [
+                    ('all','ทั้งหมด'),
+                    ('finished','จบแล้ว'),
+                    ('ongoing','ยังไม่จบ'),
+                  ] %}
+                  <button type="button"
+                          class="bs-item{% if status_filter == val or (val=='finished' and status_filter=='done') or (val=='ongoing' and status_filter=='continue') %} is-active{% endif %}"
+                          data-value="{{ val }}">
+                    <span class="check">✓</span>
+                    <span>{{ label }}</span>
+                  </button>
+                  {% endfor %}
+                </div>
+              </details>
+            </div>
+          </div>
 
-        <div style="flex:1"></div>
-
-        <!-- Status filter -->
-        <form method="get" id="statusForm">
-          <input type="hidden" name="tab" value="{{ active_tab }}">
-          <select id="filter" class="bs-select" name="status" onchange="this.form.submit()">
-            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>ทั้งหมด</option>
-            <option value="continue" {% if status_filter == 'continue' %}selected{% endif %}>อ่านต่อ</option>
-            <option value="done" {% if status_filter == 'done' %}selected{% endif %}>จบแล้ว</option>
-          </select>
-        </form>
+          <!-- order toggle -->
+          <button type="button" id="bsOrderToggle"
+                  class="bs-order-toggle{% if (order or 'asc') == 'desc' %} desc{% endif %}"
+                  data-order="{{ order or 'asc' }}">
+            <span id="bsOrderLabel">
+              {% if (order or 'asc') == 'asc' %}เก่าไปใหม่{% else %}ใหม่ไปเก่า{% endif %}
+            </span>
+            <span class="bs-order-icon" aria-hidden="true">
+              {% if (order or 'asc') == 'asc' %}▴{% else %}▾{% endif %}
+            </span>
+          </button>
+        </div>
       </div>
 
-      <!-- Shelf list -->
-      <div class="bs-shelf-list">
+      <!-- LIST / GRID -->
+      <div class="grid gap-4 p-5 md:grid-cols-2">
         {% if items and items|length > 0 %}
           {% for b in items %}
-          <article class="bs-row">
-            <img class="bs-row-cover" src="{{ b.cover }}" alt="cover of {{ b.title }}" />
-            <div class="bs-meta">
-              <div class="bs-titleline">
-                <div class="bs-name">{{ b.title }}</div>
-                <a class="bs-read-btn" href="{{ b.read_url }}">อ่านต่อ</a>
-              </div>
-              <div class="bs-author">by {{ b.author_name }}</div>
-              <div class="bs-stats">
-                <span>📄 {{ b.total_chapters }} ตอน</span>
-                {% if b.progress %}
-                  <span>📖 อ่านไปแล้ว {{ b.progress }}%</span>
-                {% endif %}
-                <span class="bs-stars">
-                  {% for s in range(1,6) %}
-                    <span class="bs-star {% if b.avg_rating >= s - 0.5 %}on{% endif %}">★</span>
-                  {% endfor %}
-                  {% if b.rating_count %}
-                    <span class="muted">({{ b.rating_count }})</span>
+            {# --- URL --- #}
+            {% set title_url = b.detail_url if b.detail_url is defined and b.detail_url else b.read_url %}
+
+            {# --- สถานะอ่าน (continue/done) --- #}
+            {% set st_raw = (b.read_status if b.read_status is defined else (b.status if b.status is defined else '')) %}
+            {% if st_raw %}
+              {% set st_label =
+                  'อ่านต่อ' if st_raw in ['continue','reading','read','อ่านต่อ'] else
+                  ('จบแล้ว' if st_raw in ['done','finished','complete','จบแล้ว'] else st_raw)
+              %}
+            {% else %}
+              {% set st_label = '' %}
+            {% endif %}
+
+            {# --- จำนวนตอน "เผยแพร่" เท่านั้น: ต้องมาจาก backend เป็นหลัก --- #}
+            {% set published_chapters =
+              (b.published_chapters if b.published_chapters is defined and b.published_chapters is not none else
+              (b.chapters_published if b.chapters_published is defined and b.chapters_published is not none else
+              (b.publish_chapters if b.publish_chapters is defined and b.publish_chapters is not none else
+              (b.published_count if b.published_count is defined and b.published_count is not none else
+              (b.pub_chapters if b.pub_chapters is defined and b.pub_chapters is not none else
+              (b.total_chapters if b.total_chapters is defined and b.total_chapters is not none else
+              (b.chapters if b.chapters is defined and b.chapters is not none else 0)))))))
+            %}
+
+            <article class="group relative flex gap-4 rounded-xl border border-white/10 bg-neutral-900/70 p-3 md:p-4 hover:ring-1 hover:ring-white/20 transition cursor-pointer bs-card"
+                     data-detail-url="{{ title_url }}">
+              <img class="w-[120px] h-[120px] rounded-lg object-cover bg-zinc-300 border border-white/10"
+                   src="{{ b.cover }}" alt="cover"/>
+
+              <div class="flex-1 min-w-0">
+                <!-- title row -->
+                <div class="flex items-center gap-2">
+                  <h3 class="font-bold truncate">
+                    <span class="hover:text-white/90 transition">{{ b.title }}</span>
+                  </h3>
+
+                  <!-- action -->
+                  <div class="ml-auto flex items-center gap-2">
+                    <a href="{{ b.read_url }}"
+                       data-read-link="1"
+                       class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 text-sm font-medium text-white whitespace-nowrap">
+                      อ่านต่อ
+                    </a>
+                  </div>
+                </div>
+
+                <div class="text-zinc-300 text-sm">
+                  by
+                  {% if b.author_id %}
+                    <a class="hover:text-white bs-username"
+                       href="{{ url_for('writerwork.writer_works', writer_id=b.author_id) }}">
+                      {{ b.author_name }}
+                    </a>
+                  {% else %}
+                    <span class="bs-username">{{ b.author_name }}</span>
                   {% endif %}
-                </span>
+                </div>
+
+                <!-- meta row (ไอคอนแบบ writerwork) -->
+                <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-sm">
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">
+                      <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
+                    </svg>
+                    <span>{{ published_chapters }}</span>
+                  </span>
+
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">
+                      <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>{{ b.views | default(0) }}</span>
+                  </span>
+
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">
+                      <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>
+                      {% if b.avg_rating is not none %}
+                        {{ '%.1f'|format(b.avg_rating|float) }}
+                      {% else %}
+                        0.0
+                      {% endif %}
+                      <span class="text-zinc-400">/5</span>
+                    </span>
+                  </span>
+                </div>
+
               </div>
-            </div>
-          </article>
+            </article>
           {% endfor %}
         {% else %}
-          <p class="muted">ยังไม่มีรายการในชั้นหนังสือ</p>
+          <div class="p-5">
+            <p class="text-zinc-300">ยังไม่มีรายการในชั้นหนังสือ</p>
+          </div>
         {% endif %}
       </div>
+
+      {% if total_pages and total_pages > 1 %}
+        <div class="px-5 pb-5 text-sm text-zinc-300">
+          แสดง {{ start_item }}–{{ end_item }} จาก {{ total }} เรื่อง
+        </div>
+        <nav class="pagination px-5 pb-6" aria-label="Pagination">
+          <a data-bs-nav="1" class="page-link{% if page <= 1 %} is-disabled{% endif %}"
+             href="{{ url_for('bookshelf.bookshelf_index', tab=active_tab, status=status_filter, order=order, page=page-1) }}">‹</a>
+
+          {% set win = 2 %}
+          {% set start_p = page - win %}
+          {% set end_p = page + win %}
+          {% if start_p < 1 %}{% set start_p = 1 %}{% endif %}
+          {% if end_p > total_pages %}{% set end_p = total_pages %}{% endif %}
+
+          {% if start_p > 1 %}
+            <a data-bs-nav="1" class="page-link"
+               href="{{ url_for('bookshelf.bookshelf_index', tab=active_tab, status=status_filter, order=order, page=1) }}">1</a>
+            {% if start_p > 2 %}<span class="page-ellipsis">…</span>{% endif %}
+          {% endif %}
+
+          {% for p in range(start_p, end_p + 1) %}
+            <a data-bs-nav="1" class="page-link{% if p == page %} is-active{% endif %}"
+               href="{{ url_for('bookshelf.bookshelf_index', tab=active_tab, status=status_filter, order=order, page=p) }}">{{ p }}</a>
+          {% endfor %}
+
+          {% if end_p < total_pages %}
+            {% if end_p < total_pages - 1 %}<span class="page-ellipsis">…</span>{% endif %}
+            <a data-bs-nav="1" class="page-link"
+               href="{{ url_for('bookshelf.bookshelf_index', tab=active_tab, status=status_filter, order=order, page=total_pages) }}">{{ total_pages }}</a>
+          {% endif %}
+
+          <a data-bs-nav="1" class="page-link{% if page >= total_pages %} is-disabled{% endif %}"
+             href="{{ url_for('bookshelf.bookshelf_index', tab=active_tab, status=status_filter, order=order, page=page+1) }}">›</a>
+        </nav>
+      {% endif %}
     </section>
   </main>
+</div>
+
+<script>
+  (function(){
+    const app = document.getElementById('bookshelfApp');
+    if (!app) return;
+
+    async function loadShelf(url, push=true){
+      try{
+        const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest'} });
+        if(!res.ok) { window.location.href = url; return; }
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newApp = doc.getElementById('bookshelfApp');
+        if (!newApp) { window.location.href = url; return; }
+        app.innerHTML = newApp.innerHTML;
+        if (push) history.pushState({}, '', url);
+        attachEvents();
+      }catch(e){
+        console.error('load shelf error', e);
+        window.location.href = url;
+      }
+    }
+
+    function buildUrl(params){
+      const url = new URL(window.location.href);
+      Object.entries(params).forEach(([k,v])=>{
+        if (v === null || v === undefined) return;
+        url.searchParams.set(k, v);
+      });
+      return url.toString();
+    }
+
+    function attachEvents(){
+      // tabs/pagination links
+      app.querySelectorAll('[data-bs-nav="1"]').forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+          e.preventDefault();
+          loadShelf(a.href);
+        });
+      });
+
+      // dropdown handlers (status/order)
+      app.querySelectorAll('[data-bs-dd]').forEach(dd=>{
+        dd.querySelectorAll('.bs-item').forEach(item=>{
+          item.addEventListener('click', ()=>{
+            const val = item.dataset.value;
+            if (!val) return;
+            const type = dd.dataset.bsDd;
+            if (type === 'status') {
+              const url = buildUrl({ status: val, page: 1 });
+              loadShelf(url);
+            }
+            const details = item.closest('details');
+            if (details) details.removeAttribute('open');
+          });
+        });
+      });
+
+      // order toggle
+      const orderBtn = app.querySelector('#bsOrderToggle');
+      if (orderBtn){
+        orderBtn.addEventListener('click', ()=>{
+          const current = (orderBtn.dataset.order || 'desc').toLowerCase();
+          const next = current === 'asc' ? 'desc' : 'asc';
+          const url = buildUrl({ order: next, page: 1 });
+          loadShelf(url);
+        });
+      }
+
+      // card click
+      app.querySelectorAll('.bs-card').forEach(card=>{
+        const detail = card.dataset.detailUrl;
+        if (!detail) return;
+        card.addEventListener('click', (e)=>{
+          if (e.target.closest('.bs-username')) return;
+          if (e.target.closest('[data-read-link]')) return;
+          window.location.href = detail;
+        });
+      });
+    }
+
+    window.addEventListener('popstate', ()=> loadShelf(window.location.href, false));
+    attachEvents();
+  })();
+</script>
 {% endblock %}

@@ -344,6 +344,19 @@
     transition:background-color .18s ease, color .18s ease;
   }
 
+  .btn-lg.btn-lg-disabled,
+  .btn-lg[aria-disabled="true"]{
+    opacity:.55;
+    cursor:not-allowed;
+    pointer-events:none;
+  }
+  .btn-lg.btn-lg-disabled:hover,
+  .btn-lg.btn-lg-disabled:focus,
+  .btn-lg[aria-disabled="true"]:hover,
+  .btn-lg[aria-disabled="true"]:focus{
+    background:transparent;
+  }
+
   .btn-icon{
     display:inline-flex;
     align-items:center;
@@ -528,6 +541,15 @@
     border-bottom:1px solid rgba(255,255,255,.12);
     transition:background .15s ease;
   }
+  .chapter-row--read{
+    background:rgba(255,255,255,.02);
+  }
+  .chapter-row--read .chapter-main,
+  .chapter-row--read .chapter-title,
+  .chapter-row--read .chapter-label,
+  .chapter-row--read .chapter-date{
+    color:var(--muted);
+  }
   .chapter-row:last-child{
     border-bottom:none;
   }
@@ -561,6 +583,19 @@
   .chapter-title{
     font-size:.95rem;
     font-weight:500;
+  }
+  .chapter-read-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    margin-left:10px;
+    padding:2px 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.08);
+    color:var(--muted);
+    font-size:.75rem;
+    text-transform:uppercase;
+    letter-spacing:.08em;
   }
 
   .chapter-meta{
@@ -1200,7 +1235,7 @@
                 d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
             </svg>
           </span>
-          <span>{{ novel.total_favorites or 0 }} เก็บเข้าชั้นหนังสือ</span>
+          <span><span id="bookshelfCount">{{ novel.total_favorites or novel.bookshelf_count or 0 }}</span> อยู่ในชั้นหนังสือ</span>
         </div>
       </div>
 
@@ -1215,8 +1250,11 @@
 
       <div class="novel-actions">
         <a
-          href="/reading/read/{{ novel.novels_id }}/1"
-          class="btn-lg"
+          href="{% if novel.total_chapters %}/reading/read/{{ novel.novels_id }}/1{% else %}#{% endif %}"
+          class="btn-lg{% if not novel.total_chapters %} btn-lg-disabled{% endif %}"
+          id="startReadingBtn"
+          data-total-chapters="{{ novel.total_chapters or 0 }}"
+          {% if not novel.total_chapters %}aria-disabled="true" disabled{% endif %}
         >
           เริ่มอ่าน
         </a>
@@ -1268,6 +1306,23 @@
       </div>
     </div>
   </section>
+
+  <div id="noChapterModal" class="summary-modal" aria-hidden="true">
+    <div class="summary-modal-overlay" data-nochapter-close></div>
+    <div class="summary-modal-dialog" role="dialog"
+         aria-modal="true" aria-labelledby="noChapterModalTitle">
+      <div class="summary-modal-header">
+        <h3 id="noChapterModalTitle" class="summary-modal-title">
+          เริ่มอ่าน
+        </h3>
+        <button type="button" class="summary-modal-close"
+                aria-label="ปิด" data-nochapter-close>x</button>
+      </div>
+      <div class="summary-modal-body">
+        <p>ยังไม่มีตอน</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Chapters List -->
   <section class="chapters-section">
@@ -1323,7 +1378,8 @@
                 <div class="chapters-list">
           {% endif %}
 
-                  <div class="chapter-row" data-chapter-no="{{ chapter.chapter_no|int }}">
+                  <div class="chapter-row{% if chapter.is_read %} chapter-row--read{% endif %}"
+                       data-chapter-no="{{ chapter.chapter_no|int }}">
                     <div class="chapter-row-inner">
                       <a class="chapter-main"
                         href="/reading/read/{{ novel.novels_id }}/{{ chapter.chapter_no }}">
@@ -1332,6 +1388,9 @@
                         </span>
                         <span class="chapter-title">
                           {{ chapter.title or 'ไม่มีชื่อตอน' }}
+                          {% if chapter.is_read %}
+                            <span class="chapter-read-badge">อ่านแล้ว</span>
+                          {% endif %}
                         </span>
                       </a>
 
@@ -1883,6 +1942,7 @@
     if (!btn || !form) return;
 
     const label = btn.querySelector('.bookshelf-label') || btn.querySelector('span:nth-of-type(2)');
+    const countEl = document.getElementById('bookshelfCount');
 
     btn.addEventListener('click', function () {
       const fd = new FormData(form);
@@ -1916,6 +1976,9 @@
         } else {
           btn.classList.remove('bookshelf-btn--active');
           if (label) label.textContent = 'เติมเข้าชั้นหนังสือ';
+        }
+        if (typeof data.count !== 'undefined' && countEl) {
+          countEl.textContent = data.count;
         }
         btn.blur();
       })

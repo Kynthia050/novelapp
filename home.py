@@ -44,12 +44,12 @@ def _author_sql_parts(cur):
         cols = set()
 
     if "users_id" in cols:
-        return ("u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.users_id")
+        return ("u.users_id AS author_id, u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.users_id")
     if "author_id" in cols:
-        return ("u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.author_id")
+        return ("u.users_id AS author_id, u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.author_id")
     if "created_by" in cols:
-        return ("u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.created_by")
-    return ("'Unknown' AS author_name", "")
+        return ("u.users_id AS author_id, u.username AS author_name", "LEFT JOIN users u ON u.users_id = n.created_by")
+    return ("NULL AS author_id, 'Unknown' AS author_name", "")
 
 
 def _get_categories():
@@ -104,7 +104,7 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                         {join_author}
                         LEFT JOIN ratings r_all ON r_all.novels_id = n.novels_id
                         WHERE n.status IN ('เผยแพร่','จบแล้ว')
-                        GROUP BY n.novels_id, n.title, n.description, n.status, n.cover, updated_sort
+                        GROUP BY n.novels_id, n.title, n.description, n.status, n.cover, updated_sort, author_id, author_name
                         ORDER BY updated_sort DESC, n.novels_id DESC
                         LIMIT %s
                     """

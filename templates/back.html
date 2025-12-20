@@ -173,9 +173,19 @@
 
   // เก็บ path ที่ใช้เข้ามายังหน้าปกนิยาย (ไม่ใช่จาก /reading/) ไว้ใน sessionStorage
   (function rememberNovelEntry(){
-    const isNovelDetail = /^\/novel\/\d+/.test(window.location.pathname);
+    const path = window.location.pathname;
+    const isNovelDetail = /^\/novel\/\d+/.test(path);
+    const isReading = /^\/reading\//.test(path);
     const ref = document.referrer || "";
     const fromReader = /\/reading\//.test(ref);
+    const fromBookshelf = /\/bookshelf/.test(ref);
+
+    // กรณีมาจากหน้า bookshelf ให้จำ path bookshelf ไว้เลย (รองรับ flow bookshelf -> reading -> cover -> back)
+    if (fromBookshelf && ref) {
+      sessionStorage.setItem("novel_entry_path", ref);
+      return;
+    }
+
     if (isNovelDetail && !fromReader && ref) {
       sessionStorage.setItem("novel_entry_path", ref);
     }

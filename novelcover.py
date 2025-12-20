@@ -480,19 +480,26 @@ def detail(novels_id: int):
             novel_tags = []
 
             # ---------- โหลดข้อมูลนิยาย ----------
+            has_views_col = _has_column(cur, "novels", "views")
             sel_writer, join_writer = _writer_sql_parts(cur)
+            novel_cols = [
+                "n.novels_id",
+                "n.title",
+                "n.description",
+                "n.status",
+                "n.cover",
+                "n.updated_at",
+                "n.cate_id",
+                "c.name AS category_name",
+                sel_writer,
+            ]
+            if has_views_col:
+                novel_cols.append("COALESCE(n.views, 0) AS total_views")
+
             cur.execute(
                 f"""
                 SELECT
-                    n.novels_id,
-                    n.title,
-                    n.description,
-                    n.status,
-                    n.cover,
-                    n.updated_at,
-                    n.cate_id,
-                    c.name AS category_name,
-                    {sel_writer}
+                    {", ".join(novel_cols)}
                 FROM novels n
                 LEFT JOIN categories c ON c.cate_id = n.cate_id
                 {join_writer}
@@ -507,13 +514,29 @@ def detail(novels_id: int):
 
             novel["status"] = _normalize_status(novel.get("status"))
             novel["cover_url"] = _process_cover_url(novel.get("cover"))
+            if has_views_col:
+                try:
+                    novel["total_views"] = int(novel.get("total_views") or 0)
+                except Exception:
+                    novel["total_views"] = 0
+            else:
+                novel["total_views"] = 0
 
             uid = _current_user_id()
 
-                        # --- bookshelf state ของผู้ใช้ปัจจุบัน ---
+            # --- bookshelf state และยอดรวม ---
+            has_bookshelf = _has_table(cur, "bookshelf")
             novel["in_bookshelf"] = False
-            uid = _current_user_id()
-            if uid and _has_table(cur, "bookshelf"):
+            novel["bookshelf_count"] = 0
+
+            if has_bookshelf:
+                cur.execute(
+                    "SELECT COUNT(*) AS c FROM bookshelf WHERE novels_id = %s",
+                    (novels_id,),
+                )
+                novel["bookshelf_count"] = int((cur.fetchone() or {}).get("c") or 0)
+
+            if uid and has_bookshelf:
                 cur.execute(
                     """
                     SELECT 1
@@ -525,9 +548,11 @@ def detail(novels_id: int):
                 )
                 novel["in_bookshelf"] = cur.fetchone() is not None
 
-            # --- จำนวน favorite / bookmark ทั้งหมดของเรื่อง ---
+            # --- จำนวน favorite / bookmark / bookshelf ทั้งหมดของเรื่อง ---
             novel["total_favorites"] = 0
-            if _has_table(cur, "favorites"):
+            if has_bookshelf:
+                novel["total_favorites"] = novel.get("bookshelf_count", 0)
+            elif _has_table(cur, "favorites"):
                 cur.execute(
                     "SELECT COUNT(*) AS c FROM favorites WHERE novels_id = %s",
                     (novels_id,),
@@ -647,6 +672,13 @@ def detail(novels_id: int):
                     )
                 novel["total_readers"] = int((cur.fetchone() or {}).get("c") or 0)
 
+            if not has_views_col:
+                novel["total_views"] = novel.get("total_readers", 0)
+            try:
+                novel["total_views"] = int(novel.get("total_views") or 0)
+            except Exception:
+                novel["total_views"] = 0
+
             # ---------- chapters + like count ----------
             chap_pk = "chapters_id"
             try:
@@ -717,9 +749,34 @@ def detail(novels_id: int):
                     if cid is not None:
                         liked_set.add(cid)
 
+            read_set = set()
+            if uid and _has_table(cur, "reading_history") and chapters:
+                if (
+                    _has_column(cur, "reading_history", "chapters_id")
+                    and _has_column(cur, "reading_history", "novels_id")
+                    and _has_column(cur, "reading_history", "users_id")
+                ):
+                    cur.execute(
+                        """
+                        SELECT chapters_id
+                        FROM reading_history
+                        WHERE users_id = %s AND novels_id = %s
+                        """,
+                        (uid, novels_id),
+                    )
+                    for r in cur.fetchall():
+                        cid = r.get("chapters_id")
+                        if cid is None:
+                            continue
+                        try:
+                            read_set.add(int(cid))
+                        except Exception:
+                            read_set.add(cid)
+
             for ch in chapters:
                 ch["like_count"] = int(ch.get("like_count") or 0)
                 ch["is_liked"] = ch.get("chapters_id") in liked_set
+                ch["is_read"] = ch.get("chapters_id") in read_set
 
             # ---------- comments + can_delete ----------
             comments = []
@@ -795,7 +852,12 @@ def toggle_bookshelf(novels_id: int):
                     (user_id, novels_id),
                 )
                 conn.commit()
-                return jsonify(ok=True, in_bookshelf=False)
+                cur.execute(
+                    "SELECT COUNT(*) AS c FROM bookshelf WHERE novels_id=%s",
+                    (novels_id,),
+                )
+                cnt = int((cur.fetchone() or {}).get("c") or 0)
+                return jsonify(ok=True, in_bookshelf=False, count=cnt)
 
             # ?????????????
             cur.execute(
@@ -807,7 +869,12 @@ def toggle_bookshelf(novels_id: int):
                 (user_id, novels_id),
             )
             conn.commit()
-            return jsonify(ok=True, in_bookshelf=True)
+            cur.execute(
+                "SELECT COUNT(*) AS c FROM bookshelf WHERE novels_id=%s",
+                (novels_id,),
+            )
+            cnt = int((cur.fetchone() or {}).get("c") or 0)
+            return jsonify(ok=True, in_bookshelf=True, count=cnt)
 
     finally:
         conn.close()

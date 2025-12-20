@@ -117,7 +117,8 @@
       <!-- WORKS GRID -->
       <div id="works" class="grid gap-4 p-5 md:grid-cols-2">
         {% for w in works %}
-        <article class="group relative flex gap-4 rounded-xl border border-white/10 bg-neutral-900/70 p-3 md:p-4 hover:ring-1 hover:ring-white/20 transition">
+        <article class="group relative flex gap-4 rounded-xl border border-white/10 bg-neutral-900/70 p-3 md:p-4 hover:ring-1 hover:ring-white/20 transition cursor-pointer"
+                 data-detail-url="{{ w.detail_url or url_for('novel.detail', novels_id=w.novels_id) }}">
           <img class="w-[120px] h-[120px] rounded-lg object-cover bg-zinc-300" src="{{ w.cover }}" alt="cover"/>
           <div class="flex-1 min-w-0"
                data-novel-id="{{ w.novels_id }}"
@@ -129,7 +130,6 @@
                data-comments="{{ w.comments }}"
                data-rating="{{ w.rating_avg }}">
             <div class="flex items-center gap-2">
-              <span title="อัปเดตล่าสุด" class="inline-block w-2 h-2 rounded-full bg-zinc-300"></span>
               <h3 class="font-bold truncate">{{ w.title }}</h3>
 
               {% if is_owner %}
@@ -145,7 +145,14 @@
               {% endif %}
             </div>
 
-            <div class="text-zinc-300 text-sm">by {{ w.writer_name }}</div>
+            <div class="text-zinc-300 text-sm">
+              by
+              {% if w.owner_id %}
+                <a class="hover:text-white" href="{{ url_for('writerwork.writer_works', writer_id=w.owner_id) }}">{{ w.writer_name }}</a>
+              {% else %}
+                {{ w.writer_name }}
+              {% endif %}
+            </div>
 
             <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-sm">
               <span class="inline-flex items-center gap-1.5">
@@ -205,6 +212,7 @@
   const isOwner = (mainEl?.dataset.isOwner === '1');
 
   const works = Array.from(document.querySelectorAll('#works > article > div.flex-1'));
+  const workCards = Array.from(document.querySelectorAll('#works > article[data-detail-url]'));
   const pills = document.querySelectorAll('.filter-pill');
   const statusSelect = document.getElementById('statusSelect');
 
@@ -236,6 +244,25 @@
   }));
   statusSelect.addEventListener('change', applyFilters);
   applyFilters();
+
+  // การ์ด + รูป ปุ่มกดไปหน้า novel detail
+  workCards.forEach(card=>{
+    const detail = card.dataset.detailUrl;
+    if (!detail) return;
+    card.addEventListener('click', (e)=>{
+      if (e.target.closest('button[data-action="open-stats"]')) return;
+      if (e.target.closest('a')) return;
+      window.location.href = detail;
+    });
+    const img = card.querySelector('img');
+    if (img){
+      img.style.cursor = 'pointer';
+      img.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        window.location.href = detail;
+      });
+    }
+  });
 
   const modal = document.getElementById('statsModal');
   const overlay = document.getElementById('statsOverlay');
@@ -280,7 +307,8 @@
 
     const grid = 'rgba(255,255,255,.08)';
     const axis = 'rgba(255,255,255,.18)';
-    const bar  = 'rgba(255,255,255,.85)';
+    const line = 'rgba(255,255,255,.55)';
+    const dot  = '#f0f0f0';
     const text = 'rgba(255,255,255,.70)';
 
     ctx.strokeStyle = grid;
@@ -308,24 +336,40 @@
       ctx.fillText(n(v), 6, y + 4);
     });
 
-    const count = series.length || 7;
-    const gap = 10;
-    const bw = Math.max(10, (W - gap*(count-1)) / count);
+    const count = series.length || 1;
+    const gap = count > 1 ? (W / (count - 1)) : 0;
 
+    // เส้นเชื่อมจุด
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
     series.forEach((pt, i) => {
       const v = Number(pt.views||0);
       const h = (v / maxV) * H;
-      const x = padding.l + i*(bw+gap);
+      const x = padding.l + i*gap;
+      const y = padding.t + (H - h);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // จุด + label
+    series.forEach((pt, i) => {
+      const v = Number(pt.views||0);
+      const h = (v / maxV) * H;
+      const x = padding.l + i*gap;
       const y = padding.t + (H - h);
 
-      ctx.fillStyle = bar;
-      ctx.fillRect(x, y, bw, h);
+      ctx.fillStyle = dot;
+      ctx.beginPath();
+      ctx.arc(x, y, 4.5, 0, Math.PI*2);
+      ctx.fill();
 
       const d = new Date(pt.date);
       const label = isNaN(d) ? pt.date : d.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit' });
       ctx.fillStyle = text;
       ctx.textAlign = 'center';
-      ctx.fillText(label, x + bw/2, padding.t + H + 18);
+      ctx.fillText(label, x, padding.t + H + 18);
       ctx.textAlign = 'start';
     });
   }
