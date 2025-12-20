@@ -17,6 +17,8 @@
 <body class="bg-[#0b0b0b] text-zinc-100">
   {% include "header.html" %}
 
+  {% include "_flash_toasts.html" %}
+
   <!-- ✅ main ต้องมี bg ด้วย ไม่งั้นพื้นที่ว่างใต้ header จะเป็นสีขาว -->
   <main class="bg-[#0b0b0b] min-h-screen">
     {% block content %}{% endblock %}

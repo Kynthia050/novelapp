@@ -1,0 +1,129 @@
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+  <style>
+    #flash-toast-stack {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 420px;
+      pointer-events: none;
+    }
+    .flash-toast {
+      --accent: 148 163 184;
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0))
+        rgba(12, 13, 18, 0.94);
+      border: 1px solid rgba(var(--accent), 0.32);
+      color: #e5e7eb;
+      box-shadow:
+        0 14px 36px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 6px 18px rgba(var(--accent), 0.12);
+      backdrop-filter: blur(10px);
+      min-width: 260px;
+      transform: translateY(6px);
+      opacity: 0;
+      transition: opacity 160ms ease, transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      pointer-events: auto;
+      overflow: hidden;
+    }
+    .flash-toast::before {
+      content: "";
+      position: absolute;
+      inset: -1px auto -1px -1px;
+      width: 4px;
+      border-radius: 14px 0 0 14px;
+      background: linear-gradient(180deg, rgba(var(--accent), 0.95), rgba(var(--accent), 0.4));
+    }
+    .flash-toast.show { opacity: 1; transform: translateY(0); }
+    .flash-toast.success { --accent: 52 211 153; }
+    .flash-toast.error   { --accent: 248 113 113; }
+    .flash-toast.warning { --accent: 251 191 36; }
+    .flash-toast.info    { --accent: 56 189 248; }
+    .flash-icon { margin-top: 2px; width: 18px; height: 18px; color: rgb(var(--accent)); flex-shrink: 0; }
+    .flash-message { flex: 1; font-size: 0.96rem; line-height: 1.5; }
+    .flash-close {
+      border: 0;
+      background: none;
+      color: inherit;
+      opacity: 0.72;
+      cursor: pointer;
+      padding: 2px;
+      margin: -4px 0 0 4px;
+      line-height: 1;
+      transition: opacity 120ms ease;
+    }
+    .flash-close:hover { opacity: 1; }
+  </style>
+
+  <div id="flash-toast-stack" aria-live="polite">
+    {% for category, text in messages %}
+      {% set cat = (category or "info")|lower %}
+      {% if cat == "warn" %}{% set cat = "warning" %}{% endif %}
+      <div class="flash-toast {{ cat }}">
+        <span class="flash-icon" aria-hidden="true">
+          {% if cat == "success" %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 12l2 2 4-4" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+          {% elif cat == "error" %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 9l6 6m0-6l-6 6" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+          {% elif cat == "warning" %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8v4" />
+              <path d="M12 16h.01" />
+              <path d="M10.29 3.86a1 1 0 0 1 1.72 0l8.17 14.5A1 1 0 0 1 19.34 20H4.66a1 1 0 0 1-.86-1.64l8.17-14.5Z" />
+            </svg>
+          {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8h.01M11 12h1v4h1" />
+            </svg>
+          {% endif %}
+        </span>
+        <div class="flash-message">{{ text }}</div>
+        <button type="button" class="flash-close" data-close aria-label="Close notification">&times;</button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    (function () {
+      const stack = document.getElementById("flash-toast-stack");
+      if (!stack) return;
+
+      stack.querySelectorAll(".flash-toast").forEach((toast, idx) => {
+        const show = () => toast.classList.add("show");
+        const hide = () => {
+          toast.classList.remove("show");
+          toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+        };
+
+        const timer = setTimeout(hide, 4200 + idx * 180);
+
+        toast.addEventListener("mouseenter", () => clearTimeout(timer));
+        toast.querySelector("[data-close]")?.addEventListener("click", () => {
+          clearTimeout(timer);
+          hide();
+        });
+
+        requestAnimationFrame(() => requestAnimationFrame(show));
+      });
+    })();
+  </script>
+{% endif %}
+{% endwith %}
