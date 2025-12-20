@@ -192,6 +192,33 @@ def dashboard_index():
             cursor.execute(top10_sql, tuple(top10_params))
             top10_novels = cursor.fetchall()
 
+            top_titles = [n.get("title") or "Untitled" for n in top10_novels]
+            top_avg_ratings = [float(n.get("avg_rating") or 0) for n in top10_novels]
+            top_fav_counts = [int(n.get("fav_count") or 0) for n in top10_novels]
+
+            # ============ 4.1 Category breakdown for chart ============
+            cursor.execute(
+                """
+                SELECT c.name AS name, COUNT(n.novels_id) AS total
+                FROM categories c
+                LEFT JOIN novels n ON n.cate_id = c.cate_id
+                GROUP BY c.cate_id, c.name
+                ORDER BY total DESC, c.name ASC
+                LIMIT 6
+                """
+            )
+            category_breakdown = cursor.fetchall() or []
+
+            # ============ 4.2 Role breakdown for chart ============
+            cursor.execute(
+                """
+                SELECT role, COUNT(*) AS total
+                FROM users
+                GROUP BY role
+                """
+            )
+            role_breakdown = cursor.fetchall() or []
+
             # ============ 5. User Management ============
             user_sql_where = ""
             user_params = []
@@ -227,7 +254,12 @@ def dashboard_index():
         users=users,
         total_novels=total_novels,
         total_users_all=total_users_all,
-        total_novels_category=total_novels_category
+        total_novels_category=total_novels_category,
+        top_titles=top_titles,
+        top_avg_ratings=top_avg_ratings,
+        top_fav_counts=top_fav_counts,
+        category_breakdown=category_breakdown,
+        role_breakdown=role_breakdown
     )
 
 @dashboard_bp.route('/category/add', methods=['POST'])

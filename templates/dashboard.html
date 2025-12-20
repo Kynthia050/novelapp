@@ -1,348 +1,502 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <title>Admin Dashboard — Myshelf</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+{% extends "base.html" %}
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
-  
-</head>
-<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-slate-100">
-  {# safe defaults #}
-  {% set page = page|default(1) %}
-  {% set total_pages = total_pages|default(1) %}
-  {% set search = search|default('') %}
-  {% set categories = categories|default([]) %}
-  {% set selected_category_id = selected_category_id|default(None) %}
-  {% set selected_category_name = selected_category_name|default(None) %}
-  {% set top10_novels = top10_novels|default([]) %}
-  {% set total_novels = total_novels|default(0) %}
-  {% set total_users_all = total_users_all|default(0) %}
-  {% set total_novels_category = total_novels_category|default(None) %}
-  {% set users = users|default([]) %}
-  {% set csrf_token = csrf_token if (csrf_token is defined) else None %}
+{% block title %}Myshelf | Dashboard{% endblock %}
 
+{% block extra_head %}
+<script>
+  // Monochrome palette for this page
+  window.tailwind = window.tailwind || {};
+  tailwind.config = tailwind.config || {};
+  tailwind.config.theme = tailwind.config.theme || {};
+  tailwind.config.theme.extend = tailwind.config.theme.extend || {};
+  const ex = tailwind.config.theme.extend;
+  ex.colors = Object.assign({}, ex.colors || {}, {
+    bg: '#0d0d0f',
+    panel: '#111114',
+    card: '#151519',
+    line: 'rgba(255,255,255,.08)',
+    muted: 'rgba(255,255,255,.66)',
+    textc: 'rgba(255,255,255,.94)'
+  });
+</script>
+<style>
+  :root{
+    --bg:#0d0d0f; --panel:#111114; --card:#151519; --line:rgba(255,255,255,.08);
+    --muted:rgba(255,255,255,.66); --text:rgba(255,255,255,.94); --radius:16px;
+  }
+  .dash-shell{
+    background:
+      radial-gradient(circle at 12% 12%, rgba(255,255,255,.05), transparent 26%),
+      radial-gradient(circle at 88% 8%, rgba(255,255,255,.04), transparent 24%),
+      var(--bg);
+    min-height: 100vh;
+  }
+  .surface{
+    background: linear-gradient(145deg, rgba(255,255,255,.02), rgba(255,255,255,.0));
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:0 22px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.02);
+  }
+  .surface.tight{ box-shadow:0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.02); }
+  .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:rgba(255,255,255,.04); border:1px solid var(--line); color:var(--muted); font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
+  .btn-ghost{ display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid var(--line); color:var(--text); }
+  .btn-ghost:hover{ border-color:rgba(255,255,255,.16); }
+  .btn-solid{ display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; background:#f5f5f5; color:#0d0d0f; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  .metric-card{ position:relative; overflow:hidden; isolation:isolate; }
+  .metric-card::after{ content:""; position:absolute; inset:-20% auto auto -10%; width:220px; height:220px; background:radial-gradient(circle, rgba(255,255,255,.08), transparent 55%); filter:blur(2px); opacity:.6; z-index:0; }
+  .metric-card .content{ position:relative; z-index:1; }
+  .table-grid table{ width:100%; border-collapse:collapse; }
+  .table-grid thead th{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:12px; background:rgba(255,255,255,.02); text-align:left; border-bottom:1px solid var(--line); }
+  .table-grid tbody td{ padding:14px 12px; border-bottom:1px solid rgba(255,255,255,.04); }
+  .table-grid tbody tr:hover td{ background:rgba(255,255,255,.02); }
+  .chart-wrap{ position:relative; min-height:260px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
 
-  <div class="min-h-screen flex">
+{% block content %}
+{% set page = page|default(1) %}
+{% set total_pages = total_pages|default(1) %}
+{% set search = search|default('') %}
+{% set categories = categories|default([]) %}
+{% set selected_category_id = selected_category_id|default(None) %}
+{% set selected_category_name = selected_category_name|default(None) %}
+{% set top10_novels = top10_novels|default([]) %}
+{% set total_novels = total_novels|default(0) %}
+{% set total_users_all = total_users_all|default(0) %}
+{% set total_novels_category = total_novels_category|default(None) %}
+{% set users = users|default([]) %}
+{% set category_breakdown = category_breakdown|default([]) %}
+{% set role_breakdown = role_breakdown|default([]) %}
+{% set top_titles = top_titles|default([]) %}
+{% set top_avg_ratings = top_avg_ratings|default([]) %}
+{% set top_fav_counts = top_fav_counts|default([]) %}
 
-    <aside class="w-64 bg-slate-950/60 border-r border-white/10 backdrop-blur-xl hidden md:flex flex-col">
-      <div class="px-6 py-5 flex items-center gap-3 border-b border-white/10">
-        <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-emerald-400 to-cyan-400 flex items-center justify-center text-slate-900 font-black text-xl">
-          M
-        </div>
-        <div class="leading-tight">
-          <p class="font-semibold text-sm tracking-wide">Myshelf</p>
-          <p class="text-xs text-slate-400">Dashboard</p>
-        </div>
+<div class="dash-shell">
+  <div class="max-w-[1200px] mx-auto px-4 md:px-6 py-10 space-y-8">
+
+    <div class="surface p-6 md:p-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div class="space-y-1.5">
+        <p class="text-[11px] tracking-[0.28em] uppercase text-[var(--muted)]">แผงควบคุม</p>
+        <h1 class="text-3xl font-semibold text-white leading-tight">สวัสดี, {{ g.user.username if g.get('user') else 'Admin' }}</h1>
+        <p class="text-sm text-[var(--muted)]">ภาพรวมระบบ นิยาย ผู้ใช้ และหมวดหมู่ทั้งหมดใน Myshelf</p>
       </div>
-
-      <nav class="flex-1 px-3 py-4 space-y-6 text-sm">
-        <div>
-          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-[.2em] text-slate-500">Main</p>
-          <a href="{{ url_for('dashboard.dashboard_index') }}"
-             class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-medium shadow-sm">
-            <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-900/5">
-              🧭
-            </span>
-            Dashboard
-          </a>
-        </div>
-
-        <div>
-          <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-[.2em] text-slate-500">Management</p>
-          <div class="space-y-1">
-            <div class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800/60 cursor-default">
-              <span class="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800/80">👤</span>
-              <span>Users</span>
-            </div>
-            <div class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800/60 cursor-default">
-              <span class="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800/80">📚</span>
-              <span>Novels</span>
-            </div>
-            <div class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-800/60 cursor-default">
-              <span class="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800/80">🏷️</span>
-              <span>Categories</span>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div class="px-4 py-4 border-t border-white/10 text-xs text-slate-500">
-        Logged in as <span class="text-slate-200 font-medium">{{ g.user.username if g.get('user') else 'Admin' }}</span>
+      <div class="flex flex-wrap gap-2">
+        <a href="{{ url_for('dashboard.dashboard_index') }}" class="btn-ghost">
+          <span class="w-4 h-4 grid place-items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0-3.75-3.75M19.5 12l-3.75 3.75" />
+            </svg>
+          </span>
+          <span>รีเฟรชข้อมูล</span>
+        </a>
+        <button type="button" class="btn-solid">
+          <span class="w-4 h-4 grid place-items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+            </svg>
+          </span>
+          <span>สร้างนิยายใหม่</span>
+        </button>
       </div>
-    </aside>
+    </div>
 
-    <main class="flex-1 px-4 sm:px-6 lg:px-8 py-5 space-y-6">
-
-      <header class="flex items-center justify-between gap-4">
-        <div>
-          <h1 class="text-xl sm:text-2xl font-semibold">Hi, {{ g.user.username if g.get('user') else 'Admin' }} 👋</h1>
-          <p class="text-sm text-slate-400">ภาพรวมระบบนิยายของคุณในวันนี้</p>
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <article class="surface metric-card p-5 md:p-6">
+        <div class="content space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="pill">นิยายทั้งหมด</span>
+            <span class="text-xs text-white bg-white/10 border border-white/20 rounded-full px-2 py-1">รวม</span>
+          </div>
+          <p class="text-4xl font-semibold text-white tracking-tight">{{ total_novels }}</p>
+          <p class="text-sm text-[var(--muted)]">จำนวนเรื่องทั้งหมดในระบบ</p>
         </div>
+      </article>
 
-        <div class="flex items-center gap-3">
-          <button class="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-100 text-slate-900 text-sm font-medium shadow-lg shadow-emerald-500/20">
-            <span class="text-lg">＋</span>
-            <span>New novel</span>
-          </button>
-          <button class="w-10 h-10 rounded-full bg-slate-900/70 flex items-center justify-center border border-white/10">
-            🔍
-          </button>
-          <button class="w-10 h-10 rounded-full bg-slate-900/70 flex items-center justify-center border border-white/10">
-            🔔
-          </button>
-        </div>
-      </header>
-
-      {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="space-y-2">
-          {% for category, message in messages %}
-            {% set color = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40' if category == 'success'
-                           else 'bg-rose-500/10 text-rose-300 border-rose-500/40' %}
-            <div class="px-4 py-2 rounded-xl border text-sm {{ color }}">
-              {{ message }}
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
-      {% endwith %}
-
-      <section class="grid gap-4 md:grid-cols-3">
-        <div class="rounded-3xl bg-slate-950/80 border border-white/10 px-5 py-4 shadow-xl shadow-black/40">
-          <div class="flex items-center justify-between mb-4">
-            <p class="text-xs uppercase tracking-[.2em] text-slate-400">NOVELS</p>
-            <span class="text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-              All
+      <article class="surface metric-card p-5 md:p-6">
+        <div class="content space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="pill">นิยายตามหมวด</span>
+            <span class="text-[11px] text-[var(--muted)] px-2 py-1 rounded-full bg-white/5 border border-[var(--line)]">
+              {{ selected_category_name or 'ทุกหมวดหมู่' }}
             </span>
           </div>
-          <p class="text-4xl font-semibold mb-1">{{ total_novels }}</p>
-          <p class="text-sm text-slate-400">นิยายทั้งหมดในระบบ</p>
-        </div>
-
-        <div class="rounded-3xl bg-slate-900/80 border border-white/10 px-5 py-4 shadow-lg shadow-black/30">
-          <div class="flex items-center justify-between mb-4">
-            <p class="text-xs uppercase tracking-[.2em] text-slate-400">NOVELS BY CATEGORY</p>
-            <span class="text-[10px] px-2 py-1 rounded-full bg-slate-800 text-slate-200 border border-slate-600">
-              {{ selected_category_name if selected_category_name else 'เลือกหมวดด้านขวา' }}
-            </span>
-          </div>
-          <p class="text-4xl font-semibold mb-1">
-            {{ total_novels_category if total_novels_category is not none else '-' }}
+          <p class="text-4xl font-semibold text-white tracking-tight">
+            {{ total_novels_category if total_novels_category is not none else '—' }}
           </p>
-          <p class="text-sm text-slate-400">จำนวนตามหมวดที่เลือก</p>
+          <p class="text-sm text-[var(--muted)]">จำนวนเรื่องในหมวดที่เลือก</p>
         </div>
+      </article>
 
-        <div class="rounded-3xl bg-slate-900/80 border border-white/10 px-5 py-4 shadow-lg shadow-black/30">
-          <div class="flex items-center justify-between mb-4">
-            <p class="text-xs uppercase tracking-[.2em] text-slate-400">USERS</p>
-            <span class="text-xs px-2 py-1 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/40">
-              Active
+      <article class="surface metric-card p-5 md:p-6">
+        <div class="content space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="pill">ผู้ใช้ทั้งหมด</span>
+            <span class="text-xs text-white bg-white/10 border border-white/20 rounded-full px-2 py-1">Active</span>
+          </div>
+          <p class="text-4xl font-semibold text-white tracking-tight">{{ total_users_all }}</p>
+          <p class="text-sm text-[var(--muted)]">จำนวนผู้ใช้ที่ลงทะเบียน</p>
+        </div>
+      </article>
+
+      <article class="surface metric-card p-5 md:p-6">
+        <div class="content space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="pill">ยอดนิยม</span>
+            <span class="text-xs text-white bg-white/10 border border-white/20 rounded-full px-2 py-1">คะแนนเฉลี่ย</span>
+          </div>
+          {% set top_pick = top10_novels[0] if top10_novels else None %}
+          <p class="text-4xl font-semibold text-white tracking-tight">
+            {{ "%.2f"|format(top_pick.avg_rating) if top_pick and top_pick.avg_rating is not none else "0.00" }}
+          </p>
+          <p class="text-sm text-[var(--muted)]">
+            {% if top_pick %}
+              {{ top_pick.title or 'Untitled' }}
+            {% else %}
+              รอข้อมูลรีวิว
+            {% endif %}
+          </p>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid gap-4 xl:grid-cols-3">
+      <div class="surface tight p-5 md:p-6 space-y-4 xl:col-span-2">
+        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-[11px] tracking-[0.24em] uppercase text-[var(--muted)]">Top 10 Novels</p>
+            <h2 class="text-lg font-semibold text-white">คะแนนรีวิว & ความนิยม</h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-[var(--muted)]">
+            <span class="inline-flex items-center gap-2 px-2 py-1 rounded bg-white/5 border border-[var(--line)]">
+              <span class="w-3 h-3 rounded-sm bg-white"></span> Avg Rating
+            </span>
+            <span class="inline-flex items-center gap-2 px-2 py-1 rounded bg-white/5 border border-[var(--line)]">
+              <span class="w-3 h-3 rounded-sm bg-zinc-500"></span> Favorite Count
             </span>
           </div>
-          <p class="text-4xl font-semibold mb-1">{{ total_users_all }}</p>
-          <p class="text-sm text-slate-400">จำนวนผู้ใช้ทั้งหมดในระบบ</p>
         </div>
-      </section>
+        <div class="chart-wrap">
+          <canvas id="chartTopRatings" class="w-full h-full"></canvas>
+        </div>
+      </div>
 
-      <section class="grid gap-4 lg:grid-cols-3">
-        <div class="lg:col-span-2 rounded-3xl bg-slate-950/80 border border-white/10 px-5 py-4 shadow-xl shadow-black/40">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <div class="space-y-4">
+        <div class="surface tight p-5 md:p-6 space-y-3">
+          <div class="flex items-center justify-between">
             <div>
-              <h2 class="text-sm font-semibold tracking-[.18em] uppercase text-slate-300">USER MANAGEMENT</h2>
-              <p class="text-xs text-slate-500">ค้นหา / จัดการผู้ใช้ในระบบ</p>
+              <p class="text-[11px] tracking-[0.22em] uppercase text-[var(--muted)]">หมวดหมู่</p>
+              <h3 class="text-lg font-semibold text-white">สัดส่วนหมวดนิยาย</h3>
             </div>
-            <form method="get" action="{{ url_for('dashboard.dashboard_index') }}" class="flex gap-2">
-              <input type="hidden" name="category_id" value="{{ selected_category_id or '' }}">
-              <input
-                type="text"
-                name="search"
-                value="{{ search }}"
-                placeholder="ค้นหาด้วยชื่อ หรืออีเมล"
-                class="w-48 sm:w-64 px-3 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-              >
-              <button class="px-3 py-2 rounded-xl bg-slate-100 text-slate-900 text-sm font-medium shadow">
-                ค้นหา
-              </button>
-            </form>
+            <span class="pill">Overview</span>
           </div>
+          {% if category_breakdown %}
+            <div class="chart-wrap min-h-[220px]">
+              <canvas id="chartCategory"></canvas>
+            </div>
+          {% else %}
+            <p class="text-sm text-[var(--muted)]">ยังไม่มีข้อมูลหมวดหมู่</p>
+          {% endif %}
+        </div>
 
-          <div class="overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60">
-            <table class="min-w-full text-sm">
-              <thead class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-[.16em]">
-                <tr>
-                  <th class="px-3 py-2 text-left">ID</th>
-                  <th class="px-3 py-2 text-left">Username</th>
-                  <th class="px-3 py-2 text-left">Email</th>
-                  <th class="px-3 py-2 text-left">Role</th>
-                  <th class="px-3 py-2 text-left">Created</th>
-                  <th class="px-3 py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% if users %}
-                  {% for u in users %}
-                  <tr class="border-t border-white/5 hover:bg-slate-900/70">
-                    <td class="px-3 py-2 align-top text-slate-300">{{ u.users_id }}</td>
-                    <td class="px-3 py-2 align-top">
-                      <div class="font-medium text-slate-100">{{ u.username }}</div>
+        <div class="surface p-5 md:p-6 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white">บทบาทผู้ใช้</h3>
+            <span class="pill">Users</span>
+          </div>
+          {% if role_breakdown %}
+            <div class="space-y-2">
+              {% set total_roles = role_breakdown | sum(attribute='total') %}
+              {% for r in role_breakdown %}
+                {% set pct = (r.total / total_roles * 100) if total_roles else 0 %}
+                <div class="flex items-center justify-between text-sm text-white/90">
+                  <span class="font-medium">{{ r.role or 'unknown' }}</span>
+                  <span class="text-[var(--muted)]">{{ r.total }} ({{ '%.1f'|format(pct) }}%)</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-white/5">
+                  <div class="h-2 rounded-full bg-white/60" style="width: 0%;" data-pct="{{ '%.1f'|format(pct) }}"></div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-sm text-[var(--muted)]">ยังไม่มีข้อมูลบทบาทผู้ใช้</p>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-4 xl:grid-cols-3">
+      <div class="xl:col-span-2 surface tight p-5 md:p-6 space-y-5">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div class="space-y-1">
+            <p class="text-[11px] tracking-[0.24em] uppercase text-[var(--muted)]">จัดการผู้ใช้</p>
+            <h2 class="text-xl font-semibold text-white">User Management</h2>
+            <p class="text-sm text-[var(--muted)]">ค้นหาผู้ใช้หรืออีเมล และดูข้อมูลสร้างบัญชี</p>
+          </div>
+          <form method="get" action="{{ url_for('dashboard.dashboard_index') }}" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input type="hidden" name="category_id" value="{{ selected_category_id or '' }}">
+            <label class="sr-only" for="search">ค้นหาผู้ใช้</label>
+            <input
+              id="search"
+              type="text"
+              name="search"
+              value="{{ search }}"
+              placeholder="ค้นหาชื่อผู้ใช้หรืออีเมล"
+              class="w-full sm:w-64 rounded-full bg-[var(--panel)] border border-[var(--line)] px-4 py-2.5 text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-white/30"
+            >
+            <div class="flex gap-2 sm:gap-1">
+              <button class="btn-solid" type="submit">ค้นหา</button>
+              {% if search %}
+              <a href="{{ url_for('dashboard.dashboard_index', category_id=selected_category_id) }}" class="btn-ghost">ล้าง</a>
+              {% endif %}
+            </div>
+          </form>
+        </div>
+
+        <div class="table-grid overflow-x-auto rounded-[var(--radius)] border border-[var(--line)] bg-[var(--panel)]/70">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if users %}
+                {% for u in users %}
+                  <tr class="text-sm text-white/90">
+                    <td class="align-top text-[var(--muted)]">{{ u.users_id }}</td>
+                    <td class="align-top">
+                      <div class="font-semibold text-white">{{ u.username }}</div>
                     </td>
-                    <td class="px-3 py-2 align-top text-slate-300">{{ u.email }}</td>
-                    <td class="px-3 py-2 align-top">
-                      <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] border
-                                   {% if u.role == 'superadmin' %}
-                                     bg-rose-500/10 text-rose-300 border-rose-500/40
-                                   {% elif u.role == 'admin' %}
-                                     bg-amber-500/10 text-amber-300 border-amber-500/40
-                                   {% else %}
-                                     bg-slate-700/60 text-slate-200 border-slate-500/60
-                                   {% endif %}">
+                    <td class="align-top text-[var(--muted)]">{{ u.email }}</td>
+                    <td class="align-top">
+                      <span class="inline-flex px-2 py-1 rounded-full text-[11px] font-medium border bg-white/5 text-white border-white/10">
                         {{ u.role }}
                       </span>
                     </td>
-                    <td class="px-3 py-2 align-top text-slate-400 text-xs">
+                    <td class="align-top text-xs text-[var(--muted)]">
                       {{ u.created_at.strftime("%Y-%m-%d") if u.created_at else "" }}
                     </td>
-                    <td class="px-3 py-2 align-top text-right">
-                      <button class="text-xs px-2 py-1 rounded-lg bg-slate-800 text-slate-200 border border-white/10">
+                    <td class="align-top text-right">
+                      <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-white/5 border border-[var(--line)] text-white hover:border-white/20">
                         Manage
                       </button>
                     </td>
                   </tr>
-                  {% endfor %}
-                {% else %}
-                  <tr>
-                    <td colspan="6" class="px-3 py-4 text-center text-slate-500">
-                      ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข
-                    </td>
-                  </tr>
-                {% endif %}
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
-            <div>
-              Page {{ page }} / {{ total_pages }}
-            </div>
-
-            <div class="inline-flex items-center gap-1">
-              {% if page > 1 %}
-                <a href="{{ url_for('dashboard.dashboard_index', page=page-1, search=search, category_id=selected_category_id) }}"
-                   class="px-2 py-1 rounded-lg border border-white/10 bg-slate-900/70 hover:bg-slate-800">
-                  ก่อนหน้า
-                </a>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="6" class="py-6 text-center text-[var(--muted)]">ไม่พบผู้ใช้ตามเงื่อนไข</td>
+                </tr>
               {% endif %}
-
-              {% for p in range(1, total_pages + 1) %}
-                {% if p == page %}
-                  <span class="px-2 py-1 rounded-lg bg-slate-100 text-slate-900 font-semibold border border-slate-100">
-                    {{ p }}
-                  </span>
-                {% elif p == 1 or p == total_pages or (p >= page-1 and p <= page+1) %}
-                  <a href="{{ url_for('dashboard.dashboard_index', page=p, search=search, category_id=selected_category_id) }}"
-                     class="px-2 py-1 rounded-lg border border-white/10 bg-slate-900/70 hover:bg-slate-800">
-                    {{ p }}
-                  </a>
-                {% elif p == 2 and page > 3 or p == total_pages-1 and page < total_pages-2 %}
-                  <span class="px-2 py-1">…</span>
-                {% endif %}
-              {% endfor %}
-
-              {% if page < total_pages %}
-                <a href="{{ url_for('dashboard.dashboard_index', page=page+1, search=search, category_id=selected_category_id) }}"
-                   class="px-2 py-1 rounded-lg border border-white/10 bg-slate-900/70 hover:bg-slate-800">
-                  ถัดไป
-                </a>
-              {% endif %}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
 
-        <div class="space-y-4">
-          <div class="rounded-3xl bg-slate-950/80 border border-white/10 px-5 py-4 shadow-xl shadow-black/40">
-            <div class="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h2 class="text-sm font-semibold tracking-[.18em] uppercase text-slate-300">TOP 10 NOVELS</h2>
-                <p class="text-xs text-slate-500">
-                  เรียงตามคะแนนเฉลี่ย (AVG rating)
-                </p>
-              </div>
-              <form method="get" action="{{ url_for('dashboard.dashboard_index') }}" class="flex flex-col items-end gap-1 text-xs">
-                <input type="hidden" name="page" value="{{ page }}">
-                <input type="hidden" name="search" value="{{ search }}">
-                <label for="category_id" class="text-slate-400">หมวดหมู่</label>
-                <select
-                  id="category_id"
-                  name="category_id"
-                  class="px-2 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-                  onchange="this.form.submit()"
-                >
-                  <option value="">ทั้งหมด</option>
-                  {% for c in categories %}
-                  <option value="{{ c.cate_id }}" {% if c.cate_id == selected_category_id %}selected{% endif %}>
-                    {{ c.name }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </form>
-            </div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-[var(--muted)]">
+          <div>Page {{ page }} / {{ total_pages }}</div>
+          <div class="flex flex-wrap items-center gap-2">
+            {% if page > 1 %}
+              <a href="{{ url_for('dashboard.dashboard_index', page=page-1, search=search, category_id=selected_category_id) }}" class="btn-ghost text-xs">ก่อนหน้า</a>
+            {% endif %}
 
-            <ol class="space-y-2 text-sm">
-              {% for n in top10_novels %}
-              <li class="flex items-start gap-3 px-3 py-2 rounded-2xl bg-slate-900/80 border border-white/5">
-                <div class="w-7 h-7 rounded-xl bg-slate-950 flex items-center justify-center text-[11px] font-semibold text-slate-200">
+            {% for p in range(1, total_pages + 1) %}
+              {% if p == page %}
+                <span class="px-3 py-1.5 rounded-full bg-white text-black text-sm font-semibold">{{ p }}</span>
+              {% elif p == 1 or p == total_pages or (p >= page-1 and p <= page+1) %}
+                <a href="{{ url_for('dashboard.dashboard_index', page=p, search=search, category_id=selected_category_id) }}" class="px-3 py-1.5 rounded-full bg-white/5 border border-[var(--line)] text-sm hover:border-white/20">{{ p }}</a>
+              {% elif (p == 2 and page > 3) or (p == total_pages-1 and page < total_pages-2) %}
+                <span class="px-2 py-1">…</span>
+              {% endif %}
+            {% endfor %}
+
+            {% if page < total_pages %}
+              <a href="{{ url_for('dashboard.dashboard_index', page=page+1, search=search, category_id=selected_category_id) }}" class="btn-ghost text-xs">ถัดไป</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="surface tight p-5 md:p-6 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-[11px] tracking-[0.22em] uppercase text-[var(--muted)]">อันดับ</p>
+              <h3 class="text-lg font-semibold text-white">Top 10</h3>
+            </div>
+            <span class="pill">คะแนน & ชื่นชอบ</span>
+          </div>
+          <ol class="space-y-2">
+            {% for n in top10_novels %}
+              <li class="flex items-start gap-3 rounded-[12px] border border-[var(--line)] bg-white/5 px-3 py-2.5">
+                <div class="w-8 h-8 rounded-lg bg-[var(--panel)] grid place-items-center text-xs font-semibold text-white/90">
                   {{ loop.index }}
                 </div>
-                <div class="flex-1 min-w-0">
-                  <p class="font-medium truncate text-slate-100">{{ n.title or 'Untitled' }}</p>
-                  <p class="text-xs text-slate-400">
-                    {{ n.category_name or 'ไม่ระบุหมวด' }} ·
-                    {{ n.chapter_count }} ตอน ·
-                    <span class="text-amber-300 font-semibold">{{ "%.2f"|format(n.avg_rating or 0) }}</span>
-                    <span class="text-slate-400">/ 5 ({{ n.rating_count }} rating)</span>
+                <div class="flex-1 min-w-0 space-y-1">
+                  <p class="font-semibold text-white truncate">{{ n.title or 'Untitled' }}</p>
+                  <p class="text-xs text-[var(--muted)] truncate">
+                    {{ n.category_name or 'ไม่ระบุหมวดหมู่' }} · {{ n.chapter_count or 0 }} ตอน
                   </p>
-                </div>
-                <div class="text-xs text-slate-400 whitespace-nowrap">
-                  ❤ {{ n.fav_count }}
+                  <div class="flex items-center gap-3 text-xs text-[var(--muted)]">
+                    <span class="inline-flex items-center gap-1">
+                      <span class="inline-block w-2 h-2 rounded-full bg-white"></span>
+                      <span class="text-white font-semibold">{{ "%.2f"|format(n.avg_rating or 0) }}</span>
+                      <span>/ 5</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <span class="inline-block w-2 h-2 rounded-full bg-zinc-500"></span>
+                      {{ n.fav_count or 0 }} ชื่นชอบ
+                    </span>
+                  </div>
                 </div>
               </li>
-              {% else %}
-              <p class="text-xs text-slate-500 px-1">ยังไม่มีข้อมูลนิยายสำหรับจัดอันดับ</p>
-              {% endfor %}
-            </ol>
-          </div>
-
-          <div class="rounded-3xl border border-dashed border-emerald-500/50 bg-emerald-500/5 px-5 py-4">
-            <h3 class="text-sm font-semibold tracking-[.18em] uppercase text-emerald-300 mb-2">
-              ADD CATEGORY
-            </h3>
-            <p class="text-xs text-emerald-100/80 mb-3">
-              เพิ่มหมวดหมู่นิยายใหม่ในระบบ (ชื่อไม่ซ้ำ)
-            </p>
-            <form method="post" action="{{ url_for('dashboard.add_category') }}" class="flex flex-col gap-2">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <input
-                type="text"
-                name="name"
-                placeholder="ชื่อหมวดหมู่ใหม่ เช่น Dark Fantasy"
-                class="px-3 py-2 rounded-xl bg-slate-950/80 border border-emerald-500/40 text-sm placeholder:text-emerald-200/60 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-              <button
-                type="submit"
-                class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-400 text-slate-950 text-sm font-semibold shadow-lg shadow-emerald-500/40"
-              >
-                <span>＋</span>
-                <span>เพิ่มหมวดหมู่</span>
-              </button>
-            </form>
-          </div>
+            {% else %}
+              <p class="text-sm text-[var(--muted)]">ยังไม่มีข้อมูลอันดับ</p>
+            {% endfor %}
+          </ol>
         </div>
-      </section>
 
-    </main>
+        <div class="surface border border-white/20 bg-white/5 p-5 md:p-6 space-y-3">
+          <h3 class="text-sm font-semibold tracking-[0.22em] uppercase text-white">เพิ่มหมวดหมู่</h3>
+          <p class="text-sm text-[var(--muted)]">จัดการหมวดหมู่ใหม่ให้ตรงกับแนวของนิยาย</p>
+          <form method="post" action="{{ url_for('dashboard.add_category') }}" class="space-y-2">
+            {% if csrf_token is defined %}
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% endif %}
+            <label for="name" class="sr-only">ชื่อหมวดหมู่</label>
+            <input
+              id="name"
+              type="text"
+              name="name"
+              placeholder="เช่น Dark Fantasy, Slice of Life"
+              class="w-full rounded-xl bg-[#0f1115] border border-white/25 px-3 py-2.5 text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-white/35"
+            >
+            <button
+              type="submit"
+              class="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white text-black text-sm font-semibold shadow-lg shadow-black/30"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                <path d="M12 5v14m-7-7h14" />
+              </svg>
+              <span>เพิ่มหมวดหมู่</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
   </div>
-</body>
-</html>
+</div>
+
+<script type="application/json" id="dash-chart-data">
+  {{ {
+    "topLabels": top_titles,
+    "topRatings": top_avg_ratings,
+    "topFavs": top_fav_counts,
+    "categories": category_breakdown
+  } | tojson }}
+</script>
+
+<script>
+  (() => {
+    const dataEl = document.getElementById('dash-chart-data');
+    let payload = { topLabels: [], topRatings: [], topFavs: [], categories: [] };
+    try {
+      payload = JSON.parse(dataEl?.textContent || "{}") || payload;
+    } catch (e) {
+      payload = { topLabels: [], topRatings: [], topFavs: [], categories: [] };
+    }
+
+    const topLabels = payload.topLabels || [];
+    const topRatings = payload.topRatings || [];
+    const topFavs = payload.topFavs || [];
+
+    if (topLabels.length) {
+      const ctx = document.getElementById('chartTopRatings');
+      if (ctx) {
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: topLabels,
+            datasets: [
+              {
+                label: 'Avg Rating',
+                data: topRatings,
+                backgroundColor: 'rgba(255,255,255,0.8)',
+                borderColor: 'rgba(255,255,255,0.9)',
+                borderWidth: 1,
+                borderRadius: 6,
+              },
+              {
+                label: 'Favorites',
+                data: topFavs,
+                backgroundColor: 'rgba(115,115,115,0.6)',
+                borderColor: 'rgba(115,115,115,0.8)',
+                borderWidth: 1,
+                borderRadius: 6,
+              }
+            ]
+          },
+          options: {
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: '#f5f5f5' } },
+            },
+            scales: {
+              x: {
+                ticks: { color: 'rgba(255,255,255,0.7)', maxRotation: 45, minRotation: 0 },
+                grid: { display: false },
+              },
+              y: {
+                ticks: { color: 'rgba(255,255,255,0.7)' },
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+    }
+
+    const catData = payload.categories || [];
+    if (catData && catData.length) {
+      const labels = catData.map(c => c.name);
+      const values = catData.map(c => c.total);
+      const colors = ['#111', '#2a2a2a', '#3f3f3f', '#555', '#777', '#999'];
+      const ctxCat = document.getElementById('chartCategory');
+      if (ctxCat) {
+        new Chart(ctxCat, {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{
+              data: values,
+              backgroundColor: colors.slice(0, labels.length),
+              borderWidth: 0
+            }]
+          },
+          options: {
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#f5f5f5' } }
+            },
+            cutout: '60%'
+          }
+        });
+      }
+    }
+
+    // Set widths for role breakdown bars to avoid templating inside style
+    document.querySelectorAll('[data-pct]').forEach((el) => {
+      const pct = parseFloat(el.dataset.pct);
+      if (!Number.isNaN(pct)) {
+        el.style.width = `${pct}%`;
+      }
+    });
+  })();
+</script>
+{% endblock %}
