@@ -161,10 +161,11 @@
           {% for w in works %}
             {% set s = (w.status or 'แบบร่าง') %}
             <article
-              class="relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl border border-line bg-card/95 p-4 shadow-soft"
+              class="relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl border border-line bg-card/95 p-4 shadow-soft cursor-pointer"
               data-id="{{ w.novels_id }}"
               data-status="{{ s }}"
               data-copy="{{ url_for('novel.detail', novels_id=w.novels_id) }}"
+              data-edit-url="{{ url_for('editnovel.edit_novel', novels_id=w.novels_id) }}"
             >
               <!-- left group -->
               <div class="flex items-center gap-3">
@@ -191,26 +192,51 @@
                   <div class="mt-0.5 flex flex-wrap items-center gap-3 text-white/70 text-[.92rem]">
                     <span>{{ w.category_name }}</span>
                   </div>
+
+                  <div class="mt-1 flex flex-wrap items-center gap-4 text-white/70 text-[.92rem]">
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-white/70">
+                        <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
+                      </svg>
+                      <span>{{ w.chapters }}</span>
+                    </span>
+
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-white/70">
+                        <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
+                      </svg>
+                      <span>{{ w.views }}</span>
+                    </span>
+
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-white/70">
+                        <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
+                      </svg>
+                      <span>
+                        {{ '%.1f'|format(w.rating|float) }}
+                        <span class="text-white/50">/5</span>
+                      </span>
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <!-- right column -->
               <div class="md:col-start-3 md:row-start-1 grid justify-items-end gap-2">
                 <div class="text-white/60 text-sm">
-                  {% if w.edited_at %}
-                    แก้ไข {{ w.edited_at.strftime('%d %b %Y %H:%M น.') }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </div>
+              {% if w.edited_at %}
+                แก้ไข {{ w.edited_at.strftime('%d %b %Y %H:%M น.') }}
+              {% else %}
+                -
+              {% endif %}
+            </div>
 
-                <div class="relative status flex items-center gap-2">
-                  <span class="dot inline-block h-2.5 w-2.5 rounded-full {{ 'bg-gray-400' if s in ['เผยแพร่','จบแล้ว'] else 'bg-gray-600' }}"></span>
+            <div class="relative status flex items-center gap-2">
 
-                  <div class="relative">
-                    <select
-                      name="status"
-                      data-id="{{ w.novels_id }}"
+              <div class="relative">
+                <select
+                  name="status"
+                  data-id="{{ w.novels_id }}"
                       data-prev="{{ s }}"
                       class="statusSel select-reset rounded-lg border border-line bg-chip/90 px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
                     >
@@ -470,21 +496,31 @@
         }
 
         const cmdBtn = e.target.closest('.moreMenu [data-cmd]');
-        if (!cmdBtn) return;
+        if (cmdBtn){
+          const card = cmdBtn.closest('article');
+          const urlToCopy = card?.dataset.copy || window.location.href;
+          const cmd  = cmdBtn.dataset.cmd;
 
-        const card = cmdBtn.closest('article');
-        const urlToCopy = card?.dataset.copy || window.location.href;
-        const cmd  = cmdBtn.dataset.cmd;
+          closeAllMenus();
 
-        closeAllMenus();
-
-        if (cmd === 'copy'){
-          try{
-            await copyText(urlToCopy);
-            return toast('คัดลอกลิงก์แล้ว');
-          }catch(err){
-            return toast('คัดลอกไม่สำเร็จ', false);
+          if (cmd === 'copy'){
+            try{
+              await copyText(urlToCopy);
+              return toast('คัดลอกลิงก์แล้ว');
+            }catch(err){
+              return toast('คัดลอกไม่สำเร็จ', false);
+            }
           }
+          return;
+        }
+
+        const interactive = e.target.closest('a, button, select, input, label');
+        if (interactive) return;
+
+        const card = e.target.closest('article[data-edit-url]');
+        const editUrl = card?.dataset.editUrl;
+        if (card && editUrl){
+          window.location.href = editUrl;
         }
       });
 

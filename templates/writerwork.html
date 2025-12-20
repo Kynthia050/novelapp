@@ -52,15 +52,14 @@
 
     <!-- WRITER PANEL -->
     <section class="bg-neutral-900/70 border border-white/10 rounded-2xl shadow-soft p-5 md:p-6 mt-4">
-      <div class="flex flex-col md:flex-row md:items-stretch gap-5">
-        <img class="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover bg-zinc-300 border border-white/10"
+      <div class="max-w-3xl mx-auto w-full flex flex-col items-center text-center gap-4">
+        <img class="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover bg-zinc-300 border border-white/10"
             src="{{ writer.pfpic }}" alt="avatar"/>
 
-        <!-- กล่องข้อมูลให้ได้ขนาดตามกรอบแดง -->
-        <div class="writer-info-box flex flex-col justify-center">
+        <div class="writer-info-box flex flex-col items-center gap-2">
           <div class="text-2xl md:text-3xl font-bold">{{ writer.username }}</div>
 
-          <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-zinc-300 text-sm">
+          <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-zinc-300 text-sm">
             <span class="inline-flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
                   class="w-4 h-4 text-zinc-300">
@@ -120,7 +119,7 @@
         <article class="group relative flex gap-4 rounded-xl border border-white/10 bg-neutral-900/70 p-3 md:p-4 hover:ring-1 hover:ring-white/20 transition cursor-pointer"
                  data-detail-url="{{ w.detail_url or url_for('novel.detail', novels_id=w.novels_id) }}">
           <img class="w-[120px] h-[120px] rounded-lg object-cover bg-zinc-300" src="{{ w.cover }}" alt="cover"/>
-          <div class="flex-1 min-w-0"
+          <div class="flex-1 min-w-0 text-base"
                data-novel-id="{{ w.novels_id }}"
                data-chapters="{{ w.chapters }}"
                data-views="{{ w.views }}"
@@ -130,7 +129,7 @@
                data-comments="{{ w.comments }}"
                data-rating="{{ w.rating_avg }}">
             <div class="flex items-center gap-2">
-              <h3 class="font-bold truncate">{{ w.title }}</h3>
+              <h3 class="font-bold truncate text-base">{{ w.title }}</h3>
 
               {% if is_owner %}
               <div class="ml-auto flex items-center gap-2">
@@ -145,8 +144,8 @@
               {% endif %}
             </div>
 
-            <div class="text-zinc-300 text-sm">
-              by
+            <div class="text-zinc-300 text-base">
+              ผู้เขียน:
               {% if w.owner_id %}
                 <a class="hover:text-white" href="{{ url_for('writerwork.writer_works', writer_id=w.owner_id) }}">{{ w.writer_name }}</a>
               {% else %}
@@ -154,7 +153,7 @@
               {% endif %}
             </div>
 
-            <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-sm">
+            <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-base">
               <span class="inline-flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">
                   <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>

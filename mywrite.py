@@ -140,10 +140,12 @@ def mywrite_index():
                   c.name AS category_name,
                   u.username AS author_username,
 
-                  (SELECT COUNT(*) FROM chapters ch WHERE ch.novels_id = n.novels_id) AS chapters_count,
+                  -- นับตอนทั้งหมด (รวมแบบร่าง/ยังไม่เผยแพร่ด้วย)
+                  (SELECT COUNT(*) FROM chapters ch WHERE ch.novels_id = n.novels_id) AS total_chapters,
                   (SELECT COUNT(DISTINCT rh.users_id) FROM reading_history rh WHERE rh.novels_id = n.novels_id) AS readers_count,
                   (SELECT COUNT(*) FROM comments cm WHERE cm.novels_id = n.novels_id) AS comments_count,
-                  (SELECT COUNT(*) FROM bookshelf b WHERE b.novels_id = n.novels_id) AS favorites_count
+                  (SELECT COUNT(*) FROM bookshelf b WHERE b.novels_id = n.novels_id) AS favorites_count,
+                  (SELECT AVG(r.rating) FROM ratings r WHERE r.novels_id = n.novels_id) AS rating_avg
                 FROM novels n
                 LEFT JOIN categories c ON c.cate_id = n.cate_id
                 LEFT JOIN users u      ON u.users_id = n.users_id
@@ -169,10 +171,12 @@ def mywrite_index():
                 "cover_url": _cover_url(r.get("cover")),
                 "category_name": r.get("category_name") or "ไม่ระบุหมวด",
                 "author_username": r.get("author_username") or "—",
-                "chapters": int(r.get("chapters_count") or 0),
+                # ใช้จำนวนตอนทั้งหมด (ไม่กรองเฉพาะที่เผยแพร่)
+                "chapters": int(r.get("total_chapters") or r.get("chapters_count") or 0),
                 "views": int(r.get("readers_count") or 0),
                 "comments": int(r.get("comments_count") or 0),
                 "favorites": int(r.get("favorites_count") or 0),
+                "rating": float(r.get("rating_avg") or 0.0),
                 "edited_at": r.get("edited_at"),
                 "detail_url": _detail_url(nid),
             })
