@@ -76,13 +76,13 @@
   </div>
 
   <!-- Users -->
-  <section class="space-y-4">
+  <section class="space-y-4" id="usersSection">
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-semibold text-white">การจัดการผู้ใช้</h2>
         <p class="text-sm text-zinc-500">ค้นหา ปรับสถานะ active/inactive, และรีเซ็ตรหัสผ่านชั่วคราวสำหรับ admin (เฉพาะ super admin)</p>
       </div>
-      <form method="get" class="flex items-center gap-2">
+      <form method="get" class="flex items-center gap-2" data-partial-target="usersSection">
         <input
           type="text"
           name="user_q"
@@ -90,6 +90,9 @@
           placeholder="ค้นหาด้วยชื่อหรืออีเมล"
           class="w-56 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
         />
+        <input type="hidden" name="novel_q" value="{{ novel_q }}">
+        <input type="hidden" name="novel_page" value="{{ novels_page }}">
+        <input type="hidden" name="cate_id" value="{{ selected_cate_id or '' }}">
         <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-sm text-white transition">ค้นหา</button>
       </form>
     </div>
@@ -157,10 +160,12 @@
           {% set prev_user_page = users_page-1 %}
           {% set next_user_page = users_page+1 %}
           <a class="page-link{% if users_page <= 1 %} is-disabled{% endif %}"
-             href="{{ url_for('dashboard.dashboard_index', user_page=prev_user_page, novel_page=novels_page, user_q=user_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
+             data-partial-target="usersSection"
+             href="{{ url_for('dashboard.dashboard_index', user_page=prev_user_page, novel_page=novels_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
           <span class="text-sm text-white">{{ 'หน้า ' ~ users_page ~ ' / ' ~ (users_total_pages or 1) }}</span>
           <a class="page-link{% if users_total_pages == 0 or users_page >= users_total_pages %} is-disabled{% endif %}"
-             href="{{ url_for('dashboard.dashboard_index', user_page=next_user_page, novel_page=novels_page, user_q=user_q, cate_id=selected_cate_id) }}">ถัดไป</a>
+             data-partial-target="usersSection"
+             href="{{ url_for('dashboard.dashboard_index', user_page=next_user_page, novel_page=novels_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ถัดไป</a>
         </nav>
       </div>
     </div>
@@ -189,12 +194,26 @@
   </section>
 
   <!-- Novels & comments -->
-  <section class="space-y-4">
+  <section class="space-y-4" id="novelsSection">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-semibold text-white">นิยายและความคิดเห็น</h2>
         <p class="text-sm text-zinc-500">เลือกเรื่องเพื่ออ่าน/ลบความคิดเห็น</p>
       </div>
+      <form method="get" class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto" data-partial-target="novelsSection">
+        <input
+          type="text"
+          name="novel_q"
+          value="{{ novel_q }}"
+          placeholder="ค้นหานิยายหรือผู้เขียน"
+          class="w-full sm:w-64 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
+        />
+        <input type="hidden" name="user_q" value="{{ user_q }}">
+        <input type="hidden" name="user_page" value="{{ users_page }}">
+        <input type="hidden" name="novel_page" value="1">
+        <input type="hidden" name="cate_id" value="{{ selected_cate_id or '' }}">
+        <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">ค้นหา</button>
+      </form>
     </div>
     <div class="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
       <table class="min-w-full text-sm text-left text-white/80">
@@ -240,10 +259,12 @@
           {% set prev_novel_page = novels_page-1 %}
           {% set next_novel_page = novels_page+1 %}
           <a class="page-link{% if novels_page <= 1 %} is-disabled{% endif %}"
-             href="{{ url_for('dashboard.dashboard_index', novel_page=prev_novel_page, user_page=users_page, user_q=user_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
+             data-partial-target="novelsSection"
+             href="{{ url_for('dashboard.dashboard_index', novel_page=prev_novel_page, user_page=users_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
           <span class="text-sm text-white">{{ 'หน้า ' ~ novels_page ~ ' / ' ~ (novels_total_pages or 1) }}</span>
           <a class="page-link{% if novels_total_pages == 0 or novels_page >= novels_total_pages %} is-disabled{% endif %}"
-             href="{{ url_for('dashboard.dashboard_index', novel_page=next_novel_page, user_page=users_page, user_q=user_q, cate_id=selected_cate_id) }}">ถัดไป</a>
+             data-partial-target="novelsSection"
+             href="{{ url_for('dashboard.dashboard_index', novel_page=next_novel_page, user_page=users_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ถัดไป</a>
         </nav>
       </div>
     </div>
@@ -282,14 +303,28 @@
 <div id="commentModal" class="fixed inset-0 z-50 hidden">
   <div class="absolute inset-0 bg-black/70" data-action="close-comments"></div>
   <div class="relative mx-auto mt-10 w-[95%] max-w-3xl rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl">
-    <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
-      <div>
-        <p class="text-sm text-zinc-400">ความคิดเห็นจากผู้อ่าน</p>
-        <h3 class="text-lg font-semibold text-white" id="commentModalTitle">ความคิดเห็น</h3>
+    <div class="flex flex-col gap-3 border-b border-white/10 px-4 py-3">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm text-zinc-400">ความคิดเห็นจากผู้อ่าน</p>
+          <h3 class="text-lg font-semibold text-white" id="commentModalTitle">ความคิดเห็น</h3>
+        </div>
+        <button type="button" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white hover:bg-white/10" data-action="close-comments">ปิด</button>
       </div>
-      <button type="button" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white hover:bg-white/10" data-action="close-comments">ปิด</button>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+        <input
+          type="text"
+          id="commentSearchInput"
+          placeholder="ค้นหาคำในความคิดเห็น"
+          class="w-full rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
+        />
+        <button type="button" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-sm text-white transition sm:w-auto" data-action="search-comments">ค้นหา</button>
+      </div>
     </div>
     <div class="max-h-[60vh] overflow-y-auto p-4 space-y-3" id="commentList"></div>
+    <div class="border-t border-white/10 px-4 py-3">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-white/80" id="commentPagination"></div>
+    </div>
   </div>
 </div>
 
@@ -329,67 +364,66 @@
     }
   })();
 
-  // Toggle user active
+  // Toggle user active (delegated)
   (function () {
-    const buttons = document.querySelectorAll("[data-action='toggle-user']");
-    buttons.forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (btn.dataset.disabled === "1") return;
-        const url = btn.dataset.url;
-        if (!url) return;
-        const current = btn.dataset.current === "1";
-        try {
-          const body = new URLSearchParams({ csrf_token: csrfToken, active: current ? "0" : "1" });
-          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
-          const data = await res.json();
-          if (!data.ok) throw new Error(data.error || "เปลี่ยนสถานะไม่สำเร็จ");
-          const row = btn.closest("tr");
-          const statusEl = row ? row.querySelector("[data-role='user-status']") : null;
-          btn.dataset.current = data.is_active ? "1" : "0";
-          btn.textContent = data.is_active ? "ปิดการใช้งาน" : "เปิดการใช้งาน";
-          if (statusEl) {
-            statusEl.textContent = data.is_active ? "Active" : "Inactive";
-            statusEl.className = data.is_active
-              ? "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border border-emerald-400 text-emerald-300 bg-emerald-400/10"
-              : "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border border-orange-400 text-orange-200 bg-orange-400/10";
-            const dot = document.createElement("span");
-            dot.className = "h-2 w-2 rounded-full " + (data.is_active ? "bg-emerald-400" : "bg-orange-400");
-            statusEl.prepend(dot);
-          }
-          showMessage("อัปเดตสถานะผู้ใช้เรียบร้อย", "success");
-        } catch (err) {
-          console.error(err);
-          showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+    document.addEventListener("click", async (event) => {
+      const btn = event.target.closest("[data-action='toggle-user']");
+      if (!btn) return;
+      if (btn.dataset.disabled === "1") return;
+      const url = btn.dataset.url;
+      if (!url) return;
+      const current = btn.dataset.current === "1";
+      try {
+        const body = new URLSearchParams({ csrf_token: csrfToken, active: current ? "0" : "1" });
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "เปลี่ยนสถานะไม่สำเร็จ");
+        const row = btn.closest("tr");
+        const statusEl = row ? row.querySelector("[data-role='user-status']") : null;
+        btn.dataset.current = data.is_active ? "1" : "0";
+        btn.textContent = data.is_active ? "ปิดการใช้งาน" : "เปิดการใช้งาน";
+        if (statusEl) {
+          statusEl.textContent = data.is_active ? "Active" : "Inactive";
+          statusEl.className = data.is_active
+            ? "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border border-emerald-400 text-emerald-300 bg-emerald-400/10"
+            : "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border border-orange-400 text-orange-200 bg-orange-400/10";
+          const dot = document.createElement("span");
+          dot.className = "h-2 w-2 rounded-full " + (data.is_active ? "bg-emerald-400" : "bg-orange-400");
+          statusEl.prepend(dot);
         }
-      });
+        showMessage("อัปเดตสถานะผู้ใช้เรียบร้อย", "success");
+      } catch (err) {
+        console.error(err);
+        showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+      }
     });
   })();
 
-  // Reset password (super admin)
+  // Reset password (super admin) - delegated
   (function () {
-    document.querySelectorAll("[data-action='reset-password']").forEach((form) => {
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const url = form.dataset.url;
-        const input = form.querySelector("input[name='password']");
-        if (!url || !input) return;
-        const pw = (input.value || "").trim();
-        if (pw.length < 8) {
-          showMessage("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร", "error");
-          return;
-        }
-        try {
-          const body = new URLSearchParams({ csrf_token: csrfToken, password: pw });
-          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
-          const data = await res.json();
-          if (!data.ok) throw new Error(data.error || "รีเซ็ตรหัสไม่สำเร็จ");
-          input.value = "";
-          showMessage("ตั้งรหัสผ่านใหม่สำเร็จ", "success");
-        } catch (err) {
-          console.error(err);
-          showMessage(err.message || "เกิดข้อผิดพลาด", "error");
-        }
-      });
+    document.addEventListener("submit", async (e) => {
+      const form = e.target.closest("[data-action='reset-password']");
+      if (!form) return;
+      e.preventDefault();
+      const url = form.dataset.url;
+      const input = form.querySelector("input[name='password']");
+      if (!url || !input) return;
+      const pw = (input.value || "").trim();
+      if (pw.length < 8) {
+        showMessage("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร", "error");
+        return;
+      }
+      try {
+        const body = new URLSearchParams({ csrf_token: csrfToken, password: pw });
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "รีเซ็ตรหัสไม่สำเร็จ");
+        input.value = "";
+        showMessage("ตั้งรหัสผ่านใหม่สำเร็จ", "success");
+      } catch (err) {
+        console.error(err);
+        showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+      }
     });
   })();
 
@@ -436,13 +470,27 @@
     });
   })();
 
-  // Comments modal + delete
+  // Comments modal + delete + search/pagination
   (function () {
     const modal = document.getElementById("commentModal");
     const list = document.getElementById("commentList");
     const titleEl = document.getElementById("commentModalTitle");
+    const searchInput = document.getElementById("commentSearchInput");
+    const searchBtn = document.querySelector("[data-action='search-comments']");
+    const paginationEl = document.getElementById("commentPagination");
+    let currentCommentsUrl = "";
+    let currentQuery = "";
+    let currentPage = 1;
     let currentCountEl = null;
     let currentCountVal = 0;
+
+    const debounce = (fn, delay = 300) => {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), delay);
+      };
+    };
 
     function close() {
       if (modal) modal.classList.add("hidden");
@@ -450,29 +498,12 @@
     function open() {
       if (modal) modal.classList.remove("hidden");
     }
-    document.querySelectorAll("[data-action='close-comments']").forEach((btn) => {
-      btn.addEventListener("click", close);
-    });
-
-    async function loadComments(url) {
-      if (!list) return;
-      list.innerHTML = '<div class="text-sm text-zinc-400">กำลังโหลด...</div>';
-      try {
-        const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.error || "โหลดความคิดเห็นไม่สำเร็จ");
-        renderComments(data.comments || []);
-      } catch (err) {
-        console.error(err);
-        list.innerHTML = `<div class="text-sm text-red-200">${err.message || "เกิดข้อผิดพลาด"}</div>`;
-      }
-    }
-
     function renderComments(comments) {
       if (!list) return;
       list.innerHTML = "";
       if (!comments.length) {
-        list.innerHTML = '<div class="text-sm text-zinc-400">ยังไม่มีความคิดเห็น</div>';
+        const emptyText = currentQuery ? "ไม่พบความคิดเห็นที่ตรงกับคำค้น" : "ยังไม่มีความคิดเห็น";
+        list.innerHTML = `<div class="text-sm text-zinc-400">${emptyText}</div>`;
         return;
       }
       comments.forEach((c) => {
@@ -492,42 +523,195 @@
         `;
         list.appendChild(row);
       });
+    }
 
-      list.querySelectorAll("[data-action='delete-comment']").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const url = btn.dataset.url;
-          if (!url) return;
-          try {
-            const body = new URLSearchParams({ csrf_token: csrfToken });
-            const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
-            const data = await res.json();
-            if (!data.ok) throw new Error(data.error || "ลบความคิดเห็นไม่สำเร็จ");
-            btn.closest("div.rounded-xl")?.remove();
-            if (currentCountEl) {
-              currentCountVal = Math.max(0, (currentCountVal || 0) - 1);
-              currentCountEl.dataset.count = String(currentCountVal);
-              currentCountEl.textContent = `${currentCountVal.toLocaleString()} รายการ`;
-            }
-            showMessage("ลบความคิดเห็นแล้ว", "success");
-          } catch (err) {
-            console.error(err);
-            showMessage(err.message || "เกิดข้อผิดพลาด", "error");
-          }
-        });
+    function renderPagination(meta) {
+      if (!paginationEl) return;
+      paginationEl.innerHTML = "";
+      const totalPages = Number(meta.total_pages || 0);
+      const page = Number(meta.page || 1);
+      const start = meta.start || 0;
+      const end = meta.end || 0;
+      const total = meta.total || 0;
+
+      const info = document.createElement("div");
+      info.className = "text-sm text-zinc-300";
+      info.textContent = total ? `แสดง ${start}-${end} จาก ${total}` : "ไม่มีข้อมูล";
+      paginationEl.appendChild(info);
+      if (totalPages <= 1) return;
+
+      const nav = document.createElement("div");
+      nav.className = "flex items-center gap-2";
+      const makeBtn = (label, targetPage, disabled) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `rounded-lg border px-3 py-1 text-xs font-semibold transition ${disabled ? "border-white/10 text-white/40 cursor-not-allowed" : "border-white/10 text-white bg-white/10 hover:bg-white/20"}`;
+        btn.textContent = label;
+        btn.dataset.action = "comment-page";
+        btn.dataset.page = String(targetPage);
+        if (disabled) btn.disabled = true;
+        return btn;
+      };
+      nav.appendChild(makeBtn("ก่อนหน้า", page - 1, page <= 1));
+      const counter = document.createElement("span");
+      counter.className = "text-sm text-white/80";
+      counter.textContent = `หน้า ${page} / ${totalPages}`;
+      nav.appendChild(counter);
+      nav.appendChild(makeBtn("ถัดไป", page + 1, page >= totalPages));
+      paginationEl.appendChild(nav);
+    }
+
+    async function loadComments(url = currentCommentsUrl, query = currentQuery, page = 1) {
+      if (!list || !url) return;
+      const targetUrl = new URL(url, window.location.origin);
+      targetUrl.searchParams.set("page", String(page > 0 ? page : 1));
+      if (query) targetUrl.searchParams.set("q", query);
+      else targetUrl.searchParams.delete("q");
+      list.innerHTML = '<div class="text-sm text-zinc-400">กำลังโหลด...</div>';
+      if (paginationEl) paginationEl.innerHTML = "";
+      try {
+        const res = await fetch(targetUrl, { headers: { "X-Requested-With": "fetch" } });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "โหลดความคิดเห็นไม่สำเร็จ");
+        const incomingQuery = (data.query ?? query) || "";
+        currentQuery = incomingQuery;
+        currentPage = Number(data.page || 1);
+        if (searchInput) searchInput.value = incomingQuery;
+        renderComments(data.comments || []);
+        renderPagination(data);
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = `<div class="text-sm text-red-200">${err.message || "เกิดข้อผิดพลาด"}</div>`;
+      }
+    }
+
+    const triggerSearch = () => {
+      if (!currentCommentsUrl) return;
+      currentQuery = (searchInput?.value || "").trim();
+      loadComments(currentCommentsUrl, currentQuery, 1);
+    };
+    const debouncedSearch = debounce(triggerSearch, 250);
+    if (searchInput) {
+      searchInput.addEventListener("input", debouncedSearch);
+      searchInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          triggerSearch();
+        }
+      });
+    }
+    if (searchBtn) {
+      searchBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        triggerSearch();
       });
     }
 
-    document.querySelectorAll("[data-action='open-comments']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const url = btn.dataset.url;
-        const title = btn.dataset.title || "ความคิดเห็น";
+    document.addEventListener("click", async (event) => {
+      const closeBtn = event.target.closest("[data-action='close-comments']");
+      if (closeBtn) {
+        close();
+        return;
+      }
+
+      const openBtn = event.target.closest("[data-action='open-comments']");
+      if (openBtn) {
+        const url = openBtn.dataset.url;
+        const title = openBtn.dataset.title || "ความคิดเห็น";
         if (titleEl) titleEl.textContent = title;
-        currentCountEl = btn.closest("tr")?.querySelector("[data-role='comment-count']");
+        currentCountEl = openBtn.closest("tr")?.querySelector("[data-role='comment-count']");
         currentCountVal = currentCountEl ? parseInt(currentCountEl.dataset.count || "0", 10) || 0 : 0;
         if (!url) return;
+        currentCommentsUrl = url;
+        currentQuery = "";
+        currentPage = 1;
+        if (searchInput) searchInput.value = "";
         open();
-        loadComments(url);
-      });
+        loadComments(currentCommentsUrl, currentQuery, currentPage);
+        return;
+      }
+
+      const pageBtn = event.target.closest("[data-action='comment-page']");
+      if (pageBtn) {
+        event.preventDefault();
+        const targetPage = parseInt(pageBtn.dataset.page || "1", 10) || 1;
+        if (!currentCommentsUrl || targetPage === currentPage) return;
+        loadComments(currentCommentsUrl, currentQuery, targetPage);
+        return;
+      }
+
+      const delBtn = event.target.closest("[data-action='delete-comment']");
+      if (delBtn) {
+        event.preventDefault();
+        const url = delBtn.dataset.url;
+        if (!url) return;
+        try {
+          const body = new URLSearchParams({ csrf_token: csrfToken });
+          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || "ลบความคิดเห็นไม่สำเร็จ");
+          if (currentCountEl) {
+            currentCountVal = Math.max(0, (currentCountVal || 0) - 1);
+            currentCountEl.dataset.count = String(currentCountVal);
+            currentCountEl.textContent = `${currentCountVal.toLocaleString()} รายการ`;
+          }
+          showMessage("ลบความคิดเห็นแล้ว", "success");
+          loadComments(currentCommentsUrl, currentQuery, currentPage);
+        } catch (err) {
+          console.error(err);
+          showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+        }
+      }
+    });
+  })();
+
+  // Partial refresh for list sections (avoid full page reload on search/pagination)
+  (function () {
+    const parser = new DOMParser();
+
+    async function swapSection(url, targetId) {
+      const target = document.getElementById(targetId);
+      if (!target || !url) return;
+      target.classList.add("opacity-60");
+      try {
+        const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
+        const html = await res.text();
+        const doc = parser.parseFromString(html, "text/html");
+        const fresh = doc.getElementById(targetId);
+        if (!fresh) {
+          showMessage("ไม่สามารถอัปเดตข้อมูลได้", "error");
+          return;
+        }
+        target.replaceWith(fresh);
+      } catch (err) {
+        console.error(err);
+        showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+      } finally {
+        const updated = document.getElementById(targetId);
+        updated?.classList.remove("opacity-60");
+      }
+    }
+
+    document.addEventListener("submit", (e) => {
+      const form = e.target.closest("form[data-partial-target]");
+      if (!form) return;
+      e.preventDefault();
+      const targetId = form.dataset.partialTarget;
+      const url = new URL(form.action || window.location.href, window.location.href);
+      const formData = new FormData(form);
+      for (const [key, val] of formData.entries()) {
+        url.searchParams.set(key, val.toString());
+      }
+      swapSection(url.toString(), targetId);
+    });
+
+    document.addEventListener("click", (e) => {
+      const link = e.target.closest("a[data-partial-target]");
+      if (!link) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || link.target === "_blank") return;
+      e.preventDefault();
+      const targetId = link.dataset.partialTarget;
+      swapSection(link.href, targetId);
     });
   })();
 

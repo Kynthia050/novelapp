@@ -76,6 +76,7 @@ def _safe_int(val, default=0) -> int:
 @roles_required("admin", "superadmin")
 def dashboard_index():
     user_q = (request.args.get("user_q") or "").strip()
+    novel_q = (request.args.get("novel_q") or "").strip()
     selected_cate_id = request.args.get("cate_id", type=int)
     is_superadmin = session.get("role") == "superadmin"
     current_uid = _safe_int(session.get("user_id") or session.get("uid"), -1)
@@ -202,8 +203,21 @@ def dashboard_index():
                 u["last_login_display"] = _fmt_dt(u.get("last_login_at"))
 
             # --- novels ---
+            novel_params = []
+            novel_where_sql = ""
+            if novel_q:
+                novel_where_sql = " WHERE n.title LIKE %s OR u.username LIKE %s"
+                pattern = f"%{novel_q}%"
+                novel_params.extend([pattern, pattern])
+
             try:
-                cur.execute("SELECT COUNT(*) AS cnt FROM novels")
+                count_sql = """
+                    SELECT COUNT(*) AS cnt
+                    FROM novels n
+                    LEFT JOIN users u ON u.users_id = n.users_id
+                """
+                count_sql += novel_where_sql
+                cur.execute(count_sql, novel_params)
                 novels_total = _safe_int((cur.fetchone() or {}).get("cnt"), 0)
             except Exception:
                 novels_total = 0
@@ -217,8 +231,7 @@ def dashboard_index():
                 novels_end = min(novels_page * novels_per_page, novels_total)
 
             try:
-                cur.execute(
-                    """
+                novel_sql = """
                     SELECT
                         n.novels_id,
                         n.title,
@@ -235,12 +248,12 @@ def dashboard_index():
                         FROM comments
                         GROUP BY novels_id
                     ) cm ON cm.novels_id = n.novels_id
-                    ORDER BY n.created_at DESC
-                    LIMIT %s OFFSET %s
-                    """
-                    ,
-                    (novels_per_page, novels_offset),
-                )
+                """
+                novel_sql += novel_where_sql
+                novel_sql += " ORDER BY n.created_at DESC LIMIT %s OFFSET %s"
+                novel_params_with_page = list(novel_params)
+                novel_params_with_page.extend([novels_per_page, novels_offset])
+                cur.execute(novel_sql, novel_params_with_page)
                 novels = cur.fetchall() or []
             except Exception:
                 novels = []
@@ -307,6 +320,7 @@ def dashboard_index():
         active_daily=active_daily,
         novel_daily=novel_daily,
         user_q=user_q,
+        novel_q=novel_q,
         current_uid=current_uid,
         users_page=users_page,
         users_total=users_total,
@@ -431,11 +445,33 @@ def add_category():
 @dashboard_bp.route("/novels/<int:novel_id>/comments", methods=["GET"])
 @roles_required("admin", "superadmin")
 def novel_comments(novel_id: int):
+    page = request.args.get("page", type=int, default=1)
+    q = (request.args.get("q") or "").strip()
+    per_page = 20
     conn = get_db_connection()
     try:
         with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            where_clause = "WHERE c.novels_id = %s"
+            params: list = [novel_id]
+            if q:
+                where_clause += " AND c.content LIKE %s"
+                params.append(f"%{q}%")
+
+            try:
+                cur.execute(f"SELECT COUNT(*) AS cnt FROM comments c {where_clause}", params)
+                total = _safe_int((cur.fetchone() or {}).get("cnt"), 0)
+            except Exception:
+                total = 0
+
+            total_pages = (total + per_page - 1) // per_page if total else 0
+            if total_pages and page > total_pages:
+                page = total_pages
+            offset = (page - 1) * per_page
+
+            params_with_page = list(params)
+            params_with_page.extend([per_page, offset])
             cur.execute(
-                """
+                f"""
                 SELECT
                     c.cm_id,
                     c.content,
@@ -443,10 +479,11 @@ def novel_comments(novel_id: int):
                     u.username AS author
                 FROM comments c
                 LEFT JOIN users u ON u.users_id = c.users_id
-                WHERE c.novels_id = %s
+                {where_clause}
                 ORDER BY c.created_at DESC
+                LIMIT %s OFFSET %s
                 """,
-                (novel_id,),
+                params_with_page,
             )
             rows = cur.fetchall() or []
             comments = []
@@ -461,7 +498,19 @@ def novel_comments(novel_id: int):
                         "delete_url": delete_url,
                     }
                 )
-            return jsonify({"ok": True, "comments": comments})
+            start = offset + 1 if total else 0
+            end = min(offset + per_page, total) if total else 0
+            return jsonify({
+                "ok": True,
+                "comments": comments,
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "total_pages": total_pages,
+                "start": start,
+                "end": end,
+                "query": q,
+            })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
     finally:
