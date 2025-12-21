@@ -112,13 +112,13 @@
         class="mx-auto w-auto h-10 sm:h-12 md:h-14 lg:h-16"
       />
       <h1 class="mt-2 text-3xl sm:text-4xl font-semibold">สร้างบัญชีใหม่</h1>
-      <p class="mt-2 text-white/70 text-sm sm:text-base">เข้าร่วมชุมชนผู้อ่าน แล้วเติมชั้นหนังสือของคุณให้เต็ม</p>
+      <p class="mt-2 text-white/70 text-sm sm:text-base">เข้าร่วมชุมชนนักอ่าน แล้วเติมชั้นหนังสือของคุณกันเถอะ!</p>
     </div>
   </section>
 
   <main class="relative z-10 w-full grid place-items-center px-4 pb-16">
     <div class="w-full max-w-md bg-card/90 glass-panel border border-white/10 rounded-2xl shadow-2xl p-6 sm:p-8">
-      <h2 class="text-center text-sm tracking-[.25em] text-white/70 mb-4">CREATE ACCOUNT</h2>
+      <h2 class="text-center text-sm tracking-[.25em] text-white/70 mb-4">สร้างบัญชีใหม่</h2>
 
       <form method="post" action="{{ url_for('auth.register') }}" class="space-y-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>

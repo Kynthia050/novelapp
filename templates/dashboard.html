@@ -1,502 +1,634 @@
 {% extends "base.html" %}
 
-{% block title %}Myshelf | Dashboard{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block extra_head %}
-<script>
-  // Monochrome palette for this page
-  window.tailwind = window.tailwind || {};
-  tailwind.config = tailwind.config || {};
-  tailwind.config.theme = tailwind.config.theme || {};
-  tailwind.config.theme.extend = tailwind.config.theme.extend || {};
-  const ex = tailwind.config.theme.extend;
-  ex.colors = Object.assign({}, ex.colors || {}, {
-    bg: '#0d0d0f',
-    panel: '#111114',
-    card: '#151519',
-    line: 'rgba(255,255,255,.08)',
-    muted: 'rgba(255,255,255,.66)',
-    textc: 'rgba(255,255,255,.94)'
-  });
-</script>
 <style>
-  :root{
-    --bg:#0d0d0f; --panel:#111114; --card:#151519; --line:rgba(255,255,255,.08);
-    --muted:rgba(255,255,255,.66); --text:rgba(255,255,255,.94); --radius:16px;
+  .chart-wrap{
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.04);
+    border-radius: 16px;
+    padding: 14px;
   }
-  .dash-shell{
-    background:
-      radial-gradient(circle at 12% 12%, rgba(255,255,255,.05), transparent 26%),
-      radial-gradient(circle at 88% 8%, rgba(255,255,255,.04), transparent 24%),
-      var(--bg);
-    min-height: 100vh;
+  /* Pagination (match search page) */
+  .pagination{ margin-top:14px; display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .page-link{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:44px; height:38px; padding:0 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(42,42,45,.75);
+    color:rgba(255,255,255,.9);
+    text-decoration:none;
+    font-size:13px;
+    box-shadow:0 8px 18px rgba(0,0,0,.25);
+    transition:background .15s ease, transform .15s ease;
   }
-  .surface{
-    background: linear-gradient(145deg, rgba(255,255,255,.02), rgba(255,255,255,.0));
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    box-shadow:0 22px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.02);
-  }
-  .surface.tight{ box-shadow:0 14px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.02); }
-  .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:rgba(255,255,255,.04); border:1px solid var(--line); color:var(--muted); font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
-  .btn-ghost{ display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid var(--line); color:var(--text); }
-  .btn-ghost:hover{ border-color:rgba(255,255,255,.16); }
-  .btn-solid{ display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; background:#f5f5f5; color:#0d0d0f; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25); }
-  .metric-card{ position:relative; overflow:hidden; isolation:isolate; }
-  .metric-card::after{ content:""; position:absolute; inset:-20% auto auto -10%; width:220px; height:220px; background:radial-gradient(circle, rgba(255,255,255,.08), transparent 55%); filter:blur(2px); opacity:.6; z-index:0; }
-  .metric-card .content{ position:relative; z-index:1; }
-  .table-grid table{ width:100%; border-collapse:collapse; }
-  .table-grid thead th{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:12px; background:rgba(255,255,255,.02); text-align:left; border-bottom:1px solid var(--line); }
-  .table-grid tbody td{ padding:14px 12px; border-bottom:1px solid rgba(255,255,255,.04); }
-  .table-grid tbody tr:hover td{ background:rgba(255,255,255,.02); }
-  .chart-wrap{ position:relative; min-height:260px; }
+  .page-link:hover{ background:rgba(255,255,255,.12); transform:translateY(-1px); }
+  .page-link.is-disabled{ opacity:.45; pointer-events:none; box-shadow:none; transform:none; }
+  .page-info{ text-align:center; color:rgba(255,255,255,.65); font-size:12px; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %}
 
 {% block content %}
-{% set page = page|default(1) %}
-{% set total_pages = total_pages|default(1) %}
-{% set search = search|default('') %}
-{% set categories = categories|default([]) %}
-{% set selected_category_id = selected_category_id|default(None) %}
-{% set selected_category_name = selected_category_name|default(None) %}
-{% set top10_novels = top10_novels|default([]) %}
-{% set total_novels = total_novels|default(0) %}
-{% set total_users_all = total_users_all|default(0) %}
-{% set total_novels_category = total_novels_category|default(None) %}
-{% set users = users|default([]) %}
-{% set category_breakdown = category_breakdown|default([]) %}
-{% set role_breakdown = role_breakdown|default([]) %}
-{% set top_titles = top_titles|default([]) %}
-{% set top_avg_ratings = top_avg_ratings|default([]) %}
-{% set top_fav_counts = top_fav_counts|default([]) %}
+<div class="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-10">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <p class="text-sm text-zinc-400">แดชบอร์ดสำหรับ Admin / Super Admin</p>
+      <h1 class="text-3xl font-semibold text-white">Dashboard</h1>
+      <p class="text-sm text-zinc-500">ข้อมูลเดือน {{ month_label }}</p>
+    </div>
+    <form method="post" action="{{ url_for('auth.logout') }}" class="flex-shrink-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">
+        <span>ออกจากระบบ</span>
+      </button>
+    </form>
+  </div>
 
-<div class="dash-shell">
-  <div class="max-w-[1200px] mx-auto px-4 md:px-6 py-10 space-y-8">
+  <div id="dashMessage" class="hidden rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90"></div>
 
-    <div class="surface p-6 md:p-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div class="space-y-1.5">
-        <p class="text-[11px] tracking-[0.28em] uppercase text-[var(--muted)]">แผงควบคุม</p>
-        <h1 class="text-3xl font-semibold text-white leading-tight">สวัสดี, {{ g.user.username if g.get('user') else 'Admin' }}</h1>
-        <p class="text-sm text-[var(--muted)]">ภาพรวมระบบ นิยาย ผู้ใช้ และหมวดหมู่ทั้งหมดใน Myshelf</p>
+  <!-- Metrics -->
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-800 p-4 shadow-lg">
+      <p class="text-sm text-zinc-400">นิยายทั้งหมด</p>
+      <p class="mt-2 text-3xl font-semibold text-white">{{ "{:,}".format(total_novels|int) }}</p>
+    </div>
+    <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-800 p-4 shadow-lg">
+      <p class="text-sm text-zinc-400">ผู้ใช้งานทั้งหมด</p>
+      <p class="mt-2 text-3xl font-semibold text-white">{{ "{:,}".format(total_users|int) }}</p>
+    </div>
+    <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-800 p-4 shadow-lg">
+      <p class="text-sm text-zinc-400">ผู้ใช้งานที่ Active เดือนนี้</p>
+      <p class="mt-2 text-3xl font-semibold text-white">{{ "{:,}".format(active_users_this_month|int) }}</p>
+    </div>
+    <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-800 p-4 shadow-lg flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm text-zinc-400">จำนวนนิยายตามหมวด</p>
+        <select id="categorySelect" class="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-sm text-white focus:border-white/30 focus:outline-none">
+          {% for c in categories %}
+            <option value="{{ c.cate_id }}" {% if c.cate_id == selected_cate_id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <a href="{{ url_for('dashboard.dashboard_index') }}" class="btn-ghost">
-          <span class="w-4 h-4 grid place-items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0-3.75-3.75M19.5 12l-3.75 3.75" />
-            </svg>
-          </span>
-          <span>รีเฟรชข้อมูล</span>
-        </a>
-        <button type="button" class="btn-solid">
-          <span class="w-4 h-4 grid place-items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
-            </svg>
-          </span>
-          <span>สร้างนิยายใหม่</span>
-        </button>
+      <p class="text-3xl font-semibold text-white"><span id="categoryCount">{{ "{:,}".format(selected_category_count|int) }}</span></p>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <section class="space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-semibold text-white">การจัดการผู้ใช้</h2>
+        <p class="text-sm text-zinc-500">ค้นหา ปรับสถานะ active/inactive, และรีเซ็ตรหัสผ่านชั่วคราวสำหรับ admin (เฉพาะ super admin)</p>
       </div>
+      <form method="get" class="flex items-center gap-2">
+        <input
+          type="text"
+          name="user_q"
+          value="{{ user_q }}"
+          placeholder="ค้นหาด้วยชื่อหรืออีเมล"
+          class="w-56 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
+        />
+        <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-sm text-white transition">ค้นหา</button>
+      </form>
     </div>
 
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <article class="surface metric-card p-5 md:p-6">
-        <div class="content space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="pill">นิยายทั้งหมด</span>
-            <span class="text-xs text-white bg-white/10 border border-white/20 rounded-full px-2 py-1">รวม</span>
-          </div>
-          <p class="text-4xl font-semibold text-white tracking-tight">{{ total_novels }}</p>
-          <p class="text-sm text-[var(--muted)]">จำนวนเรื่องทั้งหมดในระบบ</p>
-        </div>
-      </article>
+    <div class="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
+      <table class="min-w-full text-sm text-left text-white/80">
+        <thead class="bg-white/5 text-xs uppercase text-zinc-400">
+          <tr>
+            <th class="px-4 py-3">ผู้ใช้</th>
+            <th class="px-4 py-3">บทบาท</th>
+            <th class="px-4 py-3">สถานะ</th>
+            <th class="px-4 py-3">เข้าใช้งานล่าสุด</th>
+            <th class="px-4 py-3">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5">
+          {% for u in users %}
+          {% set can_toggle = (is_superadmin or (u.role != 'superadmin' and u.users_id != current_uid)) %}
+          <tr>
+            <td class="px-4 py-3 align-top">
+              <div class="font-semibold text-white">{{ u.username }}</div>
+              <div class="text-xs text-zinc-500">{{ u.email }}</div>
+            </td>
+            <td class="px-4 py-3 align-top">
+              <span class="rounded-full border px-2 py-1 text-xs uppercase {{ 'border-emerald-400 text-emerald-300' if u.role == 'superadmin' else ('border-blue-400 text-blue-300' if u.role == 'admin' else 'border-white/20 text-white/80') }}">
+                {{ u.role }}
+              </span>
+            </td>
+            <td class="px-4 py-3 align-top">
+              <span class="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border {{ 'border-emerald-400 text-emerald-300 bg-emerald-400/10' if u.is_active_bool else 'border-orange-400 text-orange-200 bg-orange-400/10' }}" data-role="user-status">
+                <span class="h-2 w-2 rounded-full {{ 'bg-emerald-400' if u.is_active_bool else 'bg-orange-400' }}"></span>
+                {{ 'Active' if u.is_active_bool else 'Inactive' }}
+              </span>
+            </td>
+            <td class="px-4 py-3 align-top text-xs text-zinc-500">
+              <div>เข้าใช้งาน: {{ u.last_login_display or '-' }}</div>
+              <div>สร้างบัญชี: {{ u.created_at_display or '-' }}</div>
+            </td>
+            <td class="px-4 py-3 align-top space-y-2">
+              <button
+                type="button"
+                class="w-full rounded-lg border px-3 py-2 text-xs font-semibold transition {{ 'bg-white/10 border-white/20 text-white hover:bg-white/20' if can_toggle else 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed' }}"
+                data-action="toggle-user"
+                data-url="{{ url_for('dashboard.toggle_user_active', user_id=u.users_id) }}"
+                data-current="{{ '1' if u.is_active_bool else '0' }}"
+                {% if not can_toggle %}disabled data-disabled="1"{% endif %}
+              >
+                {% if u.is_active_bool %}ปิดการใช้งาน{% else %}เปิดการใช้งาน{% endif %}
+              </button>
 
-      <article class="surface metric-card p-5 md:p-6">
-        <div class="content space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="pill">นิยายตามหมวด</span>
-            <span class="text-[11px] text-[var(--muted)] px-2 py-1 rounded-full bg-white/5 border border-[var(--line)]">
-              {{ selected_category_name or 'ทุกหมวดหมู่' }}
-            </span>
-          </div>
-          <p class="text-4xl font-semibold text-white tracking-tight">
-            {{ total_novels_category if total_novels_category is not none else '—' }}
-          </p>
-          <p class="text-sm text-[var(--muted)]">จำนวนเรื่องในหมวดที่เลือก</p>
-        </div>
-      </article>
-
-      <article class="surface metric-card p-5 md:p-6">
-        <div class="content space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="pill">ผู้ใช้ทั้งหมด</span>
-            <span class="text-xs text-white bg-white/10 border border-white/20 rounded-full px-2 py-1">Active</span>
-          </div>
-          <p class="text-4xl font-semibold text-white tracking-tight">{{ total_users_all }}</p>
-          <p class="text-sm text-[var(--muted)]">จำนวนผู้ใช้ที่ลงทะเบียน</p>
-        </div>
-      </article>
-
-      <article class="surface metric-card p-5 md:p-6">
-        <div class="content space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="pill">ยอดนิยม</span>
-            <span class="text-xs text-white bg-white/10 border border-white/20 rounded-full px-2 py-1">คะแนนเฉลี่ย</span>
-          </div>
-          {% set top_pick = top10_novels[0] if top10_novels else None %}
-          <p class="text-4xl font-semibold text-white tracking-tight">
-            {{ "%.2f"|format(top_pick.avg_rating) if top_pick and top_pick.avg_rating is not none else "0.00" }}
-          </p>
-          <p class="text-sm text-[var(--muted)]">
-            {% if top_pick %}
-              {{ top_pick.title or 'Untitled' }}
-            {% else %}
-              รอข้อมูลรีวิว
-            {% endif %}
-          </p>
-        </div>
-      </article>
-    </section>
-
-    <section class="grid gap-4 xl:grid-cols-3">
-      <div class="surface tight p-5 md:p-6 space-y-4 xl:col-span-2">
-        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p class="text-[11px] tracking-[0.24em] uppercase text-[var(--muted)]">Top 10 Novels</p>
-            <h2 class="text-lg font-semibold text-white">คะแนนรีวิว & ความนิยม</h2>
-          </div>
-          <div class="flex items-center gap-2 text-xs text-[var(--muted)]">
-            <span class="inline-flex items-center gap-2 px-2 py-1 rounded bg-white/5 border border-[var(--line)]">
-              <span class="w-3 h-3 rounded-sm bg-white"></span> Avg Rating
-            </span>
-            <span class="inline-flex items-center gap-2 px-2 py-1 rounded bg-white/5 border border-[var(--line)]">
-              <span class="w-3 h-3 rounded-sm bg-zinc-500"></span> Favorite Count
-            </span>
-          </div>
-        </div>
-        <div class="chart-wrap">
-          <canvas id="chartTopRatings" class="w-full h-full"></canvas>
-        </div>
-      </div>
-
-      <div class="space-y-4">
-        <div class="surface tight p-5 md:p-6 space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-[11px] tracking-[0.22em] uppercase text-[var(--muted)]">หมวดหมู่</p>
-              <h3 class="text-lg font-semibold text-white">สัดส่วนหมวดนิยาย</h3>
-            </div>
-            <span class="pill">Overview</span>
-          </div>
-          {% if category_breakdown %}
-            <div class="chart-wrap min-h-[220px]">
-              <canvas id="chartCategory"></canvas>
-            </div>
-          {% else %}
-            <p class="text-sm text-[var(--muted)]">ยังไม่มีข้อมูลหมวดหมู่</p>
-          {% endif %}
-        </div>
-
-        <div class="surface p-5 md:p-6 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-white">บทบาทผู้ใช้</h3>
-            <span class="pill">Users</span>
-          </div>
-          {% if role_breakdown %}
-            <div class="space-y-2">
-              {% set total_roles = role_breakdown | sum(attribute='total') %}
-              {% for r in role_breakdown %}
-                {% set pct = (r.total / total_roles * 100) if total_roles else 0 %}
-                <div class="flex items-center justify-between text-sm text-white/90">
-                  <span class="font-medium">{{ r.role or 'unknown' }}</span>
-                  <span class="text-[var(--muted)]">{{ r.total }} ({{ '%.1f'|format(pct) }}%)</span>
-                </div>
-                <div class="w-full h-2 rounded-full bg-white/5">
-                  <div class="h-2 rounded-full bg-white/60" style="width: 0%;" data-pct="{{ '%.1f'|format(pct) }}"></div>
-                </div>
-              {% endfor %}
-            </div>
-          {% else %}
-            <p class="text-sm text-[var(--muted)]">ยังไม่มีข้อมูลบทบาทผู้ใช้</p>
-          {% endif %}
-        </div>
-      </div>
-    </section>
-
-    <section class="grid gap-4 xl:grid-cols-3">
-      <div class="xl:col-span-2 surface tight p-5 md:p-6 space-y-5">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div class="space-y-1">
-            <p class="text-[11px] tracking-[0.24em] uppercase text-[var(--muted)]">จัดการผู้ใช้</p>
-            <h2 class="text-xl font-semibold text-white">User Management</h2>
-            <p class="text-sm text-[var(--muted)]">ค้นหาผู้ใช้หรืออีเมล และดูข้อมูลสร้างบัญชี</p>
-          </div>
-          <form method="get" action="{{ url_for('dashboard.dashboard_index') }}" class="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <input type="hidden" name="category_id" value="{{ selected_category_id or '' }}">
-            <label class="sr-only" for="search">ค้นหาผู้ใช้</label>
-            <input
-              id="search"
-              type="text"
-              name="search"
-              value="{{ search }}"
-              placeholder="ค้นหาชื่อผู้ใช้หรืออีเมล"
-              class="w-full sm:w-64 rounded-full bg-[var(--panel)] border border-[var(--line)] px-4 py-2.5 text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-white/30"
-            >
-            <div class="flex gap-2 sm:gap-1">
-              <button class="btn-solid" type="submit">ค้นหา</button>
-              {% if search %}
-              <a href="{{ url_for('dashboard.dashboard_index', category_id=selected_category_id) }}" class="btn-ghost">ล้าง</a>
+              {% if is_superadmin and u.role == 'admin' %}
+              <form class="flex items-center gap-2" data-action="reset-password" data-url="{{ url_for('dashboard.reset_admin_password', user_id=u.users_id) }}">
+                <input type="password" name="password" minlength="8" placeholder="รหัสชั่วคราว" class="w-full rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-xs text-white placeholder-white/40 focus:border-white/30 focus:outline-none">
+                <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-2 py-1 text-xs text-white transition">ตั้งใหม่</button>
+              </form>
               {% endif %}
-            </div>
-          </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="px-4 py-3 space-y-1">
+        <div class="page-info">แสดง {{ users_start }}-{{ users_end }} จาก {{ users_total }} ผู้ใช้</div>
+        <nav class="pagination" aria-label="Users pagination">
+          {% set prev_user_page = users_page-1 %}
+          {% set next_user_page = users_page+1 %}
+          <a class="page-link{% if users_page <= 1 %} is-disabled{% endif %}"
+             href="{{ url_for('dashboard.dashboard_index', user_page=prev_user_page, novel_page=novels_page, user_q=user_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
+          <span class="text-sm text-white">{{ 'หน้า ' ~ users_page ~ ' / ' ~ (users_total_pages or 1) }}</span>
+          <a class="page-link{% if users_total_pages == 0 or users_page >= users_total_pages %} is-disabled{% endif %}"
+             href="{{ url_for('dashboard.dashboard_index', user_page=next_user_page, novel_page=novels_page, user_q=user_q, cate_id=selected_cate_id) }}">ถัดไป</a>
+        </nav>
+      </div>
+    </div>
+  </section>
+
+  <!-- Categories -->
+  <section class="space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-semibold text-white">จัดการหมวดหมู่</h2>
+        <p class="text-sm text-zinc-500">เพิ่มหมวดใหม่ (ลบไม่ได้)</p>
+      </div>
+      <form id="addCategoryForm" class="flex flex-col sm:flex-row gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="name" placeholder="ชื่อหมวดหมู่ใหม่" class="w-64 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none" required>
+        <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">เพิ่มหมวดหมู่</button>
+      </form>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% for c in categories %}
+        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+          {{ c.name }} · {{ c.novel_count or 0 }}
+        </span>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Novels & comments -->
+  <section class="space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h2 class="text-xl font-semibold text-white">นิยายและความคิดเห็น</h2>
+        <p class="text-sm text-zinc-500">เลือกเรื่องเพื่ออ่าน/ลบความคิดเห็น</p>
+      </div>
+    </div>
+    <div class="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
+      <table class="min-w-full text-sm text-left text-white/80">
+        <thead class="bg-white/5 text-xs uppercase text-zinc-400">
+          <tr>
+            <th class="px-4 py-3">ชื่อเรื่อง</th>
+            <th class="px-4 py-3">หมวด</th>
+            <th class="px-4 py-3">ผู้เขียน</th>
+            <th class="px-4 py-3">ความคิดเห็น</th>
+            <th class="px-4 py-3">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5">
+          {% for n in novels %}
+          <tr>
+            <td class="px-4 py-3">
+              <div class="font-semibold text-white">{{ n.title }}</div>
+              <div class="text-xs text-zinc-500">สร้างเมื่อ {{ n.created_at_display or '-' }}</div>
+            </td>
+            <td class="px-4 py-3 text-sm text-white/80">{{ n.category_name or '-' }}</td>
+            <td class="px-4 py-3 text-sm text-white/80">{{ n.author_name or '-' }}</td>
+            <td class="px-4 py-3">
+              <span class="rounded-full bg-white/10 px-3 py-1 text-xs text-white" data-role="comment-count" data-count="{{ n.comment_count or 0 }}">{{ n.comment_count or 0 }} รายการ</span>
+            </td>
+            <td class="px-4 py-3">
+              <button
+                type="button"
+                class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-xs text-white transition"
+                data-action="open-comments"
+                data-url="{{ url_for('dashboard.novel_comments', novel_id=n.novels_id) }}"
+                data-title="{{ n.title }}"
+              >
+                ดู / จัดการความคิดเห็น
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="px-4 py-3 space-y-1">
+        <div class="page-info">แสดง {{ novels_start }}-{{ novels_end }} จาก {{ novels_total }} รายการ</div>
+        <nav class="pagination" aria-label="Novels pagination">
+          {% set prev_novel_page = novels_page-1 %}
+          {% set next_novel_page = novels_page+1 %}
+          <a class="page-link{% if novels_page <= 1 %} is-disabled{% endif %}"
+             href="{{ url_for('dashboard.dashboard_index', novel_page=prev_novel_page, user_page=users_page, user_q=user_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
+          <span class="text-sm text-white">{{ 'หน้า ' ~ novels_page ~ ' / ' ~ (novels_total_pages or 1) }}</span>
+          <a class="page-link{% if novels_total_pages == 0 or novels_page >= novels_total_pages %} is-disabled{% endif %}"
+             href="{{ url_for('dashboard.dashboard_index', novel_page=next_novel_page, user_page=users_page, user_q=user_q, cate_id=selected_cate_id) }}">ถัดไป</a>
+        </nav>
+      </div>
+    </div>
+  </section>
+
+  <!-- Charts -->
+  <section class="space-y-4">
+    <div>
+      <h2 class="text-xl font-semibold text-white">สถิติเดือน {{ month_label }}</h2>
+      <p class="text-sm text-zinc-500">กราฟจุดรูปแบบเดียวกับ "ยอดดูล่าสุด" ในหน้า writerwork</p>
+    </div>
+    <div class="grid gap-6 lg:grid-cols-2">
+      <div class="chart-wrap">
+        <div class="flex items-center justify-between text-sm text-zinc-300">
+          <span>ผู้ใช้งานต่อวัน (Active Readers)</span>
+          <span class="text-xs text-zinc-400">{{ month_label }}</span>
         </div>
-
-        <div class="table-grid overflow-x-auto rounded-[var(--radius)] border border-[var(--line)] bg-[var(--panel)]/70">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Created</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if users %}
-                {% for u in users %}
-                  <tr class="text-sm text-white/90">
-                    <td class="align-top text-[var(--muted)]">{{ u.users_id }}</td>
-                    <td class="align-top">
-                      <div class="font-semibold text-white">{{ u.username }}</div>
-                    </td>
-                    <td class="align-top text-[var(--muted)]">{{ u.email }}</td>
-                    <td class="align-top">
-                      <span class="inline-flex px-2 py-1 rounded-full text-[11px] font-medium border bg-white/5 text-white border-white/10">
-                        {{ u.role }}
-                      </span>
-                    </td>
-                    <td class="align-top text-xs text-[var(--muted)]">
-                      {{ u.created_at.strftime("%Y-%m-%d") if u.created_at else "" }}
-                    </td>
-                    <td class="align-top text-right">
-                      <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-white/5 border border-[var(--line)] text-white hover:border-white/20">
-                        Manage
-                      </button>
-                    </td>
-                  </tr>
-                {% endfor %}
-              {% else %}
-                <tr>
-                  <td colspan="6" class="py-6 text-center text-[var(--muted)]">ไม่พบผู้ใช้ตามเงื่อนไข</td>
-                </tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-[var(--muted)]">
-          <div>Page {{ page }} / {{ total_pages }}</div>
-          <div class="flex flex-wrap items-center gap-2">
-            {% if page > 1 %}
-              <a href="{{ url_for('dashboard.dashboard_index', page=page-1, search=search, category_id=selected_category_id) }}" class="btn-ghost text-xs">ก่อนหน้า</a>
-            {% endif %}
-
-            {% for p in range(1, total_pages + 1) %}
-              {% if p == page %}
-                <span class="px-3 py-1.5 rounded-full bg-white text-black text-sm font-semibold">{{ p }}</span>
-              {% elif p == 1 or p == total_pages or (p >= page-1 and p <= page+1) %}
-                <a href="{{ url_for('dashboard.dashboard_index', page=p, search=search, category_id=selected_category_id) }}" class="px-3 py-1.5 rounded-full bg-white/5 border border-[var(--line)] text-sm hover:border-white/20">{{ p }}</a>
-              {% elif (p == 2 and page > 3) or (p == total_pages-1 and page < total_pages-2) %}
-                <span class="px-2 py-1">…</span>
-              {% endif %}
-            {% endfor %}
-
-            {% if page < total_pages %}
-              <a href="{{ url_for('dashboard.dashboard_index', page=page+1, search=search, category_id=selected_category_id) }}" class="btn-ghost text-xs">ถัดไป</a>
-            {% endif %}
-          </div>
+        <div class="mt-3">
+          <canvas id="activeChart" style="width:100%; height:220px;"></canvas>
         </div>
       </div>
-
-      <div class="space-y-4">
-        <div class="surface tight p-5 md:p-6 space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-[11px] tracking-[0.22em] uppercase text-[var(--muted)]">อันดับ</p>
-              <h3 class="text-lg font-semibold text-white">Top 10</h3>
-            </div>
-            <span class="pill">คะแนน & ชื่นชอบ</span>
-          </div>
-          <ol class="space-y-2">
-            {% for n in top10_novels %}
-              <li class="flex items-start gap-3 rounded-[12px] border border-[var(--line)] bg-white/5 px-3 py-2.5">
-                <div class="w-8 h-8 rounded-lg bg-[var(--panel)] grid place-items-center text-xs font-semibold text-white/90">
-                  {{ loop.index }}
-                </div>
-                <div class="flex-1 min-w-0 space-y-1">
-                  <p class="font-semibold text-white truncate">{{ n.title or 'Untitled' }}</p>
-                  <p class="text-xs text-[var(--muted)] truncate">
-                    {{ n.category_name or 'ไม่ระบุหมวดหมู่' }} · {{ n.chapter_count or 0 }} ตอน
-                  </p>
-                  <div class="flex items-center gap-3 text-xs text-[var(--muted)]">
-                    <span class="inline-flex items-center gap-1">
-                      <span class="inline-block w-2 h-2 rounded-full bg-white"></span>
-                      <span class="text-white font-semibold">{{ "%.2f"|format(n.avg_rating or 0) }}</span>
-                      <span>/ 5</span>
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <span class="inline-block w-2 h-2 rounded-full bg-zinc-500"></span>
-                      {{ n.fav_count or 0 }} ชื่นชอบ
-                    </span>
-                  </div>
-                </div>
-              </li>
-            {% else %}
-              <p class="text-sm text-[var(--muted)]">ยังไม่มีข้อมูลอันดับ</p>
-            {% endfor %}
-          </ol>
+      <div class="chart-wrap">
+        <div class="flex items-center justify-between text-sm text-zinc-300">
+          <span>นิยายเพิ่มต่อวัน</span>
+          <span class="text-xs text-zinc-400">{{ month_label }}</span>
         </div>
-
-        <div class="surface border border-white/20 bg-white/5 p-5 md:p-6 space-y-3">
-          <h3 class="text-sm font-semibold tracking-[0.22em] uppercase text-white">เพิ่มหมวดหมู่</h3>
-          <p class="text-sm text-[var(--muted)]">จัดการหมวดหมู่ใหม่ให้ตรงกับแนวของนิยาย</p>
-          <form method="post" action="{{ url_for('dashboard.add_category') }}" class="space-y-2">
-            {% if csrf_token is defined %}
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            {% endif %}
-            <label for="name" class="sr-only">ชื่อหมวดหมู่</label>
-            <input
-              id="name"
-              type="text"
-              name="name"
-              placeholder="เช่น Dark Fantasy, Slice of Life"
-              class="w-full rounded-xl bg-[#0f1115] border border-white/25 px-3 py-2.5 text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-white/35"
-            >
-            <button
-              type="submit"
-              class="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white text-black text-sm font-semibold shadow-lg shadow-black/30"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
-                <path d="M12 5v14m-7-7h14" />
-              </svg>
-              <span>เพิ่มหมวดหมู่</span>
-            </button>
-          </form>
+        <div class="mt-3">
+          <canvas id="novelChart" style="width:100%; height:220px;"></canvas>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
+</div>
+
+<!-- Comments Modal -->
+<div id="commentModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/70" data-action="close-comments"></div>
+  <div class="relative mx-auto mt-10 w-[95%] max-w-3xl rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl">
+    <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+      <div>
+        <p class="text-sm text-zinc-400">ความคิดเห็นจากผู้อ่าน</p>
+        <h3 class="text-lg font-semibold text-white" id="commentModalTitle">ความคิดเห็น</h3>
+      </div>
+      <button type="button" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white hover:bg-white/10" data-action="close-comments">ปิด</button>
+    </div>
+    <div class="max-h-[60vh] overflow-y-auto p-4 space-y-3" id="commentList"></div>
   </div>
 </div>
 
-<script type="application/json" id="dash-chart-data">
-  {{ {
-    "topLabels": top_titles,
-    "topRatings": top_avg_ratings,
-    "topFavs": top_fav_counts,
-    "categories": category_breakdown
-  } | tojson }}
-</script>
-
 <script>
-  (() => {
-    const dataEl = document.getElementById('dash-chart-data');
-    let payload = { topLabels: [], topRatings: [], topFavs: [], categories: [] };
-    try {
-      payload = JSON.parse(dataEl?.textContent || "{}") || payload;
-    } catch (e) {
-      payload = { topLabels: [], topRatings: [], topFavs: [], categories: [] };
+  const csrfToken = "{{ csrf_token() }}";
+  const categoryCounts = JSON.parse('{{ category_counts_map|tojson }}');
+  const activeSeries = JSON.parse('{{ active_daily|tojson }}');
+  const novelSeries = JSON.parse('{{ novel_daily|tojson }}');
+  const monthMeta = JSON.parse('{{ month_meta|tojson }}');
+
+  function showMessage(text, tone = "info") {
+    const box = document.getElementById("dashMessage");
+    if (!box) return;
+    box.textContent = text;
+    box.className = "rounded-lg px-4 py-3 text-sm";
+    const base = "border bg-white/5 text-white/90";
+    const toneMap = {
+      success: "border-emerald-400/50 bg-emerald-400/10 text-emerald-100",
+      error: "border-red-400/50 bg-red-400/10 text-red-100",
+      info: "border-white/20 bg-white/10 text-white/90",
+    };
+    box.className = `rounded-lg px-4 py-3 text-sm ${toneMap[tone] || base}`;
+    box.classList.remove("hidden");
+    setTimeout(() => box.classList.add("hidden"), 4000);
+  }
+
+  // Category card
+  (function () {
+    const select = document.getElementById("categorySelect");
+    const countEl = document.getElementById("categoryCount");
+    if (select && countEl) {
+      select.addEventListener("change", () => {
+        const key = String(select.value || "");
+        const val = categoryCounts[key] || 0;
+        countEl.textContent = val.toLocaleString();
+      });
     }
+  })();
 
-    const topLabels = payload.topLabels || [];
-    const topRatings = payload.topRatings || [];
-    const topFavs = payload.topFavs || [];
-
-    if (topLabels.length) {
-      const ctx = document.getElementById('chartTopRatings');
-      if (ctx) {
-        new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: topLabels,
-            datasets: [
-              {
-                label: 'Avg Rating',
-                data: topRatings,
-                backgroundColor: 'rgba(255,255,255,0.8)',
-                borderColor: 'rgba(255,255,255,0.9)',
-                borderWidth: 1,
-                borderRadius: 6,
-              },
-              {
-                label: 'Favorites',
-                data: topFavs,
-                backgroundColor: 'rgba(115,115,115,0.6)',
-                borderColor: 'rgba(115,115,115,0.8)',
-                borderWidth: 1,
-                borderRadius: 6,
-              }
-            ]
-          },
-          options: {
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { labels: { color: '#f5f5f5' } },
-            },
-            scales: {
-              x: {
-                ticks: { color: 'rgba(255,255,255,0.7)', maxRotation: 45, minRotation: 0 },
-                grid: { display: false },
-              },
-              y: {
-                ticks: { color: 'rgba(255,255,255,0.7)' },
-                grid: { color: 'rgba(255,255,255,0.05)' },
-                beginAtZero: true
-              }
-            }
+  // Toggle user active
+  (function () {
+    const buttons = document.querySelectorAll("[data-action='toggle-user']");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (btn.dataset.disabled === "1") return;
+        const url = btn.dataset.url;
+        if (!url) return;
+        const current = btn.dataset.current === "1";
+        try {
+          const body = new URLSearchParams({ csrf_token: csrfToken, active: current ? "0" : "1" });
+          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || "เปลี่ยนสถานะไม่สำเร็จ");
+          const row = btn.closest("tr");
+          const statusEl = row ? row.querySelector("[data-role='user-status']") : null;
+          btn.dataset.current = data.is_active ? "1" : "0";
+          btn.textContent = data.is_active ? "ปิดการใช้งาน" : "เปิดการใช้งาน";
+          if (statusEl) {
+            statusEl.textContent = data.is_active ? "Active" : "Inactive";
+            statusEl.className = data.is_active
+              ? "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border border-emerald-400 text-emerald-300 bg-emerald-400/10"
+              : "inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border border-orange-400 text-orange-200 bg-orange-400/10";
+            const dot = document.createElement("span");
+            dot.className = "h-2 w-2 rounded-full " + (data.is_active ? "bg-emerald-400" : "bg-orange-400");
+            statusEl.prepend(dot);
           }
-        });
-      }
-    }
+          showMessage("อัปเดตสถานะผู้ใช้เรียบร้อย", "success");
+        } catch (err) {
+          console.error(err);
+          showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+        }
+      });
+    });
+  })();
 
-    const catData = payload.categories || [];
-    if (catData && catData.length) {
-      const labels = catData.map(c => c.name);
-      const values = catData.map(c => c.total);
-      const colors = ['#111', '#2a2a2a', '#3f3f3f', '#555', '#777', '#999'];
-      const ctxCat = document.getElementById('chartCategory');
-      if (ctxCat) {
-        new Chart(ctxCat, {
-          type: 'doughnut',
-          data: {
-            labels,
-            datasets: [{
-              data: values,
-              backgroundColor: colors.slice(0, labels.length),
-              borderWidth: 0
-            }]
-          },
-          options: {
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { position: 'bottom', labels: { color: '#f5f5f5' } }
-            },
-            cutout: '60%'
-          }
-        });
-      }
-    }
+  // Reset password (super admin)
+  (function () {
+    document.querySelectorAll("[data-action='reset-password']").forEach((form) => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const url = form.dataset.url;
+        const input = form.querySelector("input[name='password']");
+        if (!url || !input) return;
+        const pw = (input.value || "").trim();
+        if (pw.length < 8) {
+          showMessage("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร", "error");
+          return;
+        }
+        try {
+          const body = new URLSearchParams({ csrf_token: csrfToken, password: pw });
+          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || "รีเซ็ตรหัสไม่สำเร็จ");
+          input.value = "";
+          showMessage("ตั้งรหัสผ่านใหม่สำเร็จ", "success");
+        } catch (err) {
+          console.error(err);
+          showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+        }
+      });
+    });
+  })();
 
-    // Set widths for role breakdown bars to avoid templating inside style
-    document.querySelectorAll('[data-pct]').forEach((el) => {
-      const pct = parseFloat(el.dataset.pct);
-      if (!Number.isNaN(pct)) {
-        el.style.width = `${pct}%`;
+  // Add category
+  (function () {
+    const form = document.getElementById("addCategoryForm");
+    const select = document.getElementById("categorySelect");
+    form && form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nameInput = form.querySelector("input[name='name']");
+      if (!nameInput) return;
+      const name = nameInput.value.trim();
+      if (!name) return;
+      try {
+        const body = new URLSearchParams({ csrf_token: csrfToken, name });
+        const res = await fetch("{{ url_for('dashboard.add_category') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+          body,
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "เพิ่มหมวดไม่สำเร็จ");
+        const cate = data.category;
+        categoryCounts[String(cate.cate_id)] = 0;
+        if (select) {
+          const opt = document.createElement("option");
+          opt.value = cate.cate_id;
+          opt.textContent = cate.name;
+          select.appendChild(opt);
+        }
+        const badgeWrap = form.closest("section")?.querySelector("div.flex.flex-wrap");
+        if (badgeWrap) {
+          const span = document.createElement("span");
+          span.className = "rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80";
+          span.textContent = `${cate.name} · 0`;
+          badgeWrap.appendChild(span);
+        }
+        nameInput.value = "";
+        showMessage("เพิ่มหมวดหมู่สำเร็จ", "success");
+      } catch (err) {
+        console.error(err);
+        showMessage(err.message || "เกิดข้อผิดพลาด", "error");
       }
     });
+  })();
+
+  // Comments modal + delete
+  (function () {
+    const modal = document.getElementById("commentModal");
+    const list = document.getElementById("commentList");
+    const titleEl = document.getElementById("commentModalTitle");
+    let currentCountEl = null;
+    let currentCountVal = 0;
+
+    function close() {
+      if (modal) modal.classList.add("hidden");
+    }
+    function open() {
+      if (modal) modal.classList.remove("hidden");
+    }
+    document.querySelectorAll("[data-action='close-comments']").forEach((btn) => {
+      btn.addEventListener("click", close);
+    });
+
+    async function loadComments(url) {
+      if (!list) return;
+      list.innerHTML = '<div class="text-sm text-zinc-400">กำลังโหลด...</div>';
+      try {
+        const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "โหลดความคิดเห็นไม่สำเร็จ");
+        renderComments(data.comments || []);
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = `<div class="text-sm text-red-200">${err.message || "เกิดข้อผิดพลาด"}</div>`;
+      }
+    }
+
+    function renderComments(comments) {
+      if (!list) return;
+      list.innerHTML = "";
+      if (!comments.length) {
+        list.innerHTML = '<div class="text-sm text-zinc-400">ยังไม่มีความคิดเห็น</div>';
+        return;
+      }
+      comments.forEach((c) => {
+        const row = document.createElement("div");
+        row.className = "rounded-xl border border-white/10 bg-white/5 px-3 py-2";
+        row.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-sm text-white font-semibold truncate">${c.author || "-"}</div>
+              <div class="text-xs text-zinc-500">${c.created_at || ""}</div>
+              <p class="mt-1 text-sm text-white/90 whitespace-pre-wrap break-words">${c.content || ""}</p>
+            </div>
+            <button type="button" class="rounded-lg border border-white/10 bg-white/10 px-2 py-1 text-xs text-white hover:bg-white/20 transition" data-action="delete-comment" data-url="${c.delete_url}" data-id="${c.cm_id}">
+              ลบ
+            </button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+
+      list.querySelectorAll("[data-action='delete-comment']").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const url = btn.dataset.url;
+          if (!url) return;
+          try {
+            const body = new URLSearchParams({ csrf_token: csrfToken });
+            const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }, body });
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error || "ลบความคิดเห็นไม่สำเร็จ");
+            btn.closest("div.rounded-xl")?.remove();
+            if (currentCountEl) {
+              currentCountVal = Math.max(0, (currentCountVal || 0) - 1);
+              currentCountEl.dataset.count = String(currentCountVal);
+              currentCountEl.textContent = `${currentCountVal.toLocaleString()} รายการ`;
+            }
+            showMessage("ลบความคิดเห็นแล้ว", "success");
+          } catch (err) {
+            console.error(err);
+            showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+          }
+        });
+      });
+    }
+
+    document.querySelectorAll("[data-action='open-comments']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const url = btn.dataset.url;
+        const title = btn.dataset.title || "ความคิดเห็น";
+        if (titleEl) titleEl.textContent = title;
+        currentCountEl = btn.closest("tr")?.querySelector("[data-role='comment-count']");
+        currentCountVal = currentCountEl ? parseInt(currentCountEl.dataset.count || "0", 10) || 0 : 0;
+        if (!url) return;
+        open();
+        loadComments(url);
+      });
+    });
+  })();
+
+  // Charts - custom canvas (match writerwork style)
+  (function () {
+    const { year, month, days } = monthMeta || { year: new Date().getFullYear(), month: new Date().getMonth() + 1, days: 30 };
+    const pad = (n) => String(n).padStart(2, "0");
+    const labels = Array.from({ length: days }, (_, i) => `${year}-${pad(month)}-${pad(i + 1)}`);
+    const toSeries = (raw) => Object.fromEntries((raw || []).map((d) => [d.day, Number(d.count || 0)]));
+
+    const activeMap = toSeries(activeSeries);
+    const novelMap = toSeries(novelSeries);
+
+    const activeData = labels.map((d) => activeMap[d] || 0);
+    const novelData = labels.map((d) => novelMap[d] || 0);
+
+    function drawLine(canvas, labels, values, color) {
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = canvas.clientWidth || 640;
+      const cssH = canvas.clientHeight || 220;
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssW, cssH);
+
+      const padding = { l: 34, r: 10, t: 14, b: 36 };
+      const W = cssW - padding.l - padding.r;
+      const H = cssH - padding.t - padding.b;
+
+      const maxV = Math.max(1, ...values);
+      const grid = "rgba(255,255,255,.08)";
+      const axis = "rgba(255,255,255,.18)";
+      const line = color || "rgba(255,255,255,.65)";
+      const dot = "#f0f0f0";
+      const text = "rgba(255,255,255,.70)";
+
+      ctx.strokeStyle = grid;
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 3; i++) {
+        const y = padding.t + (H * i) / 3;
+        ctx.beginPath();
+        ctx.moveTo(padding.l, y);
+        ctx.lineTo(padding.l + W, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = axis;
+      ctx.beginPath();
+      ctx.moveTo(padding.l, padding.t);
+      ctx.lineTo(padding.l, padding.t + H);
+      ctx.lineTo(padding.l + W, padding.t + H);
+      ctx.stroke();
+
+      ctx.fillStyle = text;
+      ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      const yLabels = [maxV, Math.round(maxV / 2), 0];
+      yLabels.forEach((v, idx) => {
+        const y = padding.t + (H * idx) / 2;
+        ctx.fillText(new Intl.NumberFormat("th-TH").format(v), 6, y + 4);
+      });
+
+      const count = values.length || 1;
+      const gap = count > 1 ? W / (count - 1) : 0;
+
+      ctx.strokeStyle = line;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      values.forEach((v, i) => {
+        const h = (v / maxV) * H;
+        const x = padding.l + i * gap;
+        const y = padding.t + (H - h);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      const step = Math.max(1, Math.ceil(count / 8));
+      values.forEach((v, i) => {
+        const h = (v / maxV) * H;
+        const x = padding.l + i * gap;
+        const y = padding.t + (H - h);
+
+        ctx.fillStyle = dot;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (i % step === 0 || i === count - 1) {
+          const label = labels[i]?.slice(-2) || "";
+          ctx.fillStyle = text;
+          ctx.textAlign = "center";
+          ctx.fillText(label, x, padding.t + H + 18);
+          ctx.textAlign = "start";
+        }
+      });
+    }
+
+    drawLine(document.getElementById("activeChart"), labels, activeData, "rgba(52,211,153,.8)");
+    drawLine(document.getElementById("novelChart"), labels, novelData, "rgba(56,189,248,.8)");
   })();
 </script>
 {% endblock %}

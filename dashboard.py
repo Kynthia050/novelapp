@@ -1,287 +1,482 @@
-import math
+from __future__ import annotations
+
+import calendar
+import re
+from datetime import date, datetime
+from typing import Tuple
+
+import MySQLdb
 import MySQLdb.cursors
-from contextlib import closing
-from flask import Blueprint, render_template, request, flash, redirect, url_for
-from auth import roles_required 
-from db import get_db_connection  # ดึงฟังก์ชันที่มีอยู่จริงใน db.py ของคุณ
+from flask import Blueprint, jsonify, render_template, request, session, url_for
+from werkzeug.security import generate_password_hash
 
-dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
-
-def _has_relation(cur, name: str) -> bool:
-    try:
-        cur.execute(f"DESCRIBE {name}")
-        cur.fetchall()
-        return True
-    except Exception:
-        return False
+from auth import roles_required
+from db import get_db_connection
 
 
-def _table_columns(cur, name: str) -> set[str]:
-    try:
-        cur.execute(f"DESCRIBE {name}")
-        return {row["Field"] for row in cur.fetchall()}
-    except Exception:
-        return set()
+dashboard_bp = Blueprint("dashboard", __name__, template_folder="templates")
 
 
-def _build_top10_sql(cur, selected_category_id: int | None):
-    joins = []
-    select_fields = [
-        "n.novels_id",
-        "n.title",
-        "n.cate_id",
-        "c.name AS category_name",
-    ]
-
-    rating_cols = set()
-    if _has_relation(cur, "v_novel_rating_stats"):
-        rating_cols = _table_columns(cur, "v_novel_rating_stats")
-        joins.append("LEFT JOIN v_novel_rating_stats r ON r.novels_id = n.novels_id")
-
-        if "avg_rating" in rating_cols:
-            select_fields.append("COALESCE(r.avg_rating, 0) AS avg_rating")
-            select_fields.append("COALESCE(r.rating_count, 0) AS rating_count")
-        else:
-            avg_expr = "COALESCE(r.bayesian_avg, r.raw_avg, 0)"
-            if "bayesian_avg" not in rating_cols and "raw_avg" in rating_cols:
-                avg_expr = "COALESCE(r.raw_avg, 0)"
-            if "bayesian_avg" not in rating_cols and "raw_avg" not in rating_cols:
-                avg_expr = "0"
-            count_expr = "COALESCE(r.votes, 0)" if "votes" in rating_cols else "0"
-            select_fields.append(f"{avg_expr} AS avg_rating")
-            select_fields.append(f"{count_expr} AS rating_count")
-
-    if not rating_cols:
-        if _has_relation(cur, "ratings"):
-            rating_cols = _table_columns(cur, "ratings")
-            blocked_filter = "WHERE is_blocked = 0" if "is_blocked" in rating_cols else ""
-            joins.append(
-                f"""
-                LEFT JOIN (
-                    SELECT novels_id,
-                           AVG(rating) AS avg_rating,
-                           COUNT(*)    AS rating_count
-                    FROM ratings
-                    {blocked_filter}
-                    GROUP BY novels_id
-                ) r ON r.novels_id = n.novels_id
-                """
-            )
-            select_fields.append("COALESCE(r.avg_rating, 0) AS avg_rating")
-            select_fields.append("COALESCE(r.rating_count, 0) AS rating_count")
-        else:
-            select_fields.append("0 AS avg_rating")
-            select_fields.append("0 AS rating_count")
-
-    chapter_cols = set()
-    if _has_relation(cur, "v_novel_chapter_counts"):
-        chapter_cols = _table_columns(cur, "v_novel_chapter_counts")
-        joins.append("LEFT JOIN v_novel_chapter_counts ch ON ch.novels_id = n.novels_id")
-        if "chapter_count" in chapter_cols:
-            select_fields.append("COALESCE(ch.chapter_count, 0) AS chapter_count")
-        elif "total_chapters" in chapter_cols:
-            select_fields.append("COALESCE(ch.total_chapters, 0) AS chapter_count")
-        else:
-            select_fields.append("0 AS chapter_count")
-    elif _has_relation(cur, "chapters"):
-        joins.append(
-            """
-            LEFT JOIN (
-                SELECT novels_id, COUNT(*) AS chapter_count
-                FROM chapters
-                GROUP BY novels_id
-            ) ch ON ch.novels_id = n.novels_id
-            """
-        )
-        select_fields.append("COALESCE(ch.chapter_count, 0) AS chapter_count")
+# ---------------- helpers ----------------
+def _month_range(now: datetime | None = None) -> Tuple[datetime, datetime]:
+    now = now or datetime.now()
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
     else:
-        select_fields.append("0 AS chapter_count")
+        end = start.replace(month=start.month + 1)
+    return start, end
 
-    bookshelf_cols = set()
-    if _has_relation(cur, "v_novel_bookshelf_counts"):
-        bookshelf_cols = _table_columns(cur, "v_novel_bookshelf_counts")
-        joins.append("LEFT JOIN v_novel_bookshelf_counts b ON b.novels_id = n.novels_id")
-        if "bookshelf_count" in bookshelf_cols:
-            select_fields.append("COALESCE(b.bookshelf_count, 0) AS fav_count")
-        elif "bookshelf_users" in bookshelf_cols:
-            select_fields.append("COALESCE(b.bookshelf_users, 0) AS fav_count")
-        else:
-            select_fields.append("0 AS fav_count")
-    elif _has_relation(cur, "bookshelf"):
-        joins.append(
-            """
-            LEFT JOIN (
-                SELECT novels_id, COUNT(*) AS fav_count
-                FROM bookshelf
-                GROUP BY novels_id
-            ) b ON b.novels_id = n.novels_id
-            """
-        )
-        select_fields.append("COALESCE(b.fav_count, 0) AS fav_count")
-    else:
-        select_fields.append("0 AS fav_count")
 
-    where_sql = ""
-    params = []
-    if selected_category_id:
-        where_sql = "WHERE n.cate_id = %s"
-        params.append(selected_category_id)
-
-    sql = f"""
-        SELECT
-            {", ".join(select_fields)}
-        FROM novels n
-        LEFT JOIN categories c ON c.cate_id = n.cate_id
-        {' '.join(joins)}
-        {where_sql}
-        ORDER BY avg_rating DESC,
-                 rating_count DESC,
-                 fav_count DESC,
-                 n.views DESC,
-                 n.novels_id DESC
-        LIMIT 10
+def _get_active_enum_values(conn) -> Tuple[str, str]:
     """
-    return sql, params
+    Safely detect enum values for users.is_active to avoid invalid INSERT/UPDATE.
+    Fallback to ('active', 'inactive').
+    """
+    active_val = "active"
+    inactive_val = "inactive"
+    try:
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("SHOW COLUMNS FROM users LIKE 'is_active'")
+            row = cur.fetchone() or {}
+            t = row.get("Type", "") or ""
+            matches = re.findall(r"'([^']*)'", str(t))
+            if matches:
+                active_val = matches[0]
+                if len(matches) > 1:
+                    inactive_val = matches[1]
+    except Exception:
+        pass
+    return active_val, inactive_val
 
-@dashboard_bp.route('/')
-@roles_required('admin', 'superadmin')
+
+def _is_active_value(val, active_marker: str) -> bool:
+    if val is None:
+        return False
+    s = str(val).strip().lower()
+    markers = {str(active_marker or "").strip().lower(), "1", "true", "active", "yes", "y"}
+    return s in markers
+
+
+def _fmt_dt(val) -> str:
+    if isinstance(val, (datetime, date)):
+        return val.strftime("%Y-%m-%d %H:%M")
+    return str(val) if val is not None else ""
+
+
+def _safe_int(val, default=0) -> int:
+    try:
+        return int(val)
+    except Exception:
+        return default
+
+
+# ---------------- core page ----------------
+@dashboard_bp.route("/", methods=["GET"])
+@roles_required("admin", "superadmin")
 def dashboard_index():
-    # ใช้ closing เพื่อให้แน่ใจว่า connection จะถูกปิดเมื่อจบการทำงาน
-    with closing(get_db_connection()) as conn:
-        # ใช้ DictCursor เพื่อให้ผลลัพธ์เป็น Dictionary (เรียกใช้ด้วยชื่อ column ได้)
-        with conn.cursor(MySQLdb.cursors.DictCursor) as cursor:
-            
-            # ============ 1. รับค่า Parameter ============
-            page = request.args.get('page', 1, type=int)
-            if page < 1:
-                page = 1
-            search_query = request.args.get('search', '').strip()
-            selected_category_id = request.args.get('category_id', type=int)
+    user_q = (request.args.get("user_q") or "").strip()
+    selected_cate_id = request.args.get("cate_id", type=int)
+    is_superadmin = session.get("role") == "superadmin"
+    current_uid = _safe_int(session.get("user_id") or session.get("uid"), -1)
+    users_page = max(1, _safe_int(request.args.get("user_page", 1), 1))
+    novels_page = max(1, _safe_int(request.args.get("novel_page", 1), 1))
+    users_per_page = 15
+    novels_per_page = 15
 
-            per_page = 10
-            offset = (page - 1) * per_page
+    month_start, month_end = _month_range()
+    month_label = month_start.strftime("%Y-%m")
+    days_in_month = calendar.monthrange(month_start.year, month_start.month)[1]
 
-            # ============ 2. ดึง Categories ============
-            cursor.execute("SELECT * FROM categories ORDER BY name ASC")
-            categories = cursor.fetchall()
+    total_novels = 0
+    total_users = 0
+    active_users_this_month = 0
+    categories = []
+    selected_category_count = 0
+    users = []
+    novels = []
+    active_daily = []
+    novel_daily = []
+    users_total = 0
+    users_total_pages = 0
+    novels_total = 0
+    novels_total_pages = 0
+    users_start = 0
+    users_end = 0
+    novels_start = 0
+    novels_end = 0
 
-            selected_category_name = None
-            if selected_category_id:
-                for cat in categories:
-                    if cat['cate_id'] == selected_category_id: 
-                        selected_category_name = cat['name']
-                        break
+    conn = get_db_connection()
+    try:
+        active_marker, inactive_marker = _get_active_enum_values(conn)
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            # --- headline metrics ---
+            try:
+                cur.execute("SELECT COUNT(*) AS cnt FROM novels")
+                total_novels = _safe_int((cur.fetchone() or {}).get("cnt"), 0)
+            except Exception:
+                total_novels = 0
 
-            # ============ 3. Stats ============
-            cursor.execute("SELECT COUNT(*) as count FROM novels")
-            res_novels = cursor.fetchone()
-            total_novels = res_novels['count'] if res_novels else 0
+            try:
+                cur.execute("SELECT COUNT(*) AS cnt FROM users")
+                total_users = _safe_int((cur.fetchone() or {}).get("cnt"), 0)
+            except Exception:
+                total_users = 0
 
-            cursor.execute("SELECT COUNT(*) as count FROM users") 
-            res_users = cursor.fetchone()
-            total_users_all = res_users['count'] if res_users else 0
+            try:
+                cur.execute(
+                    """
+                    SELECT COUNT(DISTINCT users_id) AS cnt
+                    FROM reading_history
+                    WHERE last_read_at >= %s AND last_read_at < %s
+                    """,
+                    (month_start, month_end),
+                )
+                active_users_this_month = _safe_int((cur.fetchone() or {}).get("cnt"), 0)
+            except Exception:
+                active_users_this_month = 0
 
-            total_novels_category = None
-            if selected_category_id:
-                cursor.execute("SELECT COUNT(*) as count FROM novels WHERE cate_id = %s", (selected_category_id,))
-                res_cat = cursor.fetchone()
-                total_novels_category = res_cat['count'] if res_cat else 0
+            try:
+                cur.execute(
+                    """
+                    SELECT c.cate_id, c.name, COUNT(n.novels_id) AS novel_count
+                    FROM categories c
+                    LEFT JOIN novels n ON n.cate_id = c.cate_id
+                    GROUP BY c.cate_id, c.name
+                    ORDER BY c.name
+                    """
+                )
+                categories = cur.fetchall() or []
+            except Exception:
+                categories = []
 
-            # ============ 4. Top 10 Novels ============
-            top10_sql, top10_params = _build_top10_sql(cursor, selected_category_id)
-            cursor.execute(top10_sql, tuple(top10_params))
-            top10_novels = cursor.fetchall()
+            if categories and selected_cate_id is None:
+                selected_cate_id = categories[0]["cate_id"]
 
-            top_titles = [n.get("title") or "Untitled" for n in top10_novels]
-            top_avg_ratings = [float(n.get("avg_rating") or 0) for n in top10_novels]
-            top_fav_counts = [int(n.get("fav_count") or 0) for n in top10_novels]
+            for cat in categories:
+                if selected_cate_id is not None and int(cat.get("cate_id")) == int(selected_cate_id):
+                    selected_category_count = _safe_int(cat.get("novel_count"), 0)
+                    break
 
-            # ============ 4.1 Category breakdown for chart ============
-            cursor.execute(
-                """
-                SELECT c.name AS name, COUNT(n.novels_id) AS total
-                FROM categories c
-                LEFT JOIN novels n ON n.cate_id = c.cate_id
-                GROUP BY c.cate_id, c.name
-                ORDER BY total DESC, c.name ASC
-                LIMIT 6
-                """
-            )
-            category_breakdown = cursor.fetchall() or []
-
-            # ============ 4.2 Role breakdown for chart ============
-            cursor.execute(
-                """
-                SELECT role, COUNT(*) AS total
-                FROM users
-                GROUP BY role
-                """
-            )
-            role_breakdown = cursor.fetchall() or []
-
-            # ============ 5. User Management ============
-            user_sql_where = ""
+            # --- users ---
             user_params = []
+            user_sql = """
+                SELECT users_id, username, email, role, is_active, last_login_at, created_at
+                FROM users
+            """
+            count_sql = "SELECT COUNT(*) AS cnt FROM users"
+            where_sql = ""
+            if user_q:
+                where_sql = " WHERE username LIKE %s OR email LIKE %s"
+                pattern = f"%{user_q}%"
+                user_params.extend([pattern, pattern])
+            user_sql += where_sql
+            count_sql += where_sql
 
-            if search_query:
-                user_sql_where = " WHERE username LIKE %s OR email LIKE %s"
-                term = f"%{search_query}%"
-                user_params = [term, term]
+            try:
+                cur.execute(count_sql, user_params)
+                users_total = _safe_int((cur.fetchone() or {}).get("cnt"), 0)
+            except Exception:
+                users_total = 0
 
-            cursor.execute(f"SELECT COUNT(*) as count FROM users {user_sql_where}", tuple(user_params))
-            res_filtered = cursor.fetchone()
-            total_users_filtered = res_filtered['count'] if res_filtered else 0
-            total_pages = max(math.ceil(total_users_filtered / per_page), 1)
-            if page > total_pages:
-                page = total_pages
-                offset = (page - 1) * per_page
+            users_total_pages = (users_total + users_per_page - 1) // users_per_page if users_total else 0
+            if users_total_pages and users_page > users_total_pages:
+                users_page = users_total_pages
+            user_offset = (users_page - 1) * users_per_page
+            if users_total:
+                users_start = user_offset + 1
+                users_end = min(users_page * users_per_page, users_total)
 
-            sql_users = f"SELECT * FROM users {user_sql_where} ORDER BY created_at DESC LIMIT %s OFFSET %s"
-            user_params.extend([per_page, offset])
-            
-            cursor.execute(sql_users, tuple(user_params))
-            users = cursor.fetchall()
+            user_sql += " ORDER BY FIELD(role,'superadmin','admin','user'), created_at DESC LIMIT %s OFFSET %s"
+            user_params.extend([users_per_page, user_offset])
+
+            try:
+                cur.execute(user_sql, user_params)
+                users = cur.fetchall() or []
+            except Exception:
+                users = []
+
+            for u in users:
+                u["is_active_bool"] = _is_active_value(u.get("is_active"), active_marker)
+                u["created_at_display"] = _fmt_dt(u.get("created_at"))
+                u["last_login_display"] = _fmt_dt(u.get("last_login_at"))
+
+            # --- novels ---
+            try:
+                cur.execute("SELECT COUNT(*) AS cnt FROM novels")
+                novels_total = _safe_int((cur.fetchone() or {}).get("cnt"), 0)
+            except Exception:
+                novels_total = 0
+
+            novels_total_pages = (novels_total + novels_per_page - 1) // novels_per_page if novels_total else 0
+            if novels_total_pages and novels_page > novels_total_pages:
+                novels_page = novels_total_pages
+            novels_offset = (novels_page - 1) * novels_per_page
+            if novels_total:
+                novels_start = novels_offset + 1
+                novels_end = min(novels_page * novels_per_page, novels_total)
+
+            try:
+                cur.execute(
+                    """
+                    SELECT
+                        n.novels_id,
+                        n.title,
+                        n.status,
+                        n.created_at,
+                        c.name AS category_name,
+                        u.username AS author_name,
+                        COALESCE(cm.cm_count, 0) AS comment_count
+                    FROM novels n
+                    LEFT JOIN categories c ON c.cate_id = n.cate_id
+                    LEFT JOIN users u ON u.users_id = n.users_id
+                    LEFT JOIN (
+                        SELECT novels_id, COUNT(*) AS cm_count
+                        FROM comments
+                        GROUP BY novels_id
+                    ) cm ON cm.novels_id = n.novels_id
+                    ORDER BY n.created_at DESC
+                    LIMIT %s OFFSET %s
+                    """
+                    ,
+                    (novels_per_page, novels_offset),
+                )
+                novels = cur.fetchall() or []
+            except Exception:
+                novels = []
+
+            for n in novels:
+                n["created_at_display"] = _fmt_dt(n.get("created_at"))
+
+            # --- charts ---
+            try:
+                cur.execute(
+                    """
+                    SELECT DATE(last_read_at) AS day, COUNT(DISTINCT users_id) AS active_users
+                    FROM reading_history
+                    WHERE last_read_at >= %s AND last_read_at < %s
+                    GROUP BY DATE(last_read_at)
+                    ORDER BY day
+                    """,
+                    (month_start, month_end),
+                )
+                active_daily = [
+                    {"day": (row["day"].strftime("%Y-%m-%d") if row.get("day") else ""), "count": _safe_int(row.get("active_users"), 0)}
+                    for row in (cur.fetchall() or [])
+                ]
+            except Exception:
+                active_daily = []
+
+            try:
+                cur.execute(
+                    """
+                    SELECT DATE(created_at) AS day, COUNT(*) AS novels_added
+                    FROM novels
+                    WHERE created_at >= %s AND created_at < %s
+                    GROUP BY DATE(created_at)
+                    ORDER BY day
+                    """,
+                    (month_start, month_end),
+                )
+                novel_daily = [
+                    {"day": (row["day"].strftime("%Y-%m-%d") if row.get("day") else ""), "count": _safe_int(row.get("novels_added"), 0)}
+                    for row in (cur.fetchall() or [])
+                ]
+            except Exception:
+                novel_daily = []
+
+    finally:
+        conn.close()
+
+    category_counts_map = {str(c["cate_id"]): _safe_int(c.get("novel_count"), 0) for c in categories}
 
     return render_template(
-        'dashboard.html',
-        page=page,
-        total_pages=total_pages,
-        search=search_query,
-        categories=categories,
-        selected_category_id=selected_category_id,
-        selected_category_name=selected_category_name,
-        top10_novels=top10_novels,
-        users=users,
+        "dashboard.html",
         total_novels=total_novels,
-        total_users_all=total_users_all,
-        total_novels_category=total_novels_category,
-        top_titles=top_titles,
-        top_avg_ratings=top_avg_ratings,
-        top_fav_counts=top_fav_counts,
-        category_breakdown=category_breakdown,
-        role_breakdown=role_breakdown
+        total_users=total_users,
+        active_users_this_month=active_users_this_month,
+        categories=categories,
+        selected_cate_id=selected_cate_id,
+        selected_category_count=selected_category_count,
+        category_counts_map=category_counts_map,
+        users=users,
+        novels=novels,
+        is_superadmin=is_superadmin,
+        month_label=month_label,
+        month_meta={"year": month_start.year, "month": month_start.month, "days": days_in_month},
+        active_daily=active_daily,
+        novel_daily=novel_daily,
+        user_q=user_q,
+        current_uid=current_uid,
+        users_page=users_page,
+        users_total=users_total,
+        users_total_pages=users_total_pages,
+        users_per_page=users_per_page,
+        users_start=users_start,
+        users_end=users_end,
+        novels_page=novels_page,
+        novels_total=novels_total,
+        novels_total_pages=novels_total_pages,
+        novels_per_page=novels_per_page,
+        novels_start=novels_start,
+        novels_end=novels_end,
     )
 
-@dashboard_bp.route('/category/add', methods=['POST'])
-@roles_required('admin', 'superadmin')
-def add_category():
-    name = (request.form.get('name') or '').strip()
-    if not name:
-        flash('กรุณาระบุชื่อหมวดหมู่', 'error')
-        return redirect(url_for('dashboard.dashboard_index'))
 
-    # เชื่อมต่อ Database สำหรับการเพิ่มข้อมูล
+# ---------------- actions ----------------
+@dashboard_bp.route("/users/<int:user_id>/toggle-active", methods=["POST"])
+@roles_required("admin", "superadmin")
+def toggle_user_active(user_id: int):
+    acting_role = session.get("role")
+    acting_id = session.get("user_id") or session.get("uid")
+    acting_id_int = _safe_int(acting_id, -1)
+    desired_raw = request.form.get("active")
+    desired_bool = None
+    if desired_raw is not None:
+        desired_bool = str(desired_raw).strip().lower() in ("1", "true", "yes", "on")
+
+    conn = get_db_connection()
     try:
-        with closing(get_db_connection()) as conn:
-            with conn.cursor(MySQLdb.cursors.DictCursor) as cursor:
-                cursor.execute("SELECT cate_id FROM categories WHERE name = %s", (name,))
-                if cursor.fetchone():
-                    flash(f"หมวดหมู่ '{name}' มีอยู่ในระบบแล้ว", 'error')
-                else:
-                    cursor.execute("INSERT INTO categories (name) VALUES (%s)", (name,))
-                    # conn.commit() ไม่ต้องใส่เพราะใน db.py ตั้งค่า autocommit=True ไว้แล้ว
-                    flash(f"เพิ่มหมวดหมู่ '{name}' เรียบร้อยแล้ว", 'success')
-    except Exception as e:
-        flash(f"เกิดข้อผิดพลาด: {str(e)}", 'error')
+        active_marker, inactive_marker = _get_active_enum_values(conn)
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("SELECT users_id, role, is_active FROM users WHERE users_id=%s", (user_id,))
+            target = cur.fetchone()
+            if not target:
+                return jsonify({"ok": False, "error": "User not found"}), 404
 
-    return redirect(url_for('dashboard.dashboard_index'))
+            if acting_role == "admin":
+                target_uid = _safe_int(target.get("users_id"), -2)
+                if target.get("role") == "superadmin" or target_uid == acting_id_int:
+                    return jsonify({"ok": False, "error": "You cannot change this user"}), 403
+
+            current_active = _is_active_value(target.get("is_active"), active_marker)
+            next_active = (not current_active) if desired_bool is None else desired_bool
+            new_state = active_marker if next_active else inactive_marker
+
+            cur.execute(
+                "UPDATE users SET is_active=%s, updated_at=NOW() WHERE users_id=%s",
+                (new_state, user_id),
+            )
+
+        return jsonify({"ok": True, "is_active": next_active})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@dashboard_bp.route("/users/<int:user_id>/reset-password", methods=["POST"])
+@roles_required("superadmin")
+def reset_admin_password(user_id: int):
+    new_pw = (request.form.get("password") or "").strip()
+    if len(new_pw) < 8:
+        return jsonify({"ok": False, "error": "Password must be at least 8 characters"}), 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("SELECT role FROM users WHERE users_id=%s", (user_id,))
+            target = cur.fetchone()
+            if not target:
+                return jsonify({"ok": False, "error": "User not found"}), 404
+            if target.get("role") != "admin":
+                return jsonify({"ok": False, "error": "Only admin accounts can be reset here"}), 400
+
+            pw_hash = generate_password_hash(new_pw, method="scrypt")
+            cur.execute(
+                """
+                UPDATE users
+                SET password_hash=%s,
+                    updated_at=NOW()
+                WHERE users_id=%s
+                """,
+                (pw_hash, user_id),
+            )
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@dashboard_bp.route("/categories/add", methods=["POST"])
+@roles_required("admin", "superadmin")
+def add_category():
+    name = (request.form.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Category name is required"}), 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("SELECT 1 FROM categories WHERE LOWER(name)=LOWER(%s) LIMIT 1", (name,))
+            exist = cur.fetchone()
+            if exist:
+                return jsonify({"ok": False, "error": "Category already exists"}), 400
+
+            cur.execute("SELECT COALESCE(MAX(cate_id), 0) + 1 AS next_id FROM categories")
+            next_id = _safe_int((cur.fetchone() or {}).get("next_id"), 1)
+
+            cur.execute(
+                "INSERT INTO categories (cate_id, name) VALUES (%s, %s)",
+                (next_id, name),
+            )
+        return jsonify({"ok": True, "category": {"cate_id": next_id, "name": name}})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@dashboard_bp.route("/novels/<int:novel_id>/comments", methods=["GET"])
+@roles_required("admin", "superadmin")
+def novel_comments(novel_id: int):
+    conn = get_db_connection()
+    try:
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    c.cm_id,
+                    c.content,
+                    c.created_at,
+                    u.username AS author
+                FROM comments c
+                LEFT JOIN users u ON u.users_id = c.users_id
+                WHERE c.novels_id = %s
+                ORDER BY c.created_at DESC
+                """,
+                (novel_id,),
+            )
+            rows = cur.fetchall() or []
+            comments = []
+            for row in rows:
+                delete_url = url_for("dashboard.delete_comment", comment_id=row.get("cm_id"))
+                comments.append(
+                    {
+                        "cm_id": row.get("cm_id"),
+                        "content": row.get("content", ""),
+                        "author": row.get("author") or "-",
+                        "created_at": _fmt_dt(row.get("created_at")),
+                        "delete_url": delete_url,
+                    }
+                )
+            return jsonify({"ok": True, "comments": comments})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@dashboard_bp.route("/comments/<int:comment_id>/delete", methods=["POST"])
+@roles_required("admin", "superadmin")
+def delete_comment(comment_id: int):
+    conn = get_db_connection()
+    try:
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("DELETE FROM comments WHERE cm_id=%s", (comment_id,))
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
