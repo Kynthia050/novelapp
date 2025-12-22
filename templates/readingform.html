@@ -9,6 +9,7 @@
 
   <!-- ใช้ฟอนต์/สไตล์หลักจาก global.css -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
 
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
@@ -138,6 +139,7 @@
     .navigation-controls{
       position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
       display:flex;align-items:center;gap:1.5rem;z-index:60;
+      transition:opacity .25s ease, transform .25s ease;
     }
     .nav-arrow{
       width:45px;height:45px;background:#ddd;border:none;border-radius:50%;
@@ -155,7 +157,7 @@
 
     .theme-toggle{
       position:fixed;top:1rem;right:1rem;background:transparent;border:none;
-      font-size:1.5rem;cursor:pointer;transition:transform .3s;z-index:70;
+      font-size:1.5rem;cursor:pointer;transition:transform .3s, opacity .25s ease;z-index:70;
     }
     .theme-toggle:hover{transform:rotate(20deg)}
 
@@ -174,6 +176,12 @@
     body.dark-mode .progress-bar__fill{background:#69d}
     body.light-mode .progress-bar__fill{background:#36c}
 
+    .controls-hidden{
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(12px);
+    }
+
     @media (max-width:768px){
       .chapter-title{font-size:1.6rem}
       .chapter-subtitle{font-size:1rem}
@@ -186,10 +194,10 @@
 
 <body class="dark-mode"
       data-novels-id="{{ novels_id }}"
-      data-chapters-id="{{ chapters_id }}">
+      data-chapters-id="{{ chapters_id }}"
+      data-initial-progress="{{ initial_progress or 0 }}">
 
-  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
-  <div class="progress-pill" id="progress-pill">0%</div>
+  <button class="theme-toggle hide-on-read" id="theme-toggle" aria-label="Toggle theme">🌙</button>
 
   <main>
     <div class="chapter-header">
@@ -229,7 +237,7 @@
     </div>
   </main>
 
-  <div class="navigation-controls">
+  <div class="navigation-controls hide-on-read">
 
     {# PREV: disable เมื่อเป็น preview หรือไม่มี prev_url #}
     {% if (not is_preview) and prev_url %}
@@ -257,16 +265,19 @@
   </div>
 
 
-  <div class="progress-bar" aria-hidden="true">
+  <!-- progress UI hidden per request -->
+  <div class="progress-bar" aria-hidden="true" style="display:none;">
     <div class="progress-bar__fill" id="progress-fill"></div>
   </div>
 
   <script>
     const toggleBtn = document.getElementById("theme-toggle");
     const body = document.body;
-    const pill = document.getElementById("progress-pill");
-    const fill = document.getElementById("progress-fill");
+    const pill = document.getElementById("progress-pill"); // removed UI
+    const fill = document.getElementById("progress-fill"); // removed UI
     const content = document.getElementById("reader-content");
+    const navControls = document.querySelector(".navigation-controls");
+    const hideable = [toggleBtn, navControls];
 
     (function () {
       const saved = localStorage.getItem("myshelf-theme");
@@ -287,29 +298,57 @@
 
     const novelsId = Number(body.dataset.novelsId || 0);
     const chaptersId = Number(body.dataset.chaptersId || 0);
+    const initialProgress = Number(body.dataset.initialProgress || 0);
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
 
-    let lastSentPct = 0;
+    let lastSentPct = initialProgress;
     let lastSentAt = 0;
+    let initialApplied = false;
+    let lastPct = initialProgress;
+    let hasUserScrolled = false;
+    let autoScrollPhase = true;
 
     function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
     function getContentProgressPercent() {
       if (!content) return 0;
       const rect = content.getBoundingClientRect();
-      const viewportH = window.innerHeight || document.documentElement.clientHeight;
-
+      const viewportH = window.innerHeight || document.documentElement.clientHeight || 1;
       const contentTopInDoc = window.scrollY + rect.top;
-      const seenBottomInDoc = window.scrollY + viewportH;
-      const seenHeight = seenBottomInDoc - contentTopInDoc;
-
-      const totalHeight = content.scrollHeight;
-      const pct = (seenHeight / totalHeight) * 100;
+      const denom = (content.scrollHeight - viewportH);
+      if (denom <= 0) return 100;
+      const seen = (window.scrollY - contentTopInDoc);
+      const pct = (seen / denom) * 100;
       return clamp(Math.floor(pct), 0, 100);
     }
 
     function renderProgress(pct){
-      pill.textContent = pct + "%";
-      fill.style.width = pct + "%";
+      if (pill) pill.textContent = pct + "%";
+      if (fill) fill.style.width = pct + "%";
+    }
+
+    function setControlsVisible(show){
+      hideable.forEach(el => {
+        if (!el) return;
+        el.classList.toggle("controls-hidden", !show);
+      });
+    }
+
+    function applyInitialProgress(){
+      if (initialApplied) return;
+      if (!content || initialProgress <= 0) return;
+      const viewportH = window.innerHeight || document.documentElement.clientHeight || 1;
+      const denom = (content.scrollHeight - viewportH);
+      const target = denom <= 0
+        ? content.offsetTop
+        : content.offsetTop + (denom * (initialProgress / 100));
+      window.scrollTo({ top: Math.max(target, 0), behavior: "auto" });
+      renderProgress(initialProgress);
+      lastSentPct = initialProgress;
+      lastSentAt = Date.now();
+      initialApplied = true;
+      // allow initial programmatic scroll to finish before hiding controls
+      setTimeout(() => { autoScrollPhase = false; }, 300);
     }
 
     async function sendProgress(pct){
@@ -322,7 +361,11 @@
       try{
         const resp = await fetch("{{ url_for('reading.save_reading_progress') }}", {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-CSRFToken": csrfToken
+          },
+          credentials: "same-origin",
           body: new URLSearchParams({
             novels_id: String(novelsId),
             chapters_id: String(chaptersId),
@@ -333,6 +376,8 @@
         if (resp.ok) {
           lastSentPct = pct;
           lastSentAt = now;
+        } else {
+          console.debug("progress save failed status:", resp.status);
         }
       }catch(err){
         console.debug("progress save failed:", err);
@@ -343,17 +388,47 @@
       const pct = getContentProgressPercent();
       renderProgress(pct);
       sendProgress(pct);
+      lastPct = pct;
+      if (pct >= 100){
+        setControlsVisible(true);
+      } else if (hasUserScrolled) {
+        setControlsVisible(false);
+      }
     }
 
+    renderProgress(initialProgress);
+    applyInitialProgress();
+    setControlsVisible(true); // show controls when entering the page
     onScrollOrResize();
-    addEventListener("scroll", onScrollOrResize, { passive: true });
-    addEventListener("resize", onScrollOrResize);
+    addEventListener("scroll", () => {
+      if (autoScrollPhase) return;
+      hasUserScrolled = true;
+      onScrollOrResize();
+    }, { passive: true });
+    addEventListener("resize", () => {
+      applyInitialProgress();
+      onScrollOrResize();
+    });
 
     if (content){
       content.querySelectorAll("img").forEach(img => {
-        if (!img.complete) img.addEventListener("load", onScrollOrResize, { once:true });
+        if (!img.complete) img.addEventListener("load", () => {
+          applyInitialProgress();
+          onScrollOrResize();
+        }, { once:true });
       });
+      if (initialProgress > 0) {
+        addEventListener("load", () => {
+          applyInitialProgress();
+          onScrollOrResize();
+        }, { once:true });
+      }
     }
+
+    // Show controls when user taps/clicks
+    addEventListener("click", () => {
+      setControlsVisible(true);
+    });
   </script>
 </body>
 </html>

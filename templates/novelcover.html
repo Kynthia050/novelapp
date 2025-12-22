@@ -1437,7 +1437,7 @@
   </section>
 
   <!-- Comments -->
-  <section class="comments-wrap">
+  <section class="comments-wrap" id="commentsSection">
     <form class="comment-form" method="post"
           action="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -1493,7 +1493,7 @@
         id="commentsTrack"
         data-novel-id="{{ novel.novels_id }}">
       {% for c in comments %}
-      <article class="comment-card" data-cm-id="{{ c.cm_id }}">
+      <article class="comment-card" id="comment-{{ c.cm_id }}" data-cm-id="{{ c.cm_id }}">
         <div class="comment-bubble">
           <div class="comment-quote">“</div>
           <p class="comment-text">
@@ -2217,6 +2217,9 @@
         if (isEditing) {
           const existing = track.querySelector(`.comment-card[data-cm-id="${c.cm_id}"]`);
           if (existing) {
+            if (c.cm_id) {
+              existing.id = `comment-${c.cm_id}`;
+            }
             const textEl = existing.querySelector('.comment-text');
             if (textEl) textEl.textContent = c.content;
             const dateEl = existing.querySelector('.comment-author-sub');
@@ -2232,6 +2235,9 @@
         const card = document.createElement('article');
         card.className = 'comment-card show';
         card.dataset.cmId = c.cm_id;
+        if (c.cm_id) {
+          card.id = `comment-${c.cm_id}`;
+        }
 
         const bubble = document.createElement('div');
         bubble.className = 'comment-bubble';

@@ -75,6 +75,12 @@ app.register_blueprint(comment_bp)
 app.register_blueprint(search_bp)
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
+# Exempt reading progress API (JS fetch) from CSRF
+try:
+    csrf.exempt(reading_bp)
+except Exception:
+    pass
+
 
 # ทำให้ใช้ {{ csrf_token() }} ในทุก template ได้
 @app.context_processor

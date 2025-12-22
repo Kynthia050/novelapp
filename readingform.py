@@ -181,9 +181,42 @@ def _upsert_reading_history_per_chapter(
     if not need.issubset(cols):
         return
 
+    # Try update-first (works even if UNIQUE key is missing)
+    try:
+        cur.execute(
+            """
+            SELECT rh_id
+            FROM reading_history
+            WHERE users_id=%s AND novels_id=%s AND chapters_id=%s
+            LIMIT 1
+            """,
+            (int(user_id), int(novels_id), int(chapters_id)),
+        )
+        existing = cur.fetchone()
+    except Exception:
+        existing = None
+
     has_progress = "progress" in cols
     has_last = "last_read_at" in cols
     has_rh_id = "rh_id" in cols
+
+    if existing:
+        updates = []
+        params = []
+        if has_progress:
+            updates.append("progress = %s")
+            params.append(int(progress))
+        if has_last:
+            updates.append("last_read_at = CURRENT_TIMESTAMP")
+        if updates:
+            params.extend([int(user_id), int(novels_id), int(chapters_id)])
+            cur.execute(
+                f"UPDATE reading_history SET {', '.join(updates)} "
+                "WHERE users_id=%s AND novels_id=%s AND chapters_id=%s "
+                "LIMIT 1",
+                tuple(params),
+            )
+        return
 
     base_cols = ["users_id", "novels_id", "chapters_id"]
     base_vals = ["%s", "%s", "%s"]
@@ -247,7 +280,9 @@ def read_chapter(novels_id: int, chapter_no: int):
     conn = None
     try:
         preview_requested = request.args.get("preview", default=0, type=int) == 1
+        reset_requested = request.args.get("reset", default=0, type=int) == 1
         current_user_id = _get_current_user_id()
+        initial_progress = 0
 
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
@@ -288,8 +323,9 @@ def read_chapter(novels_id: int, chapter_no: int):
                 if (row.get("status") or "").lower() != "published":
                     abort(404)
 
-            # ✅ touch history เมื่อเข้าอ่าน (นับต่อ chapter)
+            # ✅ touch history เมื่อเข้าอ่าน (นับต่อ chapter) โดยไม่รีเซ็ต progress เดิม
             if current_user_id and (not is_preview) and _table_exists(cur, "reading_history"):
+                rh_cols = _columns(cur, "reading_history")
                 has_views_col = "views" in _columns(cur, "novels")
                 already_viewed = False
                 if has_views_col:
@@ -308,13 +344,33 @@ def read_chapter(novels_id: int, chapter_no: int):
                         print(f"[reading.view_check] error: {e}")
                         already_viewed = True  # กันนับซ้ำถ้า query พลาด
 
+                # ดึง progress เดิมเพื่อนำมาใช้ต่อ ไม่ให้ถูกเขียนเป็น 0
+                saved_progress = None
+                if "progress" in rh_cols and (not reset_requested):
+                    try:
+                        cur.execute(
+                            """
+                            SELECT progress
+                            FROM reading_history
+                            WHERE users_id=%s AND novels_id=%s AND chapters_id=%s
+                            LIMIT 1
+                            """,
+                            (int(current_user_id), int(row["novels_id"]), int(row["chapters_id"])),
+                        )
+                        prev_row = cur.fetchone()
+                        if prev_row is not None:
+                            saved_progress = _to_progress(prev_row.get("progress"))
+                    except Exception as e:
+                        print(f"[reading.progress_lookup] error: {e}")
+
                 try:
+                    progress_to_store = 0 if reset_requested else (saved_progress if saved_progress is not None else 0)
                     _upsert_reading_history_per_chapter(
                         cur,
                         user_id=int(current_user_id),
                         novels_id=int(row["novels_id"]),
                         chapters_id=int(row["chapters_id"]),
-                        progress=0,
+                        progress=int(progress_to_store),
                     )
                     if has_views_col and not already_viewed:
                         cur.execute(
@@ -322,6 +378,7 @@ def read_chapter(novels_id: int, chapter_no: int):
                             (int(row["novels_id"]),),
                         )
                     conn.commit()
+                    initial_progress = progress_to_store
                 except Exception as e:
                     print(f"[reading.touch_history] error: {e}")
 
@@ -392,6 +449,10 @@ def read_chapter(novels_id: int, chapter_no: int):
 
             prev_url = url_for("reading.read_chapter", novels_id=novels_id, chapter_no=prev_no) if prev_no is not None else None
             next_url = url_for("reading.read_chapter", novels_id=novels_id, chapter_no=next_no) if next_no is not None else None
+            if prev_url:
+                prev_url = f"{prev_url}?reset=1"
+            if next_url:
+                next_url = f"{next_url}?reset=1"
 
             try:
                 back_url = url_for("novel.detail", novels_id=novels_id)
@@ -425,6 +486,7 @@ def read_chapter(novels_id: int, chapter_no: int):
             back_url=back_url,
             is_preview=is_preview,
             writing_url=writing_url,
+            initial_progress=initial_progress,
         )
 
     except HTTPException:
@@ -499,3 +561,7 @@ def save_reading_progress():
             pass
 
     return jsonify({"ok": True, "progress": progress})
+
+# Exempt progress API จาก CSRF เพื่อให้ fetch JS ทำงานได้
+save_reading_progress.csrf_exempt = True
+save_reading_progress._exclude_from_csrf = True

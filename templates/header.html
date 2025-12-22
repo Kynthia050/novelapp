@@ -90,6 +90,7 @@
             {% set unread_label = '99+' if unread_num > 99 else unread_num %}
             <span
               id="headerNotiDot"
+              data-count="{{ unread_num }}"
               class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none ring-2 ring-[#111214]
                      {% if unread_num <= 0 %}hidden{% endif %}"
             >{{ unread_label }}</span>
@@ -126,9 +127,74 @@
           {% set profile_img = url_for('static', filename='profile/default-avatar.png') %}
         {% endif %}
 
-        <a href="{{ url_for('profile.profileusers') }}" class="{{ iconBtn }} overflow-hidden" aria-label="โปรไฟล์">
-          <img src="{{ profile_img }}" alt="โปรไฟล์ของฉัน" class="w-full h-full rounded-full object-cover" loading="lazy" />
-        </a>
+        {% set current_uid = (g.user.users_id if g.user and g.user.users_id else (session.get('user_id') or session.get('uid'))) %}
+        {% set my_profile_url = url_for('profile.profileusers') %}
+        {% set my_works_url = url_for('writerwork.writer_works', writer_id=current_uid) if current_uid else url_for('auth.login') %}
+
+        <div class="relative" id="profileMenuWrap">
+          <button
+            type="button"
+            id="btnProfileMenu"
+            class="{{ iconBtn }} overflow-hidden"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="profileMenuPanel"
+            aria-label="โปรไฟล์"
+          >
+            <img src="{{ profile_img }}" alt="โปรไฟล์ของฉัน" class="w-full h-full rounded-full object-cover" loading="lazy" />
+          </button>
+
+          <div
+            id="profileMenuPanel"
+            class="absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-[#111214] shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur hidden"
+            role="menu"
+            aria-label="Profile menu"
+          >
+            <div class="py-1">
+              <a href="{{ my_profile_url }}" class="flex items-center gap-3 px-4 py-2 text-sm text-zinc-100 hover:bg-white/5 rounded-xl" role="menuitem">
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-muted">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                    <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
+                  </svg>
+                </span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium leading-tight">โปรไฟล์ของฉัน</div>
+                  <div class="text-xs text-zinc-500 truncate">ดูและแก้ไขข้อมูลส่วนตัว</div>
+                </div>
+              </a>
+
+              <a href="{{ my_works_url }}" class="flex items-center gap-3 px-4 py-2 text-sm text-zinc-100 hover:bg-white/5 rounded-xl" role="menuitem">
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-muted">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                    <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
+                  </svg>
+                </span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium leading-tight">ผลงานของฉัน</div>
+                  <div class="text-xs text-zinc-500 truncate">เปิดหน้ารวมผลงานที่เขียน</div>
+                </div>
+              </a>
+            </div>
+
+            <div class="border-t border-white/5 px-2 py-2">
+              <form method="post" action="{{ url_for('auth.logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button
+                  type="submit"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl"
+                  role="menuitem"
+                >
+                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                      <path fill-rule="evenodd" d="M11.25 4.5a.75.75 0 0 1 .75-.75h6A2.25 2.25 0 0 1 20.25 6v12A2.25 2.25 0 0 1 18 20.25h-6a.75.75 0 0 1 0-1.5h6c.414 0 .75-.336.75-.75V6a.75.75 0 0 0-.75-.75h-6a.75.75 0 0 1-.75-.75Zm-5.3 6.53 2.47-2.47a.75.75 0 1 1 1.06 1.06l-1.19 1.19H15a.75.75 0 0 1 0 1.5H8.28l1.19 1.19a.75.75 0 1 1-1.06 1.06l-2.47-2.47a1 1 0 0 1 0-1.4Z" clip-rule="evenodd" />
+                    </svg>
+                  </span>
+                  ออกจากระบบ
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
       </div>
     </nav>
   </div>
@@ -156,6 +222,13 @@
     const markReadTpl = panel?.dataset?.markReadUrlTemplate || "";
     const unreadUrl = panel?.dataset?.unreadUrl || "";
     const csrfToken = panel?.querySelector('input[name="csrf_token"]')?.value || "";
+    const parseBadgeCount = () => {
+      if (!badge || badge.classList.contains("hidden")) return 0;
+      const raw = badge.dataset.count || badge.textContent || "0";
+      const num = parseInt(String(raw).replace("+", ""), 10);
+      return Number.isFinite(num) ? num : 0;
+    };
+    let currentUnread = parseBadgeCount();
 
     let offset = 0;
     let loading = false;
@@ -223,17 +296,25 @@
       if (!markAllUrl) return;
       try {
         await postForm(markAllUrl, { csrf_token: csrfToken });
-        updateBadge(0);
+        currentUnread = 0;
+        updateBadge(currentUnread);
       } catch (e) {
         console.error(e);
       }
     }
 
-    async function markRead(nid) {
-      if (!markReadTpl || !nid) return;
-      const url = markReadTpl.replace("0", String(nid));
+    async function markRead(nid, ids, unreadInGroup) {
+      const list = Array.isArray(ids) && ids.length ? ids : (nid ? [nid] : []);
+      if (!markReadTpl || !list.length) return;
+      const unreadDelta = Number(unreadInGroup || list.length || 1);
       try {
-        await postForm(url, { read: "1", csrf_token: csrfToken });
+        await Promise.all(
+          list.map((id) =>
+            postForm(markReadTpl.replace("0", String(id)), { read: "1", csrf_token: csrfToken })
+          )
+        );
+        currentUnread = Math.max(0, currentUnread - unreadDelta);
+        updateBadge(currentUnread);
       } catch (e) {
         console.error(e);
       }
@@ -241,8 +322,12 @@
 
     function buildItem(n) {
       const isRead = Boolean(n.is_read);
-      const clickable = Boolean(n.can_open && n.novel_url);
-      const displayMsg = n.display_message || n.message || "";
+      const targetUrl = n.target_url || n.novel_url;
+      const clickable = Boolean(targetUrl);
+      const rawMsg = n.display_message || n.message || "";
+      const displayMsg = rawMsg;
+      const ids = Array.isArray(n.notification_ids) ? n.notification_ids : [];
+      const unreadInGroup = Number(n.unread_in_group || 0);
 
       const li = document.createElement("li");
       if (n.notification_id) {
@@ -255,8 +340,14 @@
       if (clickable) {
         wrapper.type = "button";
         wrapper.dataset.action = "open-noti";
-        wrapper.dataset.url = n.novel_url;
+        wrapper.dataset.url = targetUrl;
         wrapper.dataset.nid = n.notification_id;
+        if (ids.length) {
+          wrapper.dataset.ids = ids.join(",");
+        }
+        if (Number.isFinite(unreadInGroup) && unreadInGroup > 0) {
+          wrapper.dataset.unreadCount = String(unreadInGroup);
+        }
       }
       wrapper.className = "w-full text-left flex gap-3 px-4 py-3" +
         (clickable ? " hover:bg-white/5 cursor-pointer" : " cursor-default");
@@ -271,7 +362,7 @@
       const msg = document.createElement("div");
       msg.dataset.role = "noti-msg";
       msg.className = isRead ? "text-sm text-zinc-400" : "text-sm text-zinc-100";
-      msg.textContent = displayMsg;
+      msg.textContent = displayMsg || "Notification";
 
       const time = document.createElement("div");
       time.dataset.role = "noti-time";
@@ -387,9 +478,15 @@
       if (!target) return;
       const url = target.dataset.url;
       const nid = target.dataset.nid;
+      const ids = (target.dataset.ids || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const unreadCount = Number(target.dataset.unreadCount || ids.length || 1);
       if (!url) return;
       e.preventDefault();
-      markRead(nid).finally(() => {
+      setItemReadState(target.closest("li"), true);
+      markRead(nid, ids, unreadCount).finally(() => {
         window.location.href = url;
       });
     });
@@ -415,11 +512,13 @@
       if (!(n > 0)) {
         badge.classList.add("hidden");
         badge.textContent = "";
+        badge.dataset.count = "0";
         return;
       }
 
       const label = n > 99 ? "99+" : String(n);
       badge.textContent = label;
+      badge.dataset.count = String(n);
       badge.classList.remove("hidden");
     }
 
@@ -436,7 +535,8 @@
         if (!res.ok) return;
         const data = await res.json();
         if (data && data.ok) {
-          updateBadge(data.unread_count);
+          currentUnread = data.unread_count;
+          updateBadge(currentUnread);
         }
       } catch (e) {
         console.error(e);
@@ -456,6 +556,47 @@
       pollUpdates();
       setInterval(pollUpdates, 15000);
     }
+
+    // --- Profile menu ---
+    const profileWrap = document.getElementById("profileMenuWrap");
+    const profileBtn = document.getElementById("btnProfileMenu");
+    const profilePanel = document.getElementById("profileMenuPanel");
+
+    function openProfileMenu() {
+      if (!profilePanel) return;
+      profilePanel.classList.remove("hidden");
+      if (profileBtn) profileBtn.setAttribute("aria-expanded", "true");
+    }
+
+    function closeProfileMenu() {
+      if (!profilePanel) return;
+      profilePanel.classList.add("hidden");
+      if (profileBtn) profileBtn.setAttribute("aria-expanded", "false");
+    }
+
+    profileBtn && profileBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!profilePanel) return;
+      const isHidden = profilePanel.classList.contains("hidden");
+      if (isHidden) {
+        closePanel();
+        openProfileMenu();
+      } else {
+        closeProfileMenu();
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!profilePanel || profilePanel.classList.contains("hidden")) return;
+      if (profileWrap && profileWrap.contains(e.target)) return;
+      closeProfileMenu();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeProfileMenu();
+      }
+    });
 
     // --- Search clear button ---
     const searchForm = document.querySelector('form[role="search"][data-header-search]');
