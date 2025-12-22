@@ -89,40 +89,47 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
 
                 sel_author, join_author = _author_sql_parts(cur)
 
-                # ใช้ ratings table ถ้ามี (ตามโค้ดเดิมคุณ)
-                has_rt = _has_relation(cur, "ratings")
+                has_views = "views" in cols
+                has_rt_view = _has_relation(cur, "v_novel_rating_stats")
+                has_rt_table = _has_relation(cur, "ratings")
+                has_ch_view = _has_relation(cur, "v_novel_chapter_counts")
+                has_ch_table = _has_relation(cur, "chapters") if not has_ch_view else False
 
-                if has_rt:
-                    sql = f"""
-                        SELECT
-                            n.novels_id, n.title, n.description, n.status, n.cover,
-                            {order_col} AS updated_sort,
-                            COALESCE(AVG(r_all.rating),0) AS avg_rating,
-                            COUNT(r_all.rating)           AS rating_count,
-                            {sel_author}
-                        FROM novels n
-                        {join_author}
-                        LEFT JOIN ratings r_all ON r_all.novels_id = n.novels_id
-                        WHERE n.status IN ('เผยแพร่','จบแล้ว')
-                        GROUP BY n.novels_id, n.title, n.description, n.status, n.cover, updated_sort, author_id, author_name
-                        ORDER BY updated_sort DESC, n.novels_id DESC
-                        LIMIT %s
-                    """
-                    cur.execute(sql, (int(limit),))
+                sel_views = "n.views AS views" if has_views else "0 AS views"
+
+                if has_rt_view:
+                    sel_avg = "(SELECT COALESCE(v.avg_rating, 0) FROM v_novel_rating_stats v WHERE v.novels_id = n.novels_id) AS avg_rating"
+                    sel_rc = "(SELECT COALESCE(v.rating_count, 0) FROM v_novel_rating_stats v WHERE v.novels_id = n.novels_id) AS rating_count"
+                elif has_rt_table:
+                    sel_avg = "(SELECT COALESCE(AVG(r.rating), 0) FROM ratings r WHERE r.novels_id = n.novels_id) AS avg_rating"
+                    sel_rc = "(SELECT COUNT(*) FROM ratings r WHERE r.novels_id = n.novels_id) AS rating_count"
                 else:
-                    sql = f"""
-                        SELECT
-                            n.novels_id, n.title, n.description, n.status, n.cover,
-                            {order_col} AS updated_sort,
-                            0 AS avg_rating, 0 AS rating_count,
-                            {sel_author}
-                        FROM novels n
-                        {join_author}
-                        WHERE n.status IN ('เผยแพร่','จบแล้ว')
-                        ORDER BY updated_sort DESC, n.novels_id DESC
-                        LIMIT %s
-                    """
-                    cur.execute(sql, (int(limit),))
+                    sel_avg = "0 AS avg_rating"
+                    sel_rc = "0 AS rating_count"
+
+                if has_ch_view:
+                    sel_ch = "(SELECT COALESCE(ch.chapter_count, 0) FROM v_novel_chapter_counts ch WHERE ch.novels_id = n.novels_id) AS chapter_count"
+                elif has_ch_table:
+                    sel_ch = "(SELECT COUNT(*) FROM chapters ch WHERE ch.novels_id = n.novels_id) AS chapter_count"
+                else:
+                    sel_ch = "0 AS chapter_count"
+
+                sql = f"""
+                    SELECT
+                        n.novels_id, n.title, n.description, n.status, n.cover,
+                        {order_col} AS updated_sort,
+                        {sel_views},
+                        {sel_avg},
+                        {sel_rc},
+                        {sel_ch},
+                        {sel_author}
+                    FROM novels n
+                    {join_author}
+                    WHERE n.status IN ('เผยแพร่','จบแล้ว')
+                    ORDER BY updated_sort DESC, n.novels_id DESC
+                    LIMIT %s
+                """
+                cur.execute(sql, (int(limit),))
                 return cur.fetchall()
     except Exception as e:
         print(f"Latest-updated error: {e}")
@@ -300,6 +307,8 @@ def index():
         n['cover'] = _process_cover_url(n.get('cover'))
         n.setdefault('avg_rating', 0)
         n.setdefault('rating_count', 0)
+        n.setdefault('views', 0)
+        n.setdefault('chapter_count', 0)
 
     categories = _get_categories()
 
