@@ -442,6 +442,38 @@ def add_category():
         conn.close()
 
 
+@dashboard_bp.route("/categories/<int:cate_id>/rename", methods=["POST"])
+@roles_required("admin", "superadmin")
+def rename_category(cate_id: int):
+    new_name = (request.form.get("name") or "").strip()
+    if not new_name:
+        return jsonify({"ok": False, "error": "Category name is required"}), 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("SELECT cate_id, name FROM categories WHERE cate_id=%s", (cate_id,))
+            current = cur.fetchone()
+            if not current:
+                return jsonify({"ok": False, "error": "Category not found"}), 404
+
+            cur.execute(
+                "SELECT cate_id FROM categories WHERE LOWER(name)=LOWER(%s) AND cate_id != %s LIMIT 1",
+                (new_name, cate_id),
+            )
+            duplicate = cur.fetchone()
+            if duplicate:
+                return jsonify({"ok": False, "error": "Category already exists"}), 400
+
+            cur.execute("UPDATE categories SET name=%s WHERE cate_id=%s", (new_name, cate_id))
+
+        return jsonify({"ok": True, "category": {"cate_id": cate_id, "name": new_name}})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 @dashboard_bp.route("/novels/<int:novel_id>/comments", methods=["GET"])
 @roles_required("admin", "superadmin")
 def novel_comments(novel_id: int):

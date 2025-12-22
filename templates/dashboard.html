@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -30,6 +30,8 @@
 </style>
 {% endblock %}
 
+{% block site_header %}{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-10">
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -41,6 +43,9 @@
     <form method="post" action="{{ url_for('auth.logout') }}" class="flex-shrink-0">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true">
+          <path fill-rule="evenodd" d="M15.75 4.5a.75.75 0 0 0-.75-.75h-4.5A3.75 3.75 0 0 0 6.75 7.5V9a.75.75 0 0 0 1.5 0V7.5A2.25 2.25 0 0 1 10.5 5.25h4.5a.75.75 0 0 0 .75-.75Zm2.783 6.53-3-3a.75.75 0 0 0-1.06 1.06l1.72 1.72H9.75a.75.75 0 0 0 0 1.5h6.443l-1.72 1.72a.75.75 0 1 0 1.06 1.06l3-3a.75.75 0 0 0 0-1.06ZM7.5 12.75a.75.75 0 0 0-1.5 0v3.75A3.75 3.75 0 0 0 9.75 20.25h4.5A.75.75 0 0 0 15 19.5v-1.5a.75.75 0 0 0-1.5 0v.75h-3a2.25 2.25 0 0 1-2.25-2.25v-3Z" clip-rule="evenodd" />
+        </svg>
         <span>ออกจากระบบ</span>
       </button>
     </form>
@@ -80,7 +85,7 @@
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-semibold text-white">การจัดการผู้ใช้</h2>
-        <p class="text-sm text-zinc-500">ค้นหา ปรับสถานะ active/inactive, และรีเซ็ตรหัสผ่านชั่วคราวสำหรับ admin (เฉพาะ super admin)</p>
+        <p class="text-sm text-zinc-500">ค้นหา ปรับสถานะ active/inactive, และรีเซ็ตรหัสผ่านสำหรับ admin (เฉพาะ super admin)</p>
       </div>
       <form method="get" class="flex items-center gap-2" data-partial-target="usersSection">
         <input
@@ -145,8 +150,8 @@
 
               {% if is_superadmin and u.role == 'admin' %}
               <form class="flex items-center gap-2" data-action="reset-password" data-url="{{ url_for('dashboard.reset_admin_password', user_id=u.users_id) }}">
-                <input type="password" name="password" minlength="8" placeholder="รหัสชั่วคราว" class="w-full rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-xs text-white placeholder-white/40 focus:border-white/30 focus:outline-none">
-                <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-2 py-1 text-xs text-white transition">ตั้งใหม่</button>
+                <input type="password" name="password" minlength="8" placeholder="กรอกรหัสผ่านใหม่" class="w-full rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-xs text-white placeholder-white/40 focus:border-white/30 focus:outline-none">
+                <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-2 py-1 text-xs text-white transition">รีเซ็ตรหัส</button>
               </form>
               {% endif %}
             </td>
@@ -175,20 +180,35 @@
   <section class="space-y-4">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
-        <h2 class="text-xl font-semibold text-white">จัดการหมวดหมู่</h2>
-        <p class="text-sm text-zinc-500">เพิ่มหมวดใหม่ (ลบไม่ได้)</p>
+        <h2 class="text-xl font-semibold text-white">การจัดการหมวดหมู่</h2>
+        <p class="text-sm text-zinc-500">เพิ่มหมวดใหม่/คลิกที่ชื่อหมวดหมู่เพื่อแก้ไข (ลบไม่ได้)</p>
       </div>
-      <form id="addCategoryForm" class="flex flex-col sm:flex-row gap-2">
+      <form id="addCategoryForm" class="flex flex-col gap-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="text" name="name" placeholder="ชื่อหมวดหมู่ใหม่" class="w-64 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none" required>
-        <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">เพิ่มหมวดหมู่</button>
+        <input type="hidden" name="cate_id" value="">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <input type="text" name="name" placeholder="ชื่อหมวดหมู่ใหม่" class="w-72 sm:w-64 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none" required>
+          <div class="flex items-center gap-2">
+            <button type="submit" data-role="category-submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">เพิ่มหมวดหมู่</button>
+            <button type="button" data-role="category-cancel" class="hidden rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition">ยกเลิก</button>
+          </div>
+        </div>
+        <p class="text-xs text-zinc-500" data-role="category-hint">เพิ่มหมวดหมู่ใหม่</p>
       </form>
     </div>
-    <div class="flex flex-wrap gap-2">
+    <div id="categoryBadgeWrap" class="flex flex-wrap gap-2">
       {% for c in categories %}
-        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+        <button
+          type="button"
+          class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10 transition"
+          data-role="category-badge"
+          data-action="edit-category"
+          data-id="{{ c.cate_id }}"
+          data-name="{{ c.name }}"
+          data-count="{{ c.novel_count or 0 }}"
+        >
           {{ c.name }} · {{ c.novel_count or 0 }}
-        </span>
+        </button>
       {% endfor %}
     </div>
   </section>
@@ -274,7 +294,7 @@
   <section class="space-y-4">
     <div>
       <h2 class="text-xl font-semibold text-white">สถิติเดือน {{ month_label }}</h2>
-      <p class="text-sm text-zinc-500">กราฟจุดรูปแบบเดียวกับ "ยอดดูล่าสุด" ในหน้า writerwork</p>
+      <p class="text-sm text-zinc-500">แสดงข้อมูลเดือนปัจจุบันเท่านั้น ไม่สามารถดูย้อนหลังได้</p>
     </div>
     <div class="grid gap-6 lg:grid-cols-2">
       <div class="chart-wrap">
@@ -427,46 +447,128 @@
     });
   })();
 
-  // Add category
+  // Add / Edit category
   (function () {
     const form = document.getElementById("addCategoryForm");
+    if (!form) return;
     const select = document.getElementById("categorySelect");
-    form && form.addEventListener("submit", async (e) => {
+    const nameInput = form.querySelector("input[name='name']");
+    const cateIdInput = form.querySelector("input[name='cate_id']");
+    const submitBtn = form.querySelector("[data-role='category-submit']");
+    const cancelBtn = form.querySelector("[data-role='category-cancel']");
+    const hint = form.querySelector("[data-role='category-hint']");
+    const badgeWrap = document.getElementById("categoryBadgeWrap");
+    const addUrl = "{{ url_for('dashboard.add_category') }}";
+    const renameBase = "{{ url_for('dashboard.rename_category', cate_id=0) }}";
+    const addLabel = "เพิ่มหมวดหมู่";
+    const editLabel = "บันทึกชื่อหมวด";
+    let editingId = "";
+
+    const buildRenameUrl = (id) => renameBase.replace(/\d+(?=\/rename$)/, String(id || "").trim());
+
+    const resetForm = () => {
+      editingId = "";
+      if (cateIdInput) cateIdInput.value = "";
+      if (nameInput) {
+        nameInput.value = "";
+        nameInput.placeholder = "ชื่อหมวดหมู่ใหม่";
+      }
+      if (submitBtn) submitBtn.textContent = addLabel;
+      if (cancelBtn) cancelBtn.classList.add("hidden");
+      if (hint) hint.textContent = "เพิ่มหมวดใหม่ (ลบไม่ได้)";
+    };
+
+    const enterEditMode = (id, name) => {
+      editingId = String(id || "");
+      if (cateIdInput) cateIdInput.value = editingId;
+      if (nameInput) {
+        nameInput.value = name || "";
+        nameInput.placeholder = "แก้ไขชื่อหมวดหมู่";
+        nameInput.focus();
+        nameInput.select();
+      }
+      if (submitBtn) submitBtn.textContent = editLabel;
+      if (cancelBtn) cancelBtn.classList.remove("hidden");
+      if (hint) hint.textContent = name ? `แก้ไขหมวด: ${name}` : "แก้ไขหมวด";
+    };
+
+    const renderBadge = (cate) => {
+      if (!badgeWrap) return null;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10 transition";
+      btn.dataset.role = "category-badge";
+      btn.dataset.action = "edit-category";
+      btn.dataset.id = cate.cate_id;
+      btn.dataset.name = cate.name;
+      btn.dataset.count = String(cate.novel_count ?? 0);
+      btn.textContent = `${cate.name} · ${cate.novel_count ?? 0}`;
+      badgeWrap.appendChild(btn);
+      return btn;
+    };
+
+    const refreshBadge = (cate) => {
+      if (!badgeWrap) return;
+      const btn = badgeWrap.querySelector(`[data-role='category-badge'][data-id='${cate.cate_id}']`);
+      if (btn) {
+        btn.dataset.name = cate.name;
+        const count = btn.dataset.count || "0";
+        btn.textContent = `${cate.name} · ${count}`;
+      }
+    };
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const nameInput = form.querySelector("input[name='name']");
-      if (!nameInput) return;
-      const name = nameInput.value.trim();
+      const name = (nameInput?.value || "").trim();
       if (!name) return;
+      const isEdit = Boolean(editingId);
+      const url = isEdit ? buildRenameUrl(editingId) : addUrl;
       try {
         const body = new URLSearchParams({ csrf_token: csrfToken, name });
-        const res = await fetch("{{ url_for('dashboard.add_category') }}", {
+        const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
           body,
         });
         const data = await res.json();
-        if (!data.ok) throw new Error(data.error || "เพิ่มหมวดไม่สำเร็จ");
-        const cate = data.category;
-        categoryCounts[String(cate.cate_id)] = 0;
-        if (select) {
-          const opt = document.createElement("option");
-          opt.value = cate.cate_id;
-          opt.textContent = cate.name;
-          select.appendChild(opt);
+        if (!data.ok) throw new Error(data.error || (isEdit ? "แก้ไขหมวดหมู่ไม่สำเร็จ" : "เพิ่มหมวดหมู่ไม่สำเร็จ"));
+        const cate = data.category || { cate_id: editingId, name };
+        const cateIdKey = String(cate.cate_id);
+        if (!isEdit) {
+          categoryCounts[cateIdKey] = 0;
+          if (select) {
+            const opt = document.createElement("option");
+            opt.value = cate.cate_id;
+            opt.textContent = cate.name;
+            select.appendChild(opt);
+          }
+          cate.novel_count = 0;
+          renderBadge(cate);
+        } else {
+          refreshBadge(cate);
+          const opt = select?.querySelector(`option[value='${cateIdKey}']`);
+          if (opt) opt.textContent = cate.name;
         }
-        const badgeWrap = form.closest("section")?.querySelector("div.flex.flex-wrap");
-        if (badgeWrap) {
-          const span = document.createElement("span");
-          span.className = "rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80";
-          span.textContent = `${cate.name} · 0`;
-          badgeWrap.appendChild(span);
-        }
-        nameInput.value = "";
-        showMessage("เพิ่มหมวดหมู่สำเร็จ", "success");
+        resetForm();
+        showMessage(isEdit ? "บันทึกชื่อหมวดหมู่สำเร็จ" : "เพิ่มหมวดหมู่สำเร็จ", "success");
       } catch (err) {
         console.error(err);
         showMessage(err.message || "เกิดข้อผิดพลาด", "error");
       }
+    });
+
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action='edit-category']");
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (!id) return;
+      const name = btn.dataset.name || "";
+      enterEditMode(id, name);
+    });
+
+    cancelBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
+      resetForm();
     });
   })();
 
