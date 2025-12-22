@@ -160,9 +160,9 @@
               </button>
 
               {% if is_superadmin and u.role == 'admin' %}
-              <form class="flex items-center gap-2" data-action="reset-password" data-url="{{ url_for('dashboard.reset_admin_password', user_id=u.users_id) }}">
+              <form class="flex flex-col sm:flex-row sm:items-center gap-2 w-full" data-action="reset-password" data-url="{{ url_for('dashboard.reset_admin_password', user_id=u.users_id) }}">
                 <input type="password" name="password" minlength="8" placeholder="กรอกรหัสผ่านใหม่" class="w-full rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-xs text-white placeholder-white/40 focus:border-white/30 focus:outline-none">
-                <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-2 py-1 text-xs text-white transition">รีเซ็ตรหัส</button>
+                <button type="submit" class="shrink-0 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-1.5 text-xs text-white transition">รีเซ็ตรหัส</button>
               </form>
               {% endif %}
             </td>
