@@ -1067,6 +1067,68 @@
       justify-content:space-between;
     }
   }
+
+  @media (max-width: 1100px){
+    .site{ padding-inline:clamp(14px, 4vw, 22px); }
+    .novel-header{
+      grid-template-columns:1fr;
+      gap:20px;
+    }
+    .cover-card{
+      max-width:380px;
+      margin-inline:auto;
+      width:100%;
+    }
+    .cover-image{ aspect-ratio:3/4; }
+  }
+  @media (max-width: 768px){
+    .novel-actions{
+      flex-direction:column;
+      align-items:stretch;
+    }
+    .btn-lg{
+      width:100%;
+      justify-content:center;
+    }
+    .novel-stats{ gap:12px; }
+    .chapters-section{ padding:18px 0 10px; }
+    .chapters-header{
+      flex-direction:column;
+      align-items:flex-start;
+      gap:8px;
+    }
+    .chapters-sort-toggle{
+      width:100%;
+      justify-content:space-between;
+    }
+    .chapter-row-inner{
+      flex-direction:column;
+      align-items:flex-start;
+      gap:6px;
+    }
+    .chapter-meta{
+      margin-left:0;
+      flex-wrap:wrap;
+    }
+  }
+  @media (max-width: 540px){
+    .rating-card{ padding:10px 14px; }
+    .rating-card-top{
+      flex-direction:column;
+      align-items:flex-start;
+      gap:6px;
+    }
+    .novel-title{ font-size:clamp(22px, 6vw, 30px); }
+    .novel-stats{
+      flex-direction:column;
+      align-items:flex-start;
+    }
+    .comment-form-footer{
+      flex-direction:column;
+      align-items:stretch;
+      gap:10px;
+    }
+  }
 </style>
 
 <main class="site">

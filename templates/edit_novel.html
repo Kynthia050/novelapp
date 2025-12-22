@@ -410,6 +410,24 @@
     #novelForm > section.panel{
       margin-top: 32px;
     }
+    .form-actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+    }
+    @media (max-width: 640px){
+      .site{ padding:16px 14px; }
+      .form-actions{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .form-actions .btn{
+        width:100%;
+        justify-content:center;
+      }
+    }
   </style>
 {% endblock %}
 
@@ -492,7 +510,7 @@
             </p>
           </div>
 
-          <div class="flex gap-3 items-center justify-end">
+        <div class="flex gap-3 items-center justify-end form-actions">
             <button class="btn btn-primary px-5 py-2 rounded-full font-semibold">
               บันทึกการแก้ไข
             </button>

@@ -70,6 +70,26 @@
       cursor:pointer;
     }
     .menu-item:hover{ background:rgba(255,255,255,.05); }
+    .page-bar{ flex-wrap:wrap; }
+    .toolbar-row{ gap:10px; }
+    @media (max-width: 720px){
+      .page-bar{ align-items:flex-start; }
+      .page-bar > div:last-child{
+        width:100%;
+        justify-content:flex-start;
+      }
+      .toolbar-row{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .toolbar-row .flex-1{ display:none; }
+      .toolbar-row > *{ width:100%; }
+      .toolbar-row select,
+      .toolbar-row button{
+        width:100%;
+        justify-content:center;
+      }
+    }
   </style>
 {% endblock %}
 
@@ -81,7 +101,7 @@
 
     <main class="mx-auto max-w-6xl px-5 py-6">
       <!-- Page Bar -->
-      <div class="flex items-center justify-between gap-3 mb-4">
+      <div class="flex items-center justify-between gap-3 mb-4 page-bar">
         <h1 class="text-[clamp(22px,3.2vw,34px)] font-semibold">จัดการงานเขียน</h1>
 
         <div class="flex items-center gap-2 mt-4">
@@ -97,7 +117,7 @@
       </div>
 
       <!-- Controls -->
-      <div class="flex flex-wrap items-center justify-between gap-3 my-3">
+      <div class="flex flex-wrap items-center justify-between gap-3 my-3 toolbar-row">
         <div class="flex items-center gap-3">
           <input
             id="checkAll"

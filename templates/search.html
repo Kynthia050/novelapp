@@ -269,6 +269,66 @@
   .page-link.is-disabled{ opacity:.45; pointer-events:none; }
   .page-ellipsis{ color:var(--muted); padding:0 4px; }
   .page-info{ margin-top:10px; text-align:center; color:var(--muted); font-size:12px; }
+
+  @media (max-width: 900px){
+    .search-bar{
+      flex-wrap:wrap;
+      gap:10px;
+      padding:10px;
+      border-radius:16px;
+    }
+    .search-input{
+      flex:1 1 180px;
+      min-width:0;
+      width:100%;
+      padding:12px 14px;
+      border-radius:12px;
+    }
+    .search-category{
+      width:100%;
+      border-left:0;
+      border-top:1px solid #eee;
+      border-radius:12px;
+    }
+    .search-button{
+      width:100%;
+      border-radius:12px;
+    }
+    .filters-bar{
+      flex-direction:column;
+      align-items:flex-start;
+    }
+    .sort-wrap{ width:100%; }
+    .sort-btn{
+      width:100%;
+      justify-content:space-between;
+    }
+    .sort-menu{
+      position:static;
+      width:100%;
+      margin-top:8px;
+    }
+  }
+  @media (max-width: 640px){
+    .results-grid{
+      grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+      gap:14px;
+    }
+    .novel-card{ min-height:360px; }
+    .search-bar{ padding:12px; }
+    .search-category{ font-size:12px; }
+  }
+  @media (max-width: 480px){
+    .results-grid{
+      grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+      gap:12px;
+    }
+    .loading-toast{
+      left:12px;
+      right:12px;
+      width:auto;
+    }
+  }
 </style>
 
 <script>

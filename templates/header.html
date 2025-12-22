@@ -1,17 +1,17 @@
 <header class="sticky top-0 z-50 bg-[rgba(31,31,33,.98)] bg-gradient-to-b from-[rgba(31,31,33,.98)] to-[rgba(31,31,33,.95)] backdrop-blur-sm border-b border-white/10">
   <div class="mx-auto max-w-[1200px] px-4 md:px-6">
-    <nav class="flex items-center gap-4 py-3.5">
+    <nav class="flex items-center gap-4 py-3.5 header-bar">
       <a href="{{ url_for('home.index') }}" class="shrink-0 inline-flex items-center gap-3">
         <img src="{{ url_for('static', filename='cover/logo.png') }}" alt="MY SHELF" class="h-[48px] md:h-[60px] w-auto object-contain" />
       </a>
 
-      <div class="ml-auto flex items-center gap-2">
+      <div class="ml-auto flex items-center gap-2 header-actions">
 
         {# ---- SEARCH BAR ---- #}
         <form
           role="search"
           data-header-search="1"
-          class="relative min-w-[220px] sm:min-w-[280px]"
+          class="relative min-w-[220px] sm:min-w-[280px] header-search"
           action="{{ url_for('search.search_novels') }}"
           method="get"
         >
@@ -54,7 +54,7 @@
           </button>
         </form>
 
-        {% set iconBtn = "w-9 h-9 rounded-full border border-white/10 bg-[#111214] text-muted grid place-items-center hover:border-white/20 hover:text-textc transition" %}
+        {% set iconBtn = "w-9 h-9 rounded-full border border-white/10 bg-[#111214] text-muted grid place-items-center hover:border-white/20 hover:text-textc transition shrink-0" %}
 
         {# --- งานเขียน: ใช้ SVG ปากกา/แก้ไข --- #}
         <a href="{{ url_for('mywrite') }}" class="{{ iconBtn }}" aria-label="งานเขียน">
