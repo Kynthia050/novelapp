@@ -36,9 +36,11 @@
 
   /* ✅ ระหว่างโหลดแบบ ajax */
   #searchApp.is-loading{ opacity:.65; pointer-events:none; }
-  #searchApp.is-loading .loading-toast{
+  /* loading-toast อยู่ “นอก” #searchApp ดังนั้นใช้ sibling selector */
+  #searchApp.is-loading + .loading-toast{
     opacity:1; transform:translateY(0);
   }
+
   .loading-toast{
     position:fixed;
     right:18px;
@@ -132,7 +134,7 @@
     grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
     gap:16px;
   }
-  a.novel-link{ color:inherit; text-decoration:none; display:block; height:100%; }
+
   .novel-card{
     background:var(--card);
     border-radius:var(--radius);
@@ -143,6 +145,32 @@
     border:1px solid rgba(255,255,255,.04);
     height:100%;
     min-height:420px;
+    position:relative;
+  }
+
+  /* ✅ ลิงก์ทับทั้งการ์ด (แก้ nested <a>) */
+  .card-overlay{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    border-radius:inherit;
+    text-decoration:none;
+  }
+
+  /* ทำให้คลิกได้ทั้งการ์ด: ให้คอนเทนต์ไม่รับ pointer แล้วส่งไป overlay */
+  .novel-cover-wrap,
+  .novel-body{
+    position:relative;
+    z-index:2;
+    pointer-events:none;
+  }
+
+  /* แต่ลิงก์ผู้เขียนต้องคลิกได้ */
+  .author-link{
+    pointer-events:auto;
+    position:relative;
+    z-index:3;
+    text-decoration:none;
   }
 
   /* ✅ ปก 800x800 => 1:1 */
@@ -158,7 +186,7 @@
   .novel-body{ padding:12px 14px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
   .novel-title{
     font-size:16px; font-weight:700; line-height:1.35;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   }
   .novel-meta{ font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .novel-stats{
@@ -182,7 +210,7 @@
   }
   .novel-desc{
     font-size:13px; color:var(--muted); flex:1;
-    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:3; line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
   }
   .novel-footer{
     display:flex;
@@ -209,6 +237,7 @@
     font-weight:700;
     font-size:13px;
     white-space:nowrap;
+    pointer-events:none; /* ให้คลิกไปที่ overlay */
   }
   .status-badge.is-finished{
     background:#ffffff;
@@ -350,65 +379,89 @@
             {% set status_text = (novel.status_label or ('จบแล้ว' if novel.status == 'จบแล้ว' else 'ยังไม่จบ')) %}
             {% set status_class = 'is-finished' if status_text == 'จบแล้ว' else 'is-ongoing' %}
 
-            <a class="novel-link" href="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
-              <article class="novel-card">
-                <div class="novel-cover-wrap">
-                  <img
-                    src="{{ initial_src }}"
-                    alt="{{ novel.title }}"
-                    data-cover="{{ cover_name }}"
-                    data-try="0"
-                    onerror="window.__coverFallback && window.__coverFallback(this)"
-                  >
+            <article class="novel-card">
+              <!-- ✅ ลิงก์ทับทั้งการ์ด (ไม่ซ้อนกับลิงก์ผู้เขียน) -->
+              <a class="card-overlay"
+                 href="{{ url_for('novel.detail', novels_id=novel.novels_id) }}"
+                 aria-label="อ่าน {{ novel.title }}"></a>
+
+              <div class="novel-cover-wrap">
+                <img
+                  src="{{ initial_src }}"
+                  alt="{{ novel.title }}"
+                  data-cover="{{ cover_name }}"
+                  data-try="0"
+                  onerror="window.__coverFallback && window.__coverFallback(this)"
+                >
+              </div>
+
+              <div class="novel-body">
+                <div class="novel-title">{{ novel.title }}</div>
+
+                <!-- ✅ ผู้เขียน/หมวดหมู่ แยกบรรทัด และคลิกลิงก์ได้ -->
+                <div class="novel-meta">
+                  ผู้เขียน:
+                  {% if novel.author_id is defined and novel.author_id %}
+                    <a class="author-link hover:text-white bs-username"
+                       href="{{ url_for('writerwork.writer_works', writer_id=novel.author_id) }}"
+                       onclick="event.stopPropagation();">
+                      {{ novel.author_name }}
+                    </a>
+                  {% elif novel.writer_id is defined and novel.writer_id %}
+                    <a class="author-link hover:text-white bs-username"
+                       href="{{ url_for('writerwork.writer_works', writer_id=novel.writer_id) }}"
+                       onclick="event.stopPropagation();">
+                      {{ novel.author_name }}
+                    </a>
+                  {% else %}
+                    <span class="bs-username">
+                      {{ novel.author_name }}
+                    </span>
+                  {% endif %}
+                </div>
+                {% if novel.category_name %}
+                <div class="novel-meta">
+                  หมวดหมู่: {{ novel.category_name }}
+                </div>
+                {% endif %}
+
+                <div class="novel-stats">
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
+                    </svg>
+                    <span>{{ novel.chapter_count or 0 }}</span>
+                  </span>
+
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                      <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>{{ "{:,}".format(novel.views or 0) }}</span>
+                  </span>
+
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>
+                      {% if novel.avg_rating is not none %}
+                        {{ '%.1f'|format((novel.avg_rating or 0)|float) }}
+                      {% else %}
+                        0.0
+                      {% endif %}
+                      <span class="text-zinc-400">/5</span>
+                    </span>
+                  </span>
                 </div>
 
-                <div class="novel-body">
-                  <div class="novel-title">{{ novel.title }}</div>
+                <div class="novel-desc">{{ novel.description or '' }}</div>
 
-                  <div class="novel-meta">
-                   ผู้เขียน: {{ novel.author_name }}
-                    {% if novel.category_name %} · {{ novel.category_name }}{% endif %}
-                  </div>
-
-                  <div class="novel-stats">
-                    <span class="inline-flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
-                      </svg>
-                      <span>{{ novel.chapter_count or 0 }}</span>
-                    </span>
-
-                    <span class="inline-flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
-                      </svg>
-                      <span>{{ "{:,}".format(novel.views or 0) }}</span>
-                    </span>
-
-                    <span class="inline-flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
-                      </svg>
-                      <span>
-                        {% if novel.avg_rating is not none %}
-                          {{ '%.1f'|format((novel.avg_rating or 0)|float) }}
-                        {% else %}
-                          0.0
-                        {% endif %}
-                        <span class="text-zinc-400">/5</span>
-                      </span>
-                    </span>
-                  </div>
-
-                  <div class="novel-desc">{{ novel.description or '' }}</div>
-
-                  <div class="novel-footer">
-                    <!-- ✅ เปลี่ยนเป็นสถานะนิยาย -->
-                    <div class="status-badge {{ status_class }}">{{ status_text }}</div>
-                  </div>
+                <div class="novel-footer">
+                  <div class="status-badge {{ status_class }}">{{ status_text }}</div>
                 </div>
-              </article>
-            </a>
+              </div>
+            </article>
           {% endfor %}
         </section>
 

@@ -153,6 +153,12 @@
               {% endif %}
             </div>
 
+            {% if w.category_name %}
+            <div class="text-zinc-400 text-sm">
+              หมวดหมู่: {{ w.category_name }}
+            </div>
+            {% endif %}
+
             <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-base">
               <span class="inline-flex items-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-zinc-300">

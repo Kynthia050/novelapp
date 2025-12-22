@@ -160,6 +160,7 @@ def writer_works(writer_id: int):
                 "comments": int(r.get("comments_count") or 0),
                 "rating_avg": float(r.get("rating_avg") or 0.0),
                 "writer_name": writer_out["username"],
+                "category_name": r.get("category_name"),
                 "owner_id": writer_id,  # เผื่อใช้ใน template
                 "detail_url": url_for("novel.detail", novels_id=r["novels_id"]),
             })

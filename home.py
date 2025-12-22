@@ -94,8 +94,10 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                 has_rt_table = _has_relation(cur, "ratings")
                 has_ch_view = _has_relation(cur, "v_novel_chapter_counts")
                 has_ch_table = _has_relation(cur, "chapters") if not has_ch_view else False
+                has_cate = _has_relation(cur, "categories")
 
                 sel_views = "n.views AS views" if has_views else "0 AS views"
+                sel_cate = "c.name AS category_name" if has_cate else "NULL AS category_name"
 
                 if has_rt_view:
                     sel_avg = "(SELECT COALESCE(v.avg_rating, 0) FROM v_novel_rating_stats v WHERE v.novels_id = n.novels_id) AS avg_rating"
@@ -122,9 +124,11 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                         {sel_avg},
                         {sel_rc},
                         {sel_ch},
+                        {sel_cate},
                         {sel_author}
                     FROM novels n
                     {join_author}
+                    {"LEFT JOIN categories c ON c.cate_id = n.cate_id" if has_cate else ""}
                     WHERE n.status IN ('เผยแพร่','จบแล้ว')
                     ORDER BY updated_sort DESC, n.novels_id DESC
                     LIMIT %s
@@ -166,7 +170,8 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
 
     order_by_map = {
         'new': "n.created_at DESC",
-        'rating': "avg_rating DESC, rating_count DESC, n.views DESC, n.created_at DESC",
+        # คะแนนสูงสุดก่อน ถ้าคะแนนเท่ากันให้ผลงานล่าสุดก่อน (ใช้ updated_at หากมี ไม่งั้น created_at)
+        'rating': "avg_rating DESC, COALESCE(n.updated_at, n.created_at) DESC, n.created_at DESC",
         'bookshelf': "bookshelf_count DESC, n.views DESC, n.created_at DESC",
         'relevance': "n.views DESC, avg_rating DESC, bookshelf_count DESC, n.created_at DESC",
     }
@@ -313,8 +318,10 @@ def index():
     categories = _get_categories()
 
     # ===== new section params =====
-    cate_id = request.args.get('cate_id', default=None, type=int)  # None = ยังไม่เลือก
-    sort = request.args.get('sort', default='relevance', type=str)
+    # default ให้โหลด "ทั้งหมด" (cate_id = 0) เพื่อแสดงการ์ดทันที
+    cate_id = request.args.get('cate_id', default=0, type=int)
+    # default sort: คะแนนสูงสุด
+    sort = request.args.get('sort', default='rating', type=str)
     if sort not in SORT_OPTIONS:
         sort = 'relevance'
     page = _safe_int(request.args.get('page', 1), 1, 1)

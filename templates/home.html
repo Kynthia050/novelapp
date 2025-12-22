@@ -60,7 +60,8 @@
   .nav-btn:disabled{ opacity:.40; cursor:not-allowed; }
 
   /* ===== Novel Card (ใช้ร่วมกันทั้ง Top10 + Category) ===== */
-  a.novel-link{ color:inherit; text-decoration:none; display:block; height:100%; }
+  a.novel-link{ color:inherit; text-decoration:none; display:block; height:100%; } /* (คงไว้ได้ แม้เราไม่ใช้ครอบการ์ดแล้ว) */
+
   .novel-card{
     background:var(--card);
     border-radius:var(--radius);
@@ -71,6 +72,32 @@
     border:1px solid rgba(255,255,255,.04);
     height:100%;
     min-height:420px;
+    position:relative; /* ✅ สำคัญ: ให้ overlay วางได้ */
+  }
+
+  /* ✅ ลิงก์ทับทั้งการ์ด (แก้ nested <a>) */
+  .card-overlay{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    border-radius:inherit;
+    text-decoration:none;
+  }
+
+  /* ให้คลิกได้ทั้งการ์ด: ส่ง pointer ไป overlay */
+  .novel-cover-wrap,
+  .novel-body{
+    position:relative;
+    z-index:2;
+    pointer-events:none;
+  }
+
+  /* แต่ลิงก์ผู้เขียนต้องคลิกได้ */
+  .author-link{
+    pointer-events:auto;
+    position:relative;
+    z-index:3;
+    text-decoration:none;
   }
 
   /* ✅ ปก 800x800 => 1:1 */
@@ -490,65 +517,88 @@
             {% set status_class = 'is-finished' if status_text == 'จบแล้ว' else 'is-ongoing' %}
 
             <div class="carousel-item">
-              <a class="novel-link" href="{{ url_for('novel.detail', novels_id=n.novels_id) }}">
-                <article class="novel-card">
-                  <div class="novel-cover-wrap">
-                    <img
-                      src="{{ url_for('static', filename='cover/' ~ cover_file) }}"
-                      alt="{{ n.title }}"
-                      data-cover="{{ cover_file }}"
-                      data-try="0"
-                      loading="lazy"
-                      onerror="window.__coverFallback && window.__coverFallback(this)"
-                    >
+              <article class="novel-card">
+                <!-- ✅ overlay link ไปหน้า detail (แทนการครอบทั้งการ์ดด้วย <a>) -->
+                <a class="card-overlay"
+                   href="{{ url_for('novel.detail', novels_id=n.novels_id) }}"
+                   aria-label="อ่าน {{ n.title }}"></a>
+
+                <div class="novel-cover-wrap">
+                  <img
+                    src="{{ url_for('static', filename='cover/' ~ cover_file) }}"
+                    alt="{{ n.title }}"
+                    data-cover="{{ cover_file }}"
+                    data-try="0"
+                    loading="lazy"
+                    onerror="window.__coverFallback && window.__coverFallback(this)"
+                  >
+                </div>
+
+                <div class="novel-body">
+                  <div class="novel-title">{{ n.title }}</div>
+
+                  {# ✅ ผู้เขียนแบบลิงก์ (ไม่ทำการ์ดพัง) #}
+                  {% set author_name = (n.author_name or n.author_username or "ไม่ทราบ") %}
+                  <div class="text-zinc-300 text-base">
+                    ผู้เขียน:
+                    {% if n.author_id is defined and n.author_id %}
+                      <a class="author-link hover:text-white bs-username"
+                         href="{{ url_for('writerwork.writer_works', writer_id=n.author_id) }}">
+                        {{ author_name }}
+                      </a>
+                    {% elif n.writer_id is defined and n.writer_id %}
+                      <a class="author-link hover:text-white bs-username"
+                         href="{{ url_for('writerwork.writer_works', writer_id=n.writer_id) }}">
+                        {{ author_name }}
+                      </a>
+                    {% else %}
+                      <span class="bs-username">{{ author_name }}</span>
+                    {% endif %}
                   </div>
 
-                  <div class="novel-body">
-                    <div class="novel-title">{{ n.title }}</div>
-
-                    <div class="novel-meta">
-                      ผู้เขียน: {{ n.author_username or n.author_name or "ไม่ทราบ" }}
-                      {% if n.category_name %} · {{ n.category_name }}{% endif %}
-                    </div>
-
-                    <div class="novel-stats">
-                      <span class="inline-flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
-                        </svg>
-                        <span>{{ n.chapter_count or 0 }}</span>
-                      </span>
-
-                      <span class="inline-flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                          <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
-                        </svg>
-                        <span>{{ "{:,}".format(n.views or 0) }}</span>
-                      </span>
-
-                      <span class="inline-flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                          <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
-                        </svg>
-                        <span>
-                          {% if n.avg_rating is not none %}
-                            {{ '%.1f'|format((n.avg_rating or 0)|float) }}
-                          {% else %}
-                            0.0
-                          {% endif %}
-                          <span class="text-zinc-400">/5</span>
-                        </span>
-                      </span>
-                    </div>
-
-                    <div class="novel-desc">{{ (n.description or "")|striptags|trim }}</div>
-
-                    <div class="novel-footer">
-                      <div class="status-badge {{ status_class }}">{{ status_text }}</div>
-                    </div>
+                  {% if n.category_name %}
+                  <div class="text-zinc-400 text-sm">
+                    หมวดหมู่: {{ n.category_name }}
                   </div>
-                </article>
-              </a>
+                  {% endif %}
+
+                  <div class="novel-stats">
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
+                      </svg>
+                      <span>{{ n.chapter_count or 0 }}</span>
+                    </span>
+
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
+                      </svg>
+                      <span>{{ "{:,}".format(n.views or 0) }}</span>
+                    </span>
+
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
+                      </svg>
+                      <span>
+                        {% if n.avg_rating is not none %}
+                          {{ '%.1f'|format((n.avg_rating or 0)|float) }}
+                        {% else %}
+                          0.0
+                        {% endif %}
+                        <span class="text-zinc-400">/5</span>
+                      </span>
+                    </span>
+                  </div>
+
+                  <div class="novel-desc">{{ (n.description or "")|striptags|trim }}</div>
+
+                  <div class="novel-footer">
+                    <div class="status-badge {{ status_class }}">{{ status_text }}</div>
+                  </div>
+                </div>
+              </article>
             </div>
           {% endfor %}
         </div>
@@ -601,7 +651,7 @@
          href="{{ url_for('home.index', cate_id=0, sort=sort, page=1) }}#homeCategorySection">ทั้งหมด</a>
 
       {% for c in top_cates %}
-        <a class="chip{% if cate_id is not none and cate_id == c.cate_id %} is-active{% endif %}"
+        <a class="chip{% if cate_id is not none and cate_id != 0 and cate_id == c.cate_id %} is-active{% endif %}"
            data-home-ajax="1"
            href="{{ url_for('home.index', cate_id=c.cate_id, sort=sort, page=1) }}#homeCategorySection">{{ c.name }}</a>
       {% endfor %}
@@ -626,7 +676,7 @@
              href="{{ url_for('home.index', cate_id=0, sort=sort, page=1) }}#homeCategorySection">ทั้งหมด</a>
 
           {% for c in categories %}
-            <a class="chip{% if cate_id is not none and cate_id == c.cate_id %} is-active{% endif %}"
+            <a class="chip{% if cate_id is not none and cate_id != 0 and cate_id == c.cate_id %} is-active{% endif %}"
                data-home-ajax="1"
                href="{{ url_for('home.index', cate_id=c.cate_id, sort=sort, page=1) }}#homeCategorySection">{{ c.name }}</a>
           {% endfor %}
@@ -648,65 +698,88 @@
             {% set status_text2 = ('จบแล้ว' if n.status == 'จบแล้ว' else 'ยังไม่จบ') %}
             {% set status_class2 = 'is-finished' if status_text2 == 'จบแล้ว' else 'is-ongoing' %}
 
-            <a class="novel-link" href="{{ url_for('novel.detail', novels_id=n.novels_id) }}">
-              <article class="novel-card">
-                <div class="novel-cover-wrap">
-                  <img
-                    src="{{ url_for('static', filename='cover/' ~ cover_file2) }}"
-                    alt="{{ n.title }}"
-                    data-cover="{{ cover_file2 }}"
-                    data-try="0"
-                    loading="lazy"
-                    onerror="window.__coverFallback && window.__coverFallback(this)"
-                  >
+            <article class="novel-card">
+              <!-- ✅ overlay link ไปหน้า detail -->
+              <a class="card-overlay"
+                 href="{{ url_for('novel.detail', novels_id=n.novels_id) }}"
+                 aria-label="อ่าน {{ n.title }}"></a>
+
+              <div class="novel-cover-wrap">
+                <img
+                  src="{{ url_for('static', filename='cover/' ~ cover_file2) }}"
+                  alt="{{ n.title }}"
+                  data-cover="{{ cover_file2 }}"
+                  data-try="0"
+                  loading="lazy"
+                  onerror="window.__coverFallback && window.__coverFallback(this)"
+                >
+              </div>
+
+              <div class="novel-body">
+                <div class="novel-title">{{ n.title }}</div>
+
+                {# ✅ ผู้เขียนแบบลิงก์ #}
+                {% set author_name2 = (n.author_name or n.author_username or "ไม่ทราบ") %}
+                <div class="text-zinc-300 text-base">
+                  ผู้เขียน:
+                  {% if n.author_id is defined and n.author_id %}
+                    <a class="author-link hover:text-white bs-username"
+                       href="{{ url_for('writerwork.writer_works', writer_id=n.author_id) }}">
+                      {{ author_name2 }}
+                    </a>
+                  {% elif n.writer_id is defined and n.writer_id %}
+                    <a class="author-link hover:text-white bs-username"
+                       href="{{ url_for('writerwork.writer_works', writer_id=n.writer_id) }}">
+                      {{ author_name2 }}
+                    </a>
+                  {% else %}
+                    <span class="bs-username">{{ author_name2 }}</span>
+                  {% endif %}
                 </div>
 
-                <div class="novel-body">
-                  <div class="novel-title">{{ n.title }}</div>
-
-                  <div class="novel-meta">
-                      ผู้เขียน: {{ n.author_name or n.author_username or 'ไม่ทราบ' }}
-                    {% if n.category_name %} · {{ n.category_name }}{% endif %}
-                  </div>
-
-                  <div class="novel-stats">
-                    <span class="inline-flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
-                      </svg>
-                      <span>{{ n.chapter_count or 0 }}</span>
-                    </span>
-
-                    <span class="inline-flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
-                      </svg>
-                      <span>{{ "{:,}".format(n.views or 0) }}</span>
-                    </span>
-
-                    <span class="inline-flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
-                      </svg>
-                      <span>
-                        {% if n.avg_rating is not none %}
-                          {{ '%.1f'|format((n.avg_rating or 0)|float) }}
-                        {% else %}
-                          0.0
-                        {% endif %}
-                        <span class="text-zinc-400">/5</span>
-                      </span>
-                    </span>
-                  </div>
-
-                  <div class="novel-desc">{{ (n.description or '')|striptags|trim }}</div>
-
-                  <div class="novel-footer">
-                    <div class="status-badge {{ status_class2 }}">{{ status_text2 }}</div>
-                  </div>
+                {% if n.category_name %}
+                <div class="text-zinc-400 text-sm">
+                  หมวดหมู่: {{ n.category_name }}
                 </div>
-              </article>
-            </a>
+                {% endif %}
+
+                <div class="novel-stats">
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M5.625 3.75a2.625 2.625 0 1 0 0 5.25h12.75a2.625 2.625 0 0 0 0-5.25H5.625ZM3.75 11.25a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75ZM3 15.75a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75ZM3.75 18.75a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z"/>
+                    </svg>
+                    <span>{{ n.chapter_count or 0 }}</span>
+                  </span>
+
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                      <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>{{ "{:,}".format(n.views or 0) }}</span>
+                  </span>
+
+                  <span class="inline-flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>
+                      {% if n.avg_rating is not none %}
+                        {{ '%.1f'|format((n.avg_rating or 0)|float) }}
+                      {% else %}
+                        0.0
+                      {% endif %}
+                      <span class="text-zinc-400">/5</span>
+                    </span>
+                  </span>
+                </div>
+
+                <div class="novel-desc">{{ (n.description or '')|striptags|trim }}</div>
+
+                <div class="novel-footer">
+                  <div class="status-badge {{ status_class2 }}">{{ status_text2 }}</div>
+                </div>
+              </div>
+            </article>
           {% endfor %}
         </section>
 

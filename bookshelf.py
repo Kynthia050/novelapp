@@ -129,6 +129,9 @@ def bookshelf_index():
                 else ""
             )
 
+            category_sel = "c.name AS category_name"
+            category_join = "LEFT JOIN categories c ON c.cate_id = n.cate_id"
+
             # ---- derived: reading_history ล่าสุดต่อ 1 novels_id (progress ตรง last_read_at) ----
             # ✅ เพิ่ม chapters_id เพื่อทำ “อ่านต่อ” ไปตอนล่าสุดที่อ่าน
             last_rh_derived = """
@@ -166,6 +169,7 @@ def bookshelf_index():
                     n.status AS novel_status,
                     u.username AS author_name,
                     u.users_id AS author_id,
+                    {category_sel},
                     {published_chapters_sel},
                     {first_chapter_sel},
                     {rating_sel},
@@ -175,6 +179,7 @@ def bookshelf_index():
                 FROM ({last_rh_derived}) AS rh
                 JOIN novels n ON n.novels_id = rh.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
+                {category_join}
                 {last_chapter_join}
                 {rating_join}
                 ORDER BY rh.last_read_at {order_dir}, n.title;
@@ -193,6 +198,7 @@ def bookshelf_index():
                     n.status AS novel_status,
                     u.username AS author_name,
                     u.users_id AS author_id,
+                    {category_sel},
                     {published_chapters_sel},
                     {first_chapter_sel},
                     {rating_sel},
@@ -207,6 +213,7 @@ def bookshelf_index():
                 ) rr
                 JOIN novels n ON n.novels_id = rr.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
+                {category_join}
                 {rating_join}
                 ORDER BY rr.last_rated_at {order_dir}, n.title;
                 """
@@ -223,6 +230,7 @@ def bookshelf_index():
                     n.status AS novel_status,
                     u.username AS author_name,
                     u.users_id AS author_id,
+                    {category_sel},
                     {published_chapters_sel},
                     {first_chapter_sel},
                     {rating_sel},
@@ -233,6 +241,7 @@ def bookshelf_index():
                 FROM bookshelf b
                 JOIN novels n ON n.novels_id = b.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
+                {category_join}
                 {rating_join}
                 LEFT JOIN ({last_rh_derived}) AS rh
                        ON rh.novels_id = b.novels_id
@@ -298,6 +307,7 @@ def bookshelf_index():
             "cover": _cover_url(row.get("cover")),
             "author_name": row.get("author_name") or "-",
             "author_id": row.get("author_id"),
+            "category_name": row.get("category_name"),
             "novel_status": novel_status,
             "novel_status_key": novel_status_key,
             "views": views,

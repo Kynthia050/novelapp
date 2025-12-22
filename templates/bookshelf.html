@@ -335,6 +335,12 @@
                   {% endif %}
                 </div>
 
+                {% if b.category_name %}
+                <div class="text-zinc-400 text-sm">
+                  หมวดหมู่: {{ b.category_name }}
+                </div>
+                {% endif %}
+
                 <!-- meta row (ไอคอนแบบ writerwork) -->
                 <div class="mt-1 flex flex-wrap gap-3 text-zinc-300 text-base">
                   <span class="inline-flex items-center gap-1.5">
