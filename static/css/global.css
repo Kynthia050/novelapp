@@ -6,6 +6,24 @@
   /* ฟอนต์ sans-serif หลักของทั้งเว็บ */
   --font-sans: "Niramit", -apple-system, BlinkMacSystemFont,
                "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Theme colors (reference: login page) */
+  --bg: #1f1f21;
+  --panel: #232326;
+  --card: #2a2a2d;
+  --surface: #111214;
+  --text: #f3f3f3;
+  --textc: rgba(255,255,255,.92);
+  --muted: rgba(255,255,255,.65);
+  --line: rgba(255,255,255,.10);
+  --shadow: 0 4px 12px rgba(0,0,0,.35);
+  --radius: 16px;
+  --chip: #2f2f33;
+  --chip-on: #3a3a40;
+  --brand: #ffffff;
+  --accent: #f3f4f6;
+  --accent-ink: #111214;
+  --star: #ffd76a;
 }
 
 /* ---------- Global reset + ฟอนต์ทั้งหน้า ---------- */
@@ -33,6 +51,8 @@ textarea{
 body{
   padding-top: 0 !important;
   margin-top: 0 !important;
+  background: var(--bg);
+  color: var(--text);
 }
 
 main{
@@ -66,30 +86,48 @@ svg{
 
 /* Header layout (applied via helper classes on nav/actions/search) */
 .header-bar{
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 10px;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
 }
 .header-actions{
-  width: 100%;
-  flex-wrap: wrap;
+  width: auto;
+  flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 .header-actions > *{ flex-shrink: 0; }
 .header-search{
-  flex: 1 1 240px;
+  flex: 1 1 220px;
   min-width: 0;
 }
 
 @media (min-width: 768px){
-  .header-bar{ flex-wrap: nowrap; align-items: center; }
-  .header-actions{ width: auto; flex-wrap: nowrap; }
+  .header-actions{ gap: 8px; }
   .header-search{ flex-basis: 320px; }
 }
 
 @media (max-width: 640px){
-  .header-search{ order: -1; flex-basis: 100%; }
+  .header-bar{ gap: 6px; }
+  .header-search{ flex-basis: 160px; }
+  .header-actions{ gap: 4px; }
   #flash-toast-stack{ left: 12px; right: 12px; max-width: none; width: auto; }
   .flash-toast{ width: 100%; min-width: 0; }
+}
+
+@media (max-width: 480px){
+  .header-bar{ gap: 4px; }
+  .header-search{ flex-basis: 140px; }
+  .header-actions{ gap: 3px; }
+}
+
+.header-logo{ height: 48px; }
+.header-icon{ width: 36px; height: 36px; }
+@media (max-width: 640px){
+  .header-logo{ height: 42px; }
+  .header-icon{ width: 34px; height: 34px; }
+}
+@media (max-width: 480px){
+  .header-logo{ height: 36px; }
+  .header-icon{ width: 32px; height: 32px; }
 }

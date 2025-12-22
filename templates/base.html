@@ -7,6 +7,23 @@
 
   <title>{% block title %}MY SHELF{% endblock %}</title>
 
+  <script>
+    window.tailwind = window.tailwind || {};
+    tailwind.config = tailwind.config || {};
+    tailwind.config.theme = tailwind.config.theme || {};
+    tailwind.config.theme.extend = tailwind.config.theme.extend || {};
+    const ex = tailwind.config.theme.extend;
+    ex.colors = Object.assign({}, ex.colors || {}, {
+      bg: '#1f1f21',
+      panel: '#232326',
+      card: '#2a2a2d',
+      textc: 'rgba(255,255,255,.92)',
+      muted: 'rgba(255,255,255,.65)',
+      accent: '#f3f4f6',
+      line: 'rgba(255,255,255,.10)'
+    });
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
@@ -14,7 +31,7 @@
   {% block extra_head %}{% endblock %}
 </head>
 
-<body class="bg-[#0b0b0b] text-zinc-100">
+<body class="bg-[var(--bg)] text-[var(--text)]">
   {% block site_header %}
     {% include "header.html" %}
   {% endblock %}
@@ -22,7 +39,7 @@
   {% include "_flash_toasts.html" %}
 
   <!-- ✅ main ต้องมี bg ด้วย ไม่งั้นพื้นที่ว่างใต้ header จะเป็นสีขาว -->
-  <main class="bg-[#0b0b0b] min-h-screen">
+  <main class="bg-[var(--bg)] min-h-screen">
     {% block content %}{% endblock %}
   </main>
 </body>

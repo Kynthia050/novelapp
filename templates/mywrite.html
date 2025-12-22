@@ -18,11 +18,11 @@
     const ex = tailwind.config.theme.extend;
 
     ex.colors = Object.assign({}, ex.colors || {}, {
-      bg: '#222222',
-      card: '#2b2c2f',
+      bg: '#1f1f21',
+      card: '#2a2a2d',
       chip: '#111214',
       line: 'rgba(255,255,255,.10)',
-      accent: '#a3a3a3',
+      accent: '#f3f4f6',
       muted: 'rgba(255,255,255,.65)',
       textc: 'rgba(255,255,255,.92)'
     });
@@ -52,13 +52,78 @@
       background-position:center;
       background-attachment:fixed;
     }
+    .mw-panel{
+      background: rgba(35,35,38,.88);
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 34px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+    }
+    .mw-card{
+      background: rgba(42,42,45,.92);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 10px 22px rgba(0,0,0,.4);
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .mw-card:hover{
+      background: rgba(46,46,50,.96);
+      border-color: rgba(255,255,255,.22);
+      box-shadow: 0 14px 30px rgba(0,0,0,.5);
+      transform: translateY(-1px);
+    }
+    .mw-btn{
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 18px rgba(0,0,0,.35);
+    }
+    .mw-btn:hover{
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.2);
+    }
+    .mw-btn-primary{
+      background: var(--accent);
+      color: var(--accent-ink);
+      border: 1px solid rgba(255,255,255,.2);
+      box-shadow: 0 12px 26px rgba(0,0,0,.35);
+    }
+    .mw-btn-primary:hover{ filter: brightness(.95); }
+    .mw-menu{
+      background: rgba(35,35,38,.98);
+      border: 1px solid var(--line);
+      box-shadow: 0 18px 40px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+    }
     .select-reset{
       appearance:none;
       -webkit-appearance:none;
       -moz-appearance:none;
       background-image:none;
     }
-    .statusSel{ cursor:pointer; }
+    .statusSel{
+      cursor:pointer;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+    .statusSel:focus{
+      box-shadow: 0 0 0 2px rgba(255,255,255,.18);
+    }
+    .more{
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+    }
+    .more:hover{
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: transparent;
+    }
     .menu-item{
       display:flex;
       align-items:center;
@@ -68,8 +133,11 @@
       padding:.5rem .75rem;
       border-radius:.5rem;
       cursor:pointer;
+      color: var(--text);
+      background: transparent;
+      border: 0;
     }
-    .menu-item:hover{ background:rgba(255,255,255,.05); }
+    .menu-item:hover{ background:rgba(255,255,255,.08); }
     .page-bar{ flex-wrap:wrap; }
     .toolbar-row{ gap:10px; }
     @media (max-width: 720px){
@@ -108,7 +176,7 @@
           <a
             id="addBtn"
             href="/new_novel"
-            class="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-bold text-[#0b0b0b] shadow-soft hover:brightness-95 active:brightness-90 transition"
+            class="mw-btn-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-bold active:brightness-90 transition"
             role="button"
           >
             <span class="text-lg">＋</span> เพิ่มงานเขียน
@@ -129,7 +197,7 @@
           <div class="relative">
             <button
               id="manageBtn"
-              class="rounded-xl border border-line bg-chip/80 px-4 py-2 hover:bg-chip/60 transition"
+              class="mw-btn rounded-xl px-4 py-2 transition"
               type="button"
             >
               จัดการ ▾
@@ -137,7 +205,7 @@
 
             <div
               id="manageMenu"
-              class="absolute left-0 mt-2 hidden min-w-56 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20"
+              class="mw-menu absolute left-0 mt-2 hidden min-w-56 rounded-xl p-2 z-20"
             >
               <button data-action="publish" class="menu-item" type="button">เผยแพร่ที่เลือก</button>
               <button data-action="complete" class="menu-item" type="button">ทำเป็นจบแล้ว</button>
@@ -154,7 +222,7 @@
           <div class="relative">
             <button
               id="filterBtn"
-              class="rounded-xl border border-line bg-chip/80 px-4 py-2 hover:bg-chip/60 transition"
+              class="mw-btn rounded-xl px-4 py-2 transition"
               type="button"
             >
               <span id="filterLabel">ทั้งหมด ({{ total_works }})</span> ▾
@@ -162,7 +230,7 @@
 
             <div
               id="filterMenu"
-              class="absolute right-0 mt-2 hidden min-w-44 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20"
+              class="mw-menu absolute right-0 mt-2 hidden min-w-44 rounded-xl p-2 z-20"
             >
               <button data-filter="ทั้งหมด" class="menu-item" type="button">ทั้งหมด</button>
               <button data-filter="เผยแพร่" class="menu-item" type="button">เผยแพร่</button>
@@ -176,12 +244,12 @@
       </div>
 
       <!-- List -->
-      <section id="list" class="grid gap-3">
+      <section id="list" class="mw-panel p-3 grid gap-3">
         {% if works %}
           {% for w in works %}
             {% set s = (w.status or 'แบบร่าง') %}
             <article
-              class="relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl border border-line bg-card/95 p-4 shadow-soft cursor-pointer"
+              class="mw-card relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl p-4 cursor-pointer"
               data-id="{{ w.novels_id }}"
               data-status="{{ s }}"
               data-copy="{{ url_for('novel.detail', novels_id=w.novels_id) }}"
@@ -258,7 +326,7 @@
                   name="status"
                   data-id="{{ w.novels_id }}"
                       data-prev="{{ s }}"
-                      class="statusSel select-reset rounded-lg border border-line bg-chip/90 px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                      class="statusSel select-reset rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-white/20"
                     >
                       <option value="แบบร่าง"  {{ 'selected' if s == 'แบบร่าง'  else '' }}>แบบร่าง</option>
                       <option value="เผยแพร่"   {{ 'selected' if s == 'เผยแพร่'   else '' }}>เผยแพร่</option>
@@ -267,9 +335,9 @@
                     <div class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/60">▾</div>
                   </div>
 
-                  <button class="more ml-1 text-xl text-white/60 hover:text-white transition" title="ตัวเลือก" type="button">⋯</button>
+                  <button class="more ml-1 text-xl transition" title="ตัวเลือก" type="button">⋯</button>
 
-                  <div class="moreMenu absolute right-0 top-10 hidden min-w-44 rounded-xl border border-line bg-card/95 p-2 shadow-soft z-20">
+                  <div class="moreMenu mw-menu absolute right-0 top-10 hidden min-w-44 rounded-xl p-2 z-20">
                     <a class="menu-item" href="{{ url_for('novel.detail', novels_id=w.novels_id) }}" role="button">
                       ดูผลงาน
                     </a>

@@ -7,7 +7,7 @@
      data-unread-url="{{ url_for('noti.unread_count') }}"
      data-max-items="100"
      class="absolute right-0 top-full mt-2 w-[90vw] sm:w-[380px] hidden z-[60]
-            rounded-2xl border border-white/10 bg-[#18191b] shadow-2xl">
+            rounded-2xl border border-white/10 bg-[var(--panel)] shadow-2xl">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">

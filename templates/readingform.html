@@ -22,7 +22,7 @@
       flex-direction:column;
       transition:background .3s,color .3s;
     }
-    body.dark-mode{background:#222;color:#eee}
+    body.dark-mode{background:var(--bg);color:var(--text)}
     body.light-mode{background:#fdfdfd;color:#222}
 
     main{flex:1;max-width:900px;margin:0 auto;padding:2rem 1rem 6rem}
@@ -42,7 +42,7 @@
       overflow-wrap:anywhere;
       word-break:break-word;
     }
-    body.dark-mode .chapter-content{background:#333}
+    body.dark-mode .chapter-content{background:var(--card)}
     body.light-mode .chapter-content{background:#f1f1f1}
 
     /* ทำให้รูป/สื่อไม่ล้นกรอบ */
@@ -142,18 +142,19 @@
       transition:opacity .25s ease, transform .25s ease;
     }
     .nav-arrow{
-      width:45px;height:45px;background:#ddd;border:none;border-radius:50%;
+      width:45px;height:45px;background:var(--accent);color:var(--accent-ink);
+      border:none;border-radius:50%;
       font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
-      transition:background .3s
+      transition:filter .3s
     }
     .nav-arrow[disabled]{opacity:.5;cursor:not-allowed}
-    .nav-arrow:hover{background:#bbb}
+    .nav-arrow:hover{filter:brightness(.95)}
 
     .back-to-cover-btn{
-      background:#ddd;border:none;padding:.6rem 1.5rem;border-radius:20px;
-      font-size:.95rem;cursor:pointer;transition:background .3s
+      background:var(--accent);color:var(--accent-ink);border:none;padding:.6rem 1.5rem;border-radius:20px;
+      font-size:.95rem;cursor:pointer;transition:filter .3s
     }
-    .back-to-cover-btn:hover{background:#bbb}
+    .back-to-cover-btn:hover{filter:brightness(.95)}
 
     .theme-toggle{
       position:fixed;top:1rem;right:1rem;background:transparent;border:none;
@@ -173,8 +174,8 @@
       z-index:65;
     }
     .progress-bar__fill{height:100%;width:0%}
-    body.dark-mode .progress-bar__fill{background:#69d}
-    body.light-mode .progress-bar__fill{background:#36c}
+    body.dark-mode .progress-bar__fill{background:var(--accent)}
+    body.light-mode .progress-bar__fill{background:var(--accent)}
 
     .controls-hidden{
       opacity:0;

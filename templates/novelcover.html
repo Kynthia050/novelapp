@@ -6,13 +6,6 @@
 
 
 <style>
-  :root{
-    --bg:#1f1f21; --panel:#232326; --text:#f3f3f3; --muted:#c7c7cc; --accent:#e7e7ea;
-    --card:#2a2a2d; --radius:16px; --shadow:0 4px 12px rgba(0,0,0,.35);
-    --chip:#2f2f33; --chip-on:#3a3a40; --brand:#fff;
-    --star:#ffd76a;  
-  }
-
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
@@ -452,7 +445,7 @@
   }
   .chapters-sort-toggle.desc{
     background:var(--accent);
-    color:#111214;
+    color:var(--accent-ink);
   }
   .chapters-sort-label{
     white-space:nowrap;
@@ -683,7 +676,7 @@
     min-height:96px;
     border-radius:12px;
     border:1px solid rgba(255,255,255,.12);
-    background:#111214;
+    background:var(--surface);
     color:var(--text);
     padding:10px 12px;
     font-family:inherit;
@@ -724,7 +717,7 @@
     letter-spacing:.05em;
     text-transform:uppercase;
     background:var(--accent);
-    color:#111214;
+    color:var(--accent-ink);
     cursor:pointer;
     display:inline-flex;
     align-items:center;
@@ -773,7 +766,7 @@
   }
   .summary-helper-btn:hover{
     background:var(--accent);
-    color:#111214;
+    color:var(--accent-ink);
     transform:translateY(-1px);
     border-color:transparent;
     box-shadow:0 8px 22px rgba(0,0,0,.5);
@@ -867,7 +860,7 @@
     height:32px;
     border-radius:999px;
     border:1px solid rgba(255,255,255,.14);
-    background:#111214;
+    background:var(--surface);
     color:var(--muted);
     display:grid;
     place-items:center;
@@ -877,7 +870,7 @@
   }
   .comments-btn:hover{
     background:var(--accent);
-    color:#000;
+    color:var(--accent-ink);
     transform:translateY(-1px);
   }
 

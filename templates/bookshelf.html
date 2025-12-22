@@ -18,8 +18,10 @@
     ex.colors = Object.assign({}, ex.colors || {}, {
       muted: 'rgba(255,255,255,.65)',
       textc: 'rgba(255,255,255,.92)',
-      accent: '#a3a3a3',
-      bg: '#0b0b0b',
+      accent: '#f3f4f6',
+      bg: '#1f1f21',
+      panel: '#232326',
+      card: '#2a2a2d',
     });
 
     ex.boxShadow = Object.assign({}, ex.boxShadow || {}, {
@@ -28,9 +30,9 @@
   </script>
 
   <style>
-    body{ background:#0b0b0b !important; }
-    body > main{ background:#0b0b0b !important; }
-    main{ background:#0b0b0b !important; }
+    body{ background:var(--bg) !important; }
+    body > main{ background:var(--bg) !important; }
+    main{ background:var(--bg) !important; }
 
     .bs-page{
       padding-top:16px !important;
@@ -211,12 +213,40 @@
     }
     @media(max-width:640px){
       .bs-page{ padding-inline:14px; }
+      .bs-page .toolbar-wrap{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .bs-page .toolbar-wrap > *{
+        width:100%;
+      }
+      .bs-page .toolbar-wrap .inline-flex{
+        width:100%;
+        justify-content:space-between;
+      }
+      .bs-page .bs-order-toggle{
+        width:100%;
+        justify-content:space-between;
+      }
+      .bs-page .bs-order-toggle .bs-order-icon{
+        margin-left:auto;
+      }
+      .bs-page .bs-pill{
+        width:100%;
+        justify-content:space-between;
+      }
+      .bs-page .bs-menu{
+        width:100%;
+      }
+      .bs-page .bs-dd details{
+        width:100%;
+      }
     }
   </style>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-[#0b0b0b] text-zinc-100 selection:text-zinc-100">
+<div class="min-h-screen bg-[var(--bg)] text-zinc-100 selection:text-zinc-100">
   <main id="bookshelfApp" class="bs-page max-w-6xl mx-auto px-5 pb-5">
     <!-- Title -->
     <div class="flex items-center justify-center gap-3 mb-4">
@@ -229,7 +259,7 @@
     <section class="bg-neutral-900/70 border border-white/10 rounded-2xl shadow-soft">
       <!-- TOOLBAR -->
       <div class="px-5 pt-4">
-        <div class="mt-1 mb-4 flex flex-wrap items-center gap-3">
+        <div class="mt-1 mb-4 flex flex-wrap items-center gap-3 toolbar-wrap">
           <!-- Tabs (เหมือน writerwork style pill group) -->
           <div class="inline-flex rounded-full border border-white/10 p-1 bg-neutral-900">
             <a data-bs-nav="1"

@@ -14,26 +14,17 @@
 
     const ex = tailwind.config.theme.extend;
     ex.colors = Object.assign({}, ex.colors || {}, {
-      bg:    '#111214',
-      panel: '#18191b',
-      line:  '#27282c',
-      text:  '#e5e7eb',
-      muted: '#9ca3af',
-      brand: '#d4d4d8'
+      bg:    '#1f1f21',
+      panel: '#232326',
+      line:  'rgba(255,255,255,.10)',
+      text:  '#f3f3f3',
+      muted: 'rgba(255,255,255,.65)',
+      brand: '#f3f4f6'
     });
     ex.borderRadius = Object.assign({}, ex.borderRadius || {}, { '2xl': '16px' });
   </script>
 
   <style>
-    :root{
-      --bg:#111214;
-      --panel:#18191b;
-      --line:#27282c;
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --radius:16px;
-      --shadow:0 18px 45px rgba(0,0,0,.55);
-    }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
@@ -45,7 +36,7 @@
 
     .site{max-width:1100px;margin:0 auto;padding:20px}
     .panel{
-      background:rgba(24,25,27,.96);
+      background:var(--panel);
       border:1px solid var(--line);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
@@ -58,14 +49,14 @@
       gap:.5rem;
     }
     .btn-primary{
-      background:#f3f4f6;
-      color:#111827;
-      border:1px solid #d1d5db;
+      background:var(--accent);
+      color:var(--accent-ink);
+      border:1px solid rgba(255,255,255,.2);
     }
     .btn-dark{
-      background:#0f0f10;
-      border:1px solid #2b2c30;
-      color:#e5e7eb;
+      background:var(--surface);
+      border:1px solid var(--line);
+      color:var(--text);
     }
     .btn-ghost{
       background:transparent;
@@ -79,7 +70,7 @@
       padding:.65rem .8rem;
       border:1px solid var(--line);
       border-radius:12px;
-      background:#0f1012;
+      background:var(--surface);
       color:var(--text);
       outline:none;
       font-size:.95rem;
@@ -89,7 +80,7 @@
 
     .select{
       appearance:none;
-      background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%239ca3af%22 d=%22M6 8L0 0h12z%22/%3E%3C/svg%3E');
+      background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath fill=%22%23c7c7cc%22 d=%22M6 8L0 0h12z%22/%3E%3C/svg%3E');
       background-repeat:no-repeat;
       background-position:right .8rem center;
       background-size:12px 8px;
@@ -106,7 +97,7 @@
       height:min(320px, 90vw);
       border:2px dashed var(--line);
       border-radius:16px;
-      background:#0f1012;
+      background:var(--surface);
       display:flex;
       flex-direction:column;
       align-items:center;

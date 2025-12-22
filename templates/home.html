@@ -17,16 +17,12 @@
   colors.card  = colors.card  || '#2a2a2d';
   colors.textc = colors.textc || 'rgba(255,255,255,.92)';
   colors.muted = colors.muted || 'rgba(255,255,255,.65)';
+  colors.accent = colors.accent || '#f3f4f6';
+  colors.line = colors.line || 'rgba(255,255,255,.10)';
   ex.colors = colors;
 </script>
 
 <style>
-  :root{
-    --bg:#1f1f21; --panel:#232326; --text:#f3f3f3; --muted:#c7c7cc;
-    --card:#2a2a2d; --radius:16px; --shadow:0 4px 12px rgba(0,0,0,.35);
-    --line:rgba(255,255,255,.08); --star:#ffe402;
-    --accent:#484949;
-  }
   *{box-sizing:border-box}
   body{ margin:0; background:var(--bg); color:var(--text); }
 
@@ -250,7 +246,7 @@
   #homeCategorySection .chip.is-active{
     background:var(--accent);
     border-color:transparent;
-    color:#fff;
+    color:var(--accent-ink);
     font-weight:800;
   }
   #homeCategorySection .more-btn{
@@ -350,7 +346,7 @@
   #homeCategorySection .page-link.is-active{
     background:var(--accent);
     border-color:transparent;
-    color:#fff;
+    color:var(--accent-ink);
     font-weight:800;
   }
   #homeCategorySection .page-link.is-disabled{ opacity:.45; pointer-events:none; }
@@ -442,6 +438,9 @@
     .carousel-item{ min-width:85%; }
     .nav-btn{ inset-inline:8px; }
     .novel-card{ min-height:320px; }
+    #homeCategorySection .results-grid{
+      grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    }
   }
 </style>
 {% endblock %}

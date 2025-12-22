@@ -14,8 +14,13 @@
 
   const ex = tailwind.config.theme.extend;
   const colors = Object.assign({}, ex.colors || {});
+  colors.bg = colors.bg || '#1f1f21';
+  colors.panel = colors.panel || '#232326';
+  colors.card = colors.card || '#2a2a2d';
   colors.muted = colors.muted || 'rgba(255,255,255,.65)';
   colors.textc = colors.textc || 'rgba(255,255,255,.92)';
+  colors.accent = colors.accent || '#f3f4f6';
+  colors.line = colors.line || 'rgba(255,255,255,.10)';
   ex.colors = colors;
 </script>
 
@@ -23,19 +28,19 @@
   /* พื้นหลังเฉพาะส่วนเนื้อหาโปรไฟล์ ไม่ไปยุ่งกับ header */
   .profile-bg{
     min-height:100vh;
-    background:#222 url('{{ url_for("static", filename="img/bg-login.jpg") }}') center/cover fixed no-repeat;
+    background:var(--bg) url('{{ url_for("static", filename="img/bg-login.jpg") }}') center/cover fixed no-repeat;
   }
 
   .profile-page{
     max-width:1000px;
     margin:0 auto;
     padding:24px;
-    color:#eee;
+    color:var(--text);
   }
 
   .profile-page .profile-panel{
-    background:rgba(34,34,34,.9);
-    border:1px solid rgba(255,255,255,.12);
+    background:rgba(35,35,38,.92);
+    border:1px solid var(--line);
     border-radius:16px;
     box-shadow:0 10px 24px rgba(0,0,0,.45);
     padding:22px;
@@ -98,9 +103,9 @@
   .profile-page .input,
   .profile-page .select{
     width:100%;
-    background:#ddd;
-    color:#111;
-    border:0;
+    background:var(--surface);
+    color:var(--text);
+    border:1px solid var(--line);
     border-radius:14px;
     padding:12px 14px;
     font-size:1rem;
@@ -115,9 +120,9 @@
   .profile-page .toggle{
     padding:10px 12px;
     border-radius:12px;
-    border:1px solid #444;
-    background:#111214;
-    color:#eee;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--text);
     cursor:pointer;
   }
 
@@ -143,9 +148,9 @@
   .profile-page .btn{
     padding:10px 14px;
     border-radius:12px;
-    border:1px solid #444;
-    background:#111214;
-    color:#eee;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--text);
     cursor:pointer;
     text-decoration:none;
     display:inline-flex;
