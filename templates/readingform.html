@@ -300,6 +300,26 @@
     const chaptersId = Number(body.dataset.chaptersId || 0);
     const initialProgress = Number(body.dataset.initialProgress || 0);
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+    const ENTRY_PATH_KEY = "novel_entry_path";
+    const ENTRY_SOURCE_KEY = "novel_entry_source";
+    const ENTRY_NOVEL_KEY = "novel_entry_novel_id";
+    const HOME_URL = "{{ url_for('home.index') }}";
+
+    (function rememberBookshelfFlow(){
+      const ref = document.referrer || "";
+      const fromBookshelf = /\/bookshelf/.test(ref);
+      const fromReader = /\/reading\//.test(ref);
+      const currentNovelId = novelsId || Number(body.dataset.novelId || 0) || null;
+
+      if (fromBookshelf) {
+        sessionStorage.setItem(ENTRY_SOURCE_KEY, "bookshelf");
+        sessionStorage.setItem(ENTRY_PATH_KEY, HOME_URL);
+        if (currentNovelId) sessionStorage.setItem(ENTRY_NOVEL_KEY, String(currentNovelId));
+      } else if (!fromReader) {
+        sessionStorage.removeItem(ENTRY_SOURCE_KEY);
+        sessionStorage.removeItem(ENTRY_NOVEL_KEY);
+      }
+    })();
 
     let lastSentPct = initialProgress;
     let lastSentAt = 0;

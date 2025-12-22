@@ -123,12 +123,63 @@
 </style>
 
 <script>
+  const ENTRY_PATH_KEY = "novel_entry_path";
+  const ENTRY_SOURCE_KEY = "novel_entry_source";
+  const ENTRY_NOVEL_KEY = "novel_entry_novel_id";
+  const HOME_URL = "{{ url_for('home.index') }}";
+
+  function getCurrentNovelId(){
+    const path = window.location.pathname;
+    const mDetail = path.match(/^\/novel\/(\d+)/);
+    if (mDetail && mDetail[1]) {
+      const n = Number(mDetail[1]);
+      if (!Number.isNaN(n)) return n;
+    }
+
+    const mReading = path.match(/^\/reading\/read\/(\d+)/);
+    if (mReading && mReading[1]) {
+      const n = Number(mReading[1]);
+      if (!Number.isNaN(n)) return n;
+    }
+
+    const el = document.querySelector("[data-novel-id]");
+    if (el && el.dataset && el.dataset.novelId) {
+      const n = Number(el.dataset.novelId);
+      if (!Number.isNaN(n)) return n;
+    }
+
+    const body = document.body || {};
+    const d = body.dataset || {};
+    const viaBody = d.novelsId || d.novelId;
+    if (viaBody) {
+      const n = Number(viaBody);
+      if (!Number.isNaN(n)) return n;
+    }
+
+    return null;
+  }
+
   function goBack(fallbackUrl){
     const ref = document.referrer || "";
     const fromReader = /\/reading\//.test(ref);
-    const storedEntry = sessionStorage.getItem("novel_entry_path");
+    const storedEntry = sessionStorage.getItem(ENTRY_PATH_KEY);
+    const entrySource = sessionStorage.getItem(ENTRY_SOURCE_KEY);
+    const entryNovelId = Number(sessionStorage.getItem(ENTRY_NOVEL_KEY) || "") || null;
+    const currentNovelId = getCurrentNovelId();
+    const isNovelDetailPage = /^\/novel\/\d+/.test(window.location.pathname);
 
-    // ถ้ากลับมาจาก back-to-cover (ref มาจาก /reading/...) และมี path เดิมที่เก็บไว้ ให้พุ่งกลับไปจุดเริ่มต้นนั้น
+    if (entrySource === "bookshelf" && isNovelDetailPage) {
+      const matchSame = (!entryNovelId || !currentNovelId) || entryNovelId === currentNovelId;
+      if (matchSame) {
+        sessionStorage.removeItem(ENTRY_SOURCE_KEY);
+        if (currentNovelId) sessionStorage.setItem(ENTRY_NOVEL_KEY, String(currentNovelId));
+        sessionStorage.setItem(ENTRY_PATH_KEY, HOME_URL);
+        window.location.href = HOME_URL;
+        return;
+      }
+    }
+
+    // ???????????? back-to-cover (ref ????? /reading/...) ????? path ?????????????? ????????????????????????????
     if (fromReader && storedEntry) {
       window.location.href = storedEntry;
       return;
@@ -171,7 +222,7 @@
     syncTopButton();
   }
 
-  // เก็บ path ที่ใช้เข้ามายังหน้าปกนิยาย (ไม่ใช่จาก /reading/) ไว้ใน sessionStorage
+  // ???? path ?????????????????????????? (????????? /reading/) ????? sessionStorage
   (function rememberNovelEntry(){
     const path = window.location.pathname;
     const isNovelDetail = /^\/novel\/\d+/.test(path);
@@ -179,15 +230,20 @@
     const ref = document.referrer || "";
     const fromReader = /\/reading\//.test(ref);
     const fromBookshelf = /\/bookshelf/.test(ref);
+    const currentNovelId = getCurrentNovelId();
 
-    // กรณีมาจากหน้า bookshelf ให้จำ path bookshelf ไว้เลย (รองรับ flow bookshelf -> reading -> cover -> back)
+    // ???????? bookshelf ????????? path -> home ?????? ??????????? flow ???????? bookshelf
     if (fromBookshelf && ref) {
-      sessionStorage.setItem("novel_entry_path", ref);
+      sessionStorage.setItem(ENTRY_SOURCE_KEY, "bookshelf");
+      sessionStorage.setItem(ENTRY_PATH_KEY, HOME_URL);
+      if (currentNovelId) sessionStorage.setItem(ENTRY_NOVEL_KEY, String(currentNovelId));
       return;
     }
 
     if (isNovelDetail && !fromReader && ref) {
-      sessionStorage.setItem("novel_entry_path", ref);
+      sessionStorage.setItem(ENTRY_PATH_KEY, ref);
+      sessionStorage.removeItem(ENTRY_SOURCE_KEY);
+      sessionStorage.removeItem(ENTRY_NOVEL_KEY);
     }
   })();
 
