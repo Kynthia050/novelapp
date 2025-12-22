@@ -157,7 +157,7 @@
 
   .novel-body{ padding:12px 14px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
   .novel-title{
-    font-size:15px; font-weight:700; line-height:1.35;
+    font-size:16px; font-weight:700; line-height:1.35;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   }
   .novel-meta{ font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -184,32 +184,41 @@
     font-size:13px; color:var(--muted); flex:1;
     display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
   }
-  .novel-footer{ display:flex; align-items:center; justify-content:space-between; font-size:12px; margin-top:6px; color:var(--muted); gap:8px; }
+  .novel-footer{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    font-size:13px;
+    margin-top:6px;
+    color:var(--muted);
+    gap:8px;
+  }
   .rating{ display:flex; align-items:center; gap:4px; }
   .rating-star{ color:var(--star); font-size:13px; }
 
-  /* ✅ badge สถานะ */
+  /* badge style aligned with home */
   .status-badge{
     display:inline-flex;
     align-items:center;
     justify-content:center;
     padding:4px 10px;
     border-radius:999px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(255,255,255,.06);
-    color:rgba(255,255,255,.88);
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.08);
+    color:rgba(245,245,245,.92);
     font-weight:700;
+    font-size:13px;
     white-space:nowrap;
   }
   .status-badge.is-finished{
-    background:rgba(34,197,94,.14);
-    border-color:rgba(34,197,94,.26);
-    color:rgba(187,247,208,.95);
+    background:#ffffff;
+    border-color:#ffffff;
+    color:#111111;
   }
   .status-badge.is-ongoing{
-    background:rgba(245,158,11,.14);
-    border-color:rgba(245,158,11,.26);
-    color:rgba(253,230,138,.95);
+    background:rgba(255,255,255,.10);
+    border-color:rgba(255,255,255,.22);
+    color:rgba(242,242,242,.96);
   }
 
   .empty-state{ margin-top:40px; text-align:center; color:var(--muted); font-size:14px; }
@@ -394,17 +403,6 @@
                   <div class="novel-desc">{{ novel.description or '' }}</div>
 
                   <div class="novel-footer">
-                    <div class="rating">
-                      <span class="rating-star">★</span>
-                      <span>
-                        {% if (novel.rating_count or 0) > 0 %}
-                          {{ '%.2f'|format((novel.avg_rating or 0)|float) }}
-                        {% else %}
-                          ยังไม่มีคะแนน
-                        {% endif %}
-                      </span>
-                    </div>
-
                     <!-- ✅ เปลี่ยนเป็นสถานะนิยาย -->
                     <div class="status-badge {{ status_class }}">{{ status_text }}</div>
                   </div>

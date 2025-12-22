@@ -99,7 +99,7 @@
     flex:1;
   }
   .novel-title{
-    font-size:15px;
+    font-size:17px;
     font-weight:700;
     line-height:1.35;
     display:-webkit-box;
@@ -147,8 +147,8 @@
   .novel-footer{
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    font-size:15px;
+    justify-content:flex-end;
+    font-size:14px;
     margin-top:6px;
     color:var(--muted);
     gap:8px;
@@ -166,6 +166,7 @@
     background:rgba(255,255,255,.08);
     color:rgba(245,245,245,.92);
     font-weight:700;
+    font-size:14px;
     white-space:nowrap;
   }
   .status-badge.is-finished{
@@ -543,17 +544,6 @@
                     <div class="novel-desc">{{ (n.description or "")|striptags|trim }}</div>
 
                     <div class="novel-footer">
-                      <div class="rating">
-                        <span class="rating-star">★</span>
-                        <span>
-                          {% if (n.rating_count or 0) > 0 %}
-                            {{ '%.2f'|format((n.avg_rating or 0)|float) }}
-                          {% else %}
-                            ยังไม่มีคะแนน
-                          {% endif %}
-                        </span>
-                      </div>
-
                       <div class="status-badge {{ status_class }}">{{ status_text }}</div>
                     </div>
                   </div>
@@ -712,17 +702,6 @@
                   <div class="novel-desc">{{ (n.description or '')|striptags|trim }}</div>
 
                   <div class="novel-footer">
-                    <div class="rating">
-                      <span class="rating-star">★</span>
-                      <span>
-                        {% if (n.rating_count or 0) > 0 %}
-                          {{ '%.2f'|format((n.avg_rating or 0)|float) }}
-                        {% else %}
-                          ยังไม่มีคะแนน
-                        {% endif %}
-                      </span>
-                    </div>
-
                     <div class="status-badge {{ status_class2 }}">{{ status_text2 }}</div>
                   </div>
                 </div>
