@@ -14,6 +14,78 @@ SORT_OPTIONS = {
     'bookshelf': 'ถูกเพิ่มเข้าชั้นหนังสือมากสุด',
 }
 
+# ---------- helpers ----------
+def _has_relation(cur, name: str) -> bool:
+    """เช็ค table/view ว่ามีจริงไหม"""
+    try:
+        cur.execute(f"DESCRIBE `{name}`")
+        cur.fetchall()
+        return True
+    except Exception:
+        return False
+
+def _cols(cur, name: str) -> set[str]:
+    try:
+        cur.execute(f"DESCRIBE `{name}`")
+        return {r["Field"] for r in cur.fetchall()}
+    except Exception:
+        return set()
+
+def _published_chapters_parts(cur):
+    """
+    คืน (select_sql, join_sql, group_cols)
+    - ถ้า v_novel_chapter_counts มี published_* ก็ใช้
+    - ไม่งั้นนับจาก chapters เฉพาะตอนเผยแพร่
+    """
+    group_cols = []
+
+    # 1) ใช้ view ก่อน ถ้ามีคอลัมน์ published_*
+    if _has_relation(cur, "v_novel_chapter_counts"):
+        vcols = _cols(cur, "v_novel_chapter_counts")
+        for col in ("published_chapters", "published_count", "publish_count"):
+            if col in vcols:
+                sel = f"COALESCE(ch.`{col}`, 0) AS published_chapters"
+                # query เดิมมี LEFT JOIN v_novel_chapter_counts ch อยู่แล้ว
+                group_cols.append(f"ch.`{col}`")
+                return sel, "", group_cols
+
+    # 2) fallback: นับจาก table chapters
+    if not _has_relation(cur, "chapters"):
+        return "0 AS published_chapters", "", group_cols
+
+    ccols = _cols(cur, "chapters")
+
+    fk = "novels_id" if "novels_id" in ccols else ("novel_id" if "novel_id" in ccols else "novels_id")
+
+    # เดาคอลัมน์สถานะ
+    if "status" in ccols:
+        cond = "chp.status IN ('เผยแพร่','published','PUBLISHED')"
+    elif "chapter_status" in ccols:
+        cond = "chp.chapter_status IN ('เผยแพร่','published','PUBLISHED')"
+    elif "is_published" in ccols:
+        cond = "chp.is_published = 1"
+    elif "published" in ccols:
+        cond = "chp.published = 1"
+    elif "is_draft" in ccols:
+        cond = "chp.is_draft = 0"
+    else:
+        cond = None  # เดาไม่ได้จริง ๆ
+
+    join = f"""
+        LEFT JOIN (
+            SELECT
+                chp.`{fk}` AS novels_id,
+                COUNT(*) AS published_chapters
+            FROM chapters chp
+            {"WHERE " + cond if cond else ""}
+            GROUP BY chp.`{fk}`
+        ) pch ON pch.novels_id = n.novels_id
+    """
+    sel = "COALESCE(pch.published_chapters, 0) AS published_chapters"
+    group_cols.append("pch.published_chapters")
+    return sel, join, group_cols
+
+
 @search_bp.route('/search')
 def search_novels():
     q = request.args.get('q', '').strip()
@@ -21,13 +93,11 @@ def search_novels():
     sort = request.args.get('sort', 'relevance')      # relevance/finished/ongoing/new/rating/bookshelf
     cate_id = request.args.get('cate_id', type=int)
 
-    # dropdown หมวดหมู่ (ยังต้องใช้แม้ยังไม่ค้นหา)
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute("SELECT cate_id, name FROM categories ORDER BY name")
     categories = cur.fetchall()
     cur.close()
 
-    # ✅ ถ้ายังไม่พิมพ์ค้นหา: ไม่ต้อง query ผลลัพธ์ใด ๆ
     if not q:
         return render_template(
             'search.html',
@@ -63,7 +133,6 @@ def search_novels():
         status_filter = 'เผยแพร่'
         order_sort = 'relevance'
 
-    # ORDER BY
     order_by_map = {
         'new': "n.created_at DESC",
         'rating': "avg_rating DESC, rating_count DESC, n.views DESC, n.created_at DESC",
@@ -75,20 +144,16 @@ def search_novels():
     where_clauses = []
     params = []
 
-    # แสดงเฉพาะนิยายเผยแพร่/จบแล้ว
     where_clauses.append("n.status IN ('เผยแพร่', 'จบแล้ว')")
 
-    # filter สถานะจาก dropdown (จบแล้ว / ยังไม่จบ)
     if status_filter:
         where_clauses.append("n.status = %s")
         params.append(status_filter)
 
-    # filter หมวดหมู่
     if cate_id:
         where_clauses.append("n.cate_id = %s")
         params.append(cate_id)
 
-    # keyword search
     keywords = [w.strip() for w in q.split() if w.strip()]
     for kw in keywords:
         like = f"%{kw}%"
@@ -118,7 +183,7 @@ def search_novels():
 
     where_sql = " AND ".join(where_clauses) if where_clauses else "1"
 
-    # COUNT สำหรับ pagination
+    # COUNT
     count_sql = f"""
         SELECT COUNT(DISTINCT n.novels_id) AS total
         FROM novels n
@@ -130,13 +195,15 @@ def search_novels():
     """
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute(count_sql, params)
-    total = cur.fetchone()["total"] or 0
-    cur.close()
+    total = (cur.fetchone() or {}).get("total") or 0
 
     total_pages = (total + per_page - 1) // per_page if total else 0
     if total_pages and page > total_pages:
         page = total_pages
         offset = (page - 1) * per_page
+
+    # ✅ สร้าง published_chapters ตาม schema ที่มีจริง
+    pub_sel, pub_join, pub_group_cols = _published_chapters_parts(cur)
 
     # RESULTS
     sql = f"""
@@ -165,6 +232,7 @@ def search_novels():
             COALESCE(r.rating_count, 0)     AS rating_count,
             COALESCE(b.bookshelf_count, 0)  AS bookshelf_count,
             COALESCE(ch.chapter_count, 0)   AS chapter_count,
+            {pub_sel},
 
             GROUP_CONCAT(DISTINCT t.name ORDER BY t.name SEPARATOR ', ') AS tag_names
 
@@ -179,6 +247,7 @@ def search_novels():
             ON b.novels_id = n.novels_id
         LEFT JOIN v_novel_chapter_counts ch
             ON ch.novels_id = n.novels_id
+        {pub_join}
         LEFT JOIN novels_tags nt
             ON nt.novels_id = n.novels_id
         LEFT JOIN tags t
@@ -203,11 +272,11 @@ def search_novels():
             r.rating_count,
             b.bookshelf_count,
             ch.chapter_count
+            {"," if pub_group_cols else ""} {", ".join(pub_group_cols) if pub_group_cols else ""}
 
         ORDER BY {order_by_sql}
         LIMIT %s OFFSET %s
     """
-    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute(sql, params + [per_page, offset])
     results = cur.fetchall()
     cur.close()
