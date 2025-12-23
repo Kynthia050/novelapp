@@ -1252,6 +1252,14 @@
         </div>
       {% endif %}
 
+      {# --- ✅ ค่าที่ใช้กับปุ่ม "เริ่มอ่าน" (รองรับกรณี backend ยังไม่ส่งมา) --- #}
+      {% set published_chapters =
+          (novel.published_chapters if (novel.published_chapters is defined) else (novel.total_chapters or 0))
+      %}
+      {% set start_chapter_no =
+          (novel.start_chapter_no if (novel.start_chapter_no is defined and novel.start_chapter_no) else 1)
+      %}
+
       <div class="novel-stats">
         <div class="stat-item">
           <span class="stat-icon" aria-hidden="true">
@@ -1305,16 +1313,17 @@
 
       <div class="novel-actions">
         <a
-          href="{% if novel.total_chapters %}/reading/read/{{ novel.novels_id }}/1{% else %}#{% endif %}"
-          class="btn-lg{% if not novel.total_chapters %} btn-lg-disabled{% endif %}"
+          href="{% if published_chapters %}/reading/read/{{ novel.novels_id }}/{{ start_chapter_no }}{% else %}#{% endif %}"
+          class="btn-lg{% if not published_chapters %} btn-lg-disabled{% endif %}"
           id="startReadingBtn"
-          data-total-chapters="{{ novel.total_chapters or 0 }}"
-          {% if not novel.total_chapters %}aria-disabled="true" disabled{% endif %}
+          data-total-chapters="{{ published_chapters or 0 }}"
+          data-start-chapter="{{ start_chapter_no }}"
+          {% if not published_chapters %}aria-disabled="true" disabled tabindex="-1"{% endif %}
         >
           เริ่มอ่าน
         </a>
 
-        <!-- ฟอร์มชั้นหนังสือลับ -->
+        <!-- ฟอร์มชั้นหนังสือ -->
         <form id="bookshelf-form"
               method="post"
               action="{{ url_for('novel.toggle_bookshelf', novels_id=novel.novels_id) }}"
@@ -1360,24 +1369,9 @@
         </button>
       </div>
     </div>
-  </section>
+    </section>
 
-  <div id="noChapterModal" class="summary-modal" aria-hidden="true">
-    <div class="summary-modal-overlay" data-nochapter-close></div>
-    <div class="summary-modal-dialog" role="dialog"
-         aria-modal="true" aria-labelledby="noChapterModalTitle">
-      <div class="summary-modal-header">
-        <h3 id="noChapterModalTitle" class="summary-modal-title">
-          เริ่มอ่าน
-        </h3>
-        <button type="button" class="summary-modal-close"
-                aria-label="ปิด" data-nochapter-close>x</button>
-      </div>
-      <div class="summary-modal-body">
-        <p>ยังไม่มีตอน</p>
-      </div>
-    </div>
-  </div>
+
 
   <!-- Chapters List -->
   <section class="chapters-section">
