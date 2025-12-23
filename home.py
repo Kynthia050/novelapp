@@ -26,9 +26,9 @@ def _process_cover_url(cover_path: str | None) -> str:
 
 
 def _has_relation(cur, name: str) -> bool:
-    """เช็ค table/view ว่ามีจริงไหม"""
+    """เช็ค table/view ว่ามีจริงไหม (DESCRIBE ใช้ได้ทั้ง TABLE/VIEW)"""
     try:
-        cur.execute(f"DESCRIBE {name}")
+        cur.execute(f"DESCRIBE `{name}`")
         cur.fetchall()
         return True
     except Exception:
@@ -52,6 +52,62 @@ def _author_sql_parts(cur):
     return ("NULL AS author_id, 'Unknown' AS author_name", "")
 
 
+def _published_chapters_expr(cur, novels_alias: str = "n") -> str:
+    """
+    คืน SQL expression สำหรับนับ 'จำนวนตอนที่เผยแพร่' ต่อ 1 นิยาย
+    - ถ้ามี view ที่มี published_count/published_chapters ก็ใช้ได้
+    - ไม่งั้นนับจากตาราง chapters โดยเดาคอลัมน์สถานะให้
+    """
+    # 1) ถ้ามี view ที่มีคอลัมน์ published_* ให้ใช้ก่อน
+    if _has_relation(cur, "v_novel_chapter_counts"):
+        try:
+            cur.execute("DESCRIBE `v_novel_chapter_counts`")
+            vcols = {r["Field"] for r in cur.fetchall()}
+        except Exception:
+            vcols = set()
+
+        for col in ("published_chapters", "published_count", "publish_count"):
+            if col in vcols:
+                return f"""(
+                    SELECT COALESCE(vc.{col}, 0)
+                    FROM v_novel_chapter_counts vc
+                    WHERE vc.novels_id = {novels_alias}.novels_id
+                ) AS published_chapters"""
+
+    # 2) fallback: นับจาก table chapters
+    if not _has_relation(cur, "chapters"):
+        return "0 AS published_chapters"
+
+    try:
+        cur.execute("DESCRIBE chapters")
+        ccols = {r["Field"] for r in cur.fetchall()}
+    except Exception:
+        ccols = set()
+
+    # fk ไป novels
+    fk = "novels_id" if "novels_id" in ccols else ("novel_id" if "novel_id" in ccols else "novels_id")
+
+    # หาคอลัมน์สถานะ
+    if "status" in ccols:
+        # รองรับทั้งไทย/อังกฤษแบบเผื่อ ๆ
+        cond = "ch.status IN ('เผยแพร่','published','PUBLISHED')"
+    elif "chapter_status" in ccols:
+        cond = "ch.chapter_status IN ('เผยแพร่','published','PUBLISHED')"
+    elif "is_published" in ccols:
+        cond = "ch.is_published = 1"
+    elif "published" in ccols:
+        cond = "ch.published = 1"
+    elif "is_draft" in ccols:
+        cond = "ch.is_draft = 0"
+    else:
+        # ถ้าเดาไม่ได้จริง ๆ: นับทุกตอน (อย่างน้อยไม่เป็น 0)
+        cond = None
+
+    if cond:
+        return f"(SELECT COUNT(*) FROM chapters ch WHERE ch.{fk} = {novels_alias}.novels_id AND {cond}) AS published_chapters"
+    return f"(SELECT COUNT(*) FROM chapters ch WHERE ch.{fk} = {novels_alias}.novels_id) AS published_chapters"
+
+
 def _get_categories():
     try:
         with closing(get_db_connection()) as conn:
@@ -73,8 +129,8 @@ def _safe_int(v, default=1, minv=1):
 
 def _get_latest_updated(current_uid: int | None, limit: int = 10):
     """
-    ส่วน 'อัปเดตล่าสุด' ของคุณเดิมอยู่แล้ว -> ไม่ไปเปลี่ยน logic หลัก
-    (ยังใช้แนวเดิมที่คุณใช้อยู่ได้)
+    ส่วน 'อัปเดตล่าสุด'
+    อัปเดต: เพิ่ม published_chapters (นับเฉพาะตอนเผยแพร่)
     """
     try:
         with closing(get_db_connection()) as conn:
@@ -92,8 +148,6 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                 has_views = "views" in cols
                 has_rt_view = _has_relation(cur, "v_novel_rating_stats")
                 has_rt_table = _has_relation(cur, "ratings")
-                has_ch_view = _has_relation(cur, "v_novel_chapter_counts")
-                has_ch_table = _has_relation(cur, "chapters") if not has_ch_view else False
                 has_cate = _has_relation(cur, "categories")
 
                 sel_views = "n.views AS views" if has_views else "0 AS views"
@@ -109,9 +163,14 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                     sel_avg = "0 AS avg_rating"
                     sel_rc = "0 AS rating_count"
 
-                if has_ch_view:
+                # ✅ นับจำนวนตอน "เผยแพร่" ต่อเรื่อง
+                sel_pub_ch = _published_chapters_expr(cur, "n")
+
+                # (ยังคง chapter_count เดิมไว้เผื่อหน้าอื่นใช้อยู่)
+                if _has_relation(cur, "v_novel_chapter_counts"):
                     sel_ch = "(SELECT COALESCE(ch.chapter_count, 0) FROM v_novel_chapter_counts ch WHERE ch.novels_id = n.novels_id) AS chapter_count"
-                elif has_ch_table:
+                elif _has_relation(cur, "chapters"):
+                    # นับทุกตอน
                     sel_ch = "(SELECT COUNT(*) FROM chapters ch WHERE ch.novels_id = n.novels_id) AS chapter_count"
                 else:
                     sel_ch = "0 AS chapter_count"
@@ -124,6 +183,7 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                         {sel_avg},
                         {sel_rc},
                         {sel_ch},
+                        {sel_pub_ch},
                         {sel_cate},
                         {sel_author}
                     FROM novels n
@@ -143,10 +203,7 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
 def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page: int = 20):
     """
     section ใหม่: เลือกหมวด -> sort -> pagination 20/หน้า (รูปแบบเดียวกับ Search)
-    ใช้ view ตาม DB ที่แนบมา:
-      - v_novel_rating_stats: avg_rating, rating_count
-      - v_novel_bookshelf_counts: bookshelf_count
-      - v_novel_chapter_counts: chapter_count
+    อัปเดต: เพิ่ม published_chapters (นับเฉพาะตอนเผยแพร่)
     """
     page = _safe_int(page, 1, 1)
     per_page = int(per_page)
@@ -170,7 +227,6 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
 
     order_by_map = {
         'new': "n.created_at DESC",
-        # คะแนนสูงสุดก่อน ถ้าคะแนนเท่ากันให้ผลงานล่าสุดก่อน (ใช้ updated_at หากมี ไม่งั้น created_at)
         'rating': "avg_rating DESC, COALESCE(n.updated_at, n.created_at) DESC, n.created_at DESC",
         'bookshelf': "bookshelf_count DESC, n.views DESC, n.created_at DESC",
         'relevance': "n.views DESC, avg_rating DESC, bookshelf_count DESC, n.created_at DESC",
@@ -184,8 +240,6 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
         where.append("n.status = %s")
         params.append(status_filter)
 
-    # cate_id: None = ยังไม่เลือก -> ไม่ query
-    # cate_id: 0 = ทั้งหมด -> ไม่กรองหมวด
     if cate_id is not None and int(cate_id) != 0:
         where.append("n.cate_id = %s")
         params.append(int(cate_id))
@@ -228,20 +282,25 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
                     ncols = set()
                 has_views = "views" in ncols
 
-                # views joins (safe)
+                # joins สำหรับ stats
                 has_r = _has_relation(cur, "v_novel_rating_stats")
                 has_b = _has_relation(cur, "v_novel_bookshelf_counts")
-                has_ch = _has_relation(cur, "v_novel_chapter_counts")
+                has_ch_view = _has_relation(cur, "v_novel_chapter_counts")
 
                 join_r = "LEFT JOIN v_novel_rating_stats r ON r.novels_id = n.novels_id" if has_r else ""
                 join_b = "LEFT JOIN v_novel_bookshelf_counts b ON b.novels_id = n.novels_id" if has_b else ""
-                join_ch = "LEFT JOIN v_novel_chapter_counts ch ON ch.novels_id = n.novels_id" if has_ch else ""
+                join_ch = "LEFT JOIN v_novel_chapter_counts ch ON ch.novels_id = n.novels_id" if has_ch_view else ""
 
                 sel_views = "n.views AS views" if has_views else "0 AS views"
                 sel_avg = "COALESCE(r.avg_rating, 0) AS avg_rating" if has_r else "0 AS avg_rating"
                 sel_rc = "COALESCE(r.rating_count, 0) AS rating_count" if has_r else "0 AS rating_count"
                 sel_bc = "COALESCE(b.bookshelf_count, 0) AS bookshelf_count" if has_b else "0 AS bookshelf_count"
-                sel_cc = "COALESCE(ch.chapter_count, 0) AS chapter_count" if has_ch else "0 AS chapter_count"
+
+                # ยังเก็บ chapter_count เดิมไว้
+                sel_cc = "COALESCE(ch.chapter_count, 0) AS chapter_count" if has_ch_view else "0 AS chapter_count"
+
+                # ✅ นับจำนวนตอนเผยแพร่จริง ๆ
+                sel_pub_ch = _published_chapters_expr(cur, "n")
 
                 sql = f"""
                     SELECT
@@ -260,7 +319,8 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
                         {sel_avg},
                         {sel_rc},
                         {sel_bc},
-                        {sel_cc}
+                        {sel_cc},
+                        {sel_pub_ch}
 
                     FROM novels n
                     LEFT JOIN categories c ON c.cate_id = n.cate_id
@@ -285,9 +345,11 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
     start_item = offset + 1 if total else 0
     end_item = min(offset + per_page, total) if total else 0
 
-    # ทำ cover url ให้ใช้ได้ทันทีใน template ใหม่
     for n in results:
         n["cover_url"] = _process_cover_url(n.get("cover"))
+        # เผื่อกรณีเดาไม่ได้จริง ๆ ให้ไม่ว่าง
+        if n.get("published_chapters") is None:
+            n["published_chapters"] = n.get("chapter_count") or 0
 
     return {
         "results": results,
@@ -307,26 +369,23 @@ def index():
 
     # existing section: อัปเดตล่าสุด
     top10 = _get_latest_updated(current_uid, limit=10)
-    # keep behavior: แปลง cover -> url (เพื่อไม่ทำให้ section เดิมเพี้ยน)
+
     for n in top10:
         n['cover'] = _process_cover_url(n.get('cover'))
         n.setdefault('avg_rating', 0)
         n.setdefault('rating_count', 0)
         n.setdefault('views', 0)
         n.setdefault('chapter_count', 0)
+        n.setdefault('published_chapters', n.get('chapter_count', 0) or 0)
 
     categories = _get_categories()
 
-    # ===== new section params =====
-    # default ให้โหลด "ทั้งหมด" (cate_id = 0) เพื่อแสดงการ์ดทันที
     cate_id = request.args.get('cate_id', default=0, type=int)
-    # default sort: คะแนนสูงสุด
     sort = request.args.get('sort', default='rating', type=str)
     if sort not in SORT_OPTIONS:
         sort = 'relevance'
     page = _safe_int(request.args.get('page', 1), 1, 1)
 
-    # แสดงหมวด 10 หมวด: "ทั้งหมด" + 9 หมวดแรก
     top_cates = categories[:9]
     more_cates = categories[9:]
 
@@ -340,7 +399,6 @@ def index():
         "cat_end_item": 0
     }
 
-    # ✅ ยังไม่เลือกหมวด -> ไม่ query
     if cate_id is not None:
         data = _get_home_category_page(cate_id=cate_id, sort=sort, page=page, per_page=20)
         cat_ctx.update({
@@ -355,13 +413,11 @@ def index():
 
     return render_template(
         'home.html',
-        # existing
         top10=top10,
         month_label="อัปเดตล่าสุด",
         categories=categories,
         user=getattr(g, 'user', None),
 
-        # new section
         cate_id=cate_id,
         sort=sort,
         sort_options=SORT_OPTIONS,
