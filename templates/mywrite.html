@@ -52,17 +52,27 @@
       background-position:center;
       background-attachment:fixed;
     }
+
+    /* ✅ สำคัญ: ให้ dropdown ลอยได้ ไม่โดนตัด/ไม่โดนการ์ดอื่นทับ */
     .mw-panel{
       background: rgba(35,35,38,.88);
       border: 1px solid var(--line);
       box-shadow: 0 14px 34px rgba(0,0,0,.45);
       backdrop-filter: blur(10px);
+
+      overflow: visible;     /* ✅ กันโดนตัด */
+      position: relative;
+      z-index: 0;
     }
+
     .mw-card{
       background: rgba(42,42,45,.92);
       border: 1px solid rgba(255,255,255,.12);
       box-shadow: 0 10px 22px rgba(0,0,0,.4);
       transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+
+      position: relative; /* ✅ เปิด context ให้ z-index ทำงาน */
+      z-index: 0;
     }
     .mw-card:hover{
       background: rgba(46,46,50,.96);
@@ -70,6 +80,11 @@
       box-shadow: 0 14px 30px rgba(0,0,0,.5);
       transform: translateY(-1px);
     }
+
+    /* ✅ ยกการ์ดที่เปิดเมนูขึ้นเหนือการ์ดอื่น */
+    .mw-card.menu-open{ z-index: 60; }
+    .mw-card.menu-open .moreMenu{ z-index: 70; }
+
     .mw-btn{
       background: var(--surface);
       color: var(--text);
@@ -312,32 +327,32 @@
               <!-- right column -->
               <div class="md:col-start-3 md:row-start-1 grid justify-items-end gap-2">
                 <div class="text-white/60 text-sm">
-              {% if w.edited_at %}
-                แก้ไข {{ w.edited_at.strftime('%d %b %Y %H:%M น.') }}
-              {% else %}
-                -
-              {% endif %}
-            </div>
+                  {% if w.edited_at %}
+                    แก้ไข {{ w.edited_at.strftime('%d %b %Y %H:%M น.') }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
 
-            <div class="relative status flex items-center gap-2">
-
-              <div class="relative">
-                <select
-                  name="status"
-                  data-id="{{ w.novels_id }}"
+                <div class="relative status flex items-center gap-2">
+                  <div class="relative">
+                    <select
+                      name="status"
+                      data-id="{{ w.novels_id }}"
                       data-prev="{{ s }}"
                       class="statusSel select-reset rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-white/20"
                     >
                       <option value="แบบร่าง"  {{ 'selected' if s == 'แบบร่าง'  else '' }}>แบบร่าง</option>
-                      <option value="เผยแพร่"   {{ 'selected' if s == 'เผยแพร่'   else '' }}>เผยแพร่</option>
-                      <option value="จบแล้ว"    {{ 'selected' if s == 'จบแล้ว'    else '' }}>จบแล้ว</option>
+                      <option value="เผยแพร่" {{ 'selected' if s == 'เผยแพร่' else '' }}>เผยแพร่</option>
+                      <option value="จบแล้ว"  {{ 'selected' if s == 'จบแล้ว'  else '' }}>จบแล้ว</option>
                     </select>
                     <div class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-white/60">▾</div>
                   </div>
 
                   <button class="more ml-1 text-xl transition" title="ตัวเลือก" type="button">⋯</button>
 
-                  <div class="moreMenu mw-menu absolute right-0 top-10 hidden min-w-44 rounded-xl p-2 z-20">
+                  {# ✅ เพิ่ม data-side เพื่อให้ JS ปรับทิศทางได้ #}
+                  <div class="moreMenu mw-menu absolute right-0 top-10 hidden min-w-44 rounded-xl p-2 z-20" data-side="br">
                     <a class="menu-item" href="{{ url_for('novel.detail', novels_id=w.novels_id) }}" role="button">
                       ดูผลงาน
                     </a>
@@ -375,7 +390,7 @@
           const csrf = getCsrfToken();
           if (csrf) {
             headers['X-CSRFToken'] = csrf;
-            headers['X-CSRF-Token'] = csrf; // ✅ เผื่อ config บางแบบ
+            headers['X-CSRF-Token'] = csrf;
           }
           headers['X-Requested-With'] = 'XMLHttpRequest';
           headers['Accept'] = 'application/json';
@@ -412,10 +427,91 @@
         if (!ok) throw new Error('copy failed');
       }
 
+      // ========= Menus =========
       function closeAllMenus(){
         $('#manageMenu')?.classList.add('hidden');
         $('#filterMenu')?.classList.add('hidden');
         $$('.moreMenu').forEach(m => m.classList.add('hidden'));
+        $$('#list article').forEach(a => a.classList.remove('menu-open')); // ✅ reset z-index
+      }
+
+      // ✅ auto flip: เลือกทิศทางให้ไม่ล้นขอบจอ (ขวา/ล่าง) + วางแบบ absolute อ้างอิง parent (.status)
+      function placeMoreMenu(card, menu, anchorBtn){
+        if (!card || !menu || !anchorBtn) return;
+
+        // reset ก่อนวัด
+        menu.style.left = '';
+        menu.style.right = '';
+        menu.style.top = '';
+        menu.style.bottom = '';
+        menu.style.transform = '';
+        menu.dataset.side = 'br';
+
+        // ทำให้มันวัดขนาดได้
+        menu.classList.remove('hidden');
+
+        const pad = 10; // กันติดขอบ
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const btnRect  = anchorBtn.getBoundingClientRect();
+        const menuRect = menu.getBoundingClientRect();
+
+        const spaceRight  = vw - btnRect.right;
+        const spaceLeft   = btnRect.left;
+        const spaceBottom = vh - btnRect.bottom;
+        const spaceTop    = btnRect.top;
+
+        // default = เปิดลง + ชิดขวา (เหมือนเดิม)
+        let openDown = true;
+        let alignRight = true;
+
+        // flip vertical ถ้าล่างไม่พอแต่บนพอ
+        if (spaceBottom < menuRect.height + pad && spaceTop >= menuRect.height + pad){
+          openDown = false;
+        }
+
+        // flip horizontal ถ้าขวาไม่พอแต่ซ้ายพอ
+        if (spaceRight < menuRect.width + pad && spaceLeft >= menuRect.width + pad){
+          alignRight = false; // ชิดซ้ายแทน
+        }
+
+        // apply position (absolute within .status which is relative)
+        if (openDown){
+          menu.style.top = '40px';     // เท่ากับ top-10 เดิม
+          menu.style.bottom = 'auto';
+        } else {
+          menu.style.top = 'auto';
+          menu.style.bottom = '40px';  // เปิดขึ้นเหนือปุ่ม (ระยะเดียวกัน)
+        }
+
+        if (alignRight){
+          menu.style.right = '0px';
+          menu.style.left = 'auto';
+        } else {
+          menu.style.left = '0px';
+          menu.style.right = 'auto';
+        }
+
+        menu.dataset.side =
+          (openDown ? 'b' : 't') + (alignRight ? 'r' : 'l');
+
+        // เผื่อกรณี “ยังติดขอบนิดหน่อย” ให้ขยับด้วย translate แบบละเอียด
+        // (ใช้ viewport rect หลังจัดตำแหน่งแล้ว)
+        requestAnimationFrame(()=>{
+          const r = menu.getBoundingClientRect();
+          let dx = 0, dy = 0;
+
+          if (r.right > vw - pad) dx = (vw - pad) - r.right;
+          if (r.left < pad) dx = pad - r.left;
+
+          if (r.bottom > vh - pad) dy = (vh - pad) - r.bottom;
+          if (r.top < pad) dy = pad - r.top;
+
+          if (dx || dy){
+            menu.style.transform = `translate(${dx}px, ${dy}px)`;
+          }
+        });
       }
 
       function updateFilterLabel(){
@@ -457,6 +553,23 @@
         if (e.key === 'Escape') closeAllMenus();
       });
 
+      // ✅ ถ้าหน้าจอ resize/scroll แล้วเมนูเปิดอยู่ ให้จัดตำแหน่งใหม่ไม่ให้ล้น
+      window.addEventListener('resize', ()=>{
+        const openMenu = $$('.moreMenu').find(m => !m.classList.contains('hidden'));
+        if (!openMenu) return;
+        const card = openMenu.closest('article');
+        const btn  = card?.querySelector('.more');
+        if (card && btn) placeMoreMenu(card, openMenu, btn);
+      }, { passive:true });
+
+      window.addEventListener('scroll', ()=>{
+        const openMenu = $$('.moreMenu').find(m => !m.classList.contains('hidden'));
+        if (!openMenu) return;
+        const card = openMenu.closest('article');
+        const btn  = card?.querySelector('.more');
+        if (card && btn) placeMoreMenu(card, openMenu, btn);
+      }, { passive:true });
+
       // ========= Select all =========
       $('#checkAll')?.addEventListener('change', (e)=>{
         const on = e.target.checked;
@@ -467,6 +580,8 @@
       $('#manageBtn')?.addEventListener('click', ()=>{
         $('#manageMenu')?.classList.toggle('hidden');
         $('#filterMenu')?.classList.add('hidden');
+        $$('#list article').forEach(a => a.classList.remove('menu-open'));
+        $$('.moreMenu').forEach(m => m.classList.add('hidden'));
       });
 
       $('#manageMenu')?.addEventListener('click', async (e)=>{
@@ -525,6 +640,8 @@
       $('#filterBtn')?.addEventListener('click', ()=>{
         $('#filterMenu')?.classList.toggle('hidden');
         $('#manageMenu')?.classList.add('hidden');
+        $$('#list article').forEach(a => a.classList.remove('menu-open'));
+        $$('.moreMenu').forEach(m => m.classList.add('hidden'));
       });
 
       $('#filterMenu')?.addEventListener('click', (e)=>{
@@ -575,14 +692,26 @@
 
       // ========= Per-item menu actions =========
       $('#list')?.addEventListener('click', async (e)=>{
+        // ✅ เปิด/ปิด more menu + ยก z-index การ์ด + auto flip ไม่ล้นขอบ
         const moreBtn = e.target.closest('.more');
         if (moreBtn){
           const card = moreBtn.closest('article');
+          const menu = card?.querySelector('.moreMenu');
+          if (!card || !menu) return;
+
+          const wasOpen = !menu.classList.contains('hidden');
           closeAllMenus();
-          card?.querySelector('.moreMenu')?.classList.toggle('hidden');
+
+          // ถ้าเดิมเปิดอยู่ -> ปิด
+          if (wasOpen) return;
+
+          // เปิด
+          card.classList.add('menu-open');
+          placeMoreMenu(card, menu, moreBtn);
           return;
         }
 
+        // click ในเมนู
         const cmdBtn = e.target.closest('.moreMenu [data-cmd]');
         if (cmdBtn){
           const card = cmdBtn.closest('article');
