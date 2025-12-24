@@ -9,7 +9,11 @@
 
   <!-- ใช้ฟอนต์/สไตล์หลักจาก global.css -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
-  <meta name="csrf-token" content="{{ csrf_token() }}">
+
+  {# ✅ กัน error ถ้าโปรเจกต์บางหน้าไม่มี csrf_token() #}
+  {% if csrf_token is defined %}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+  {% endif %}
 
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
@@ -24,6 +28,15 @@
     }
     body.dark-mode{background:var(--bg);color:var(--text)}
     body.light-mode{background:#fdfdfd;color:#222}
+
+    /* ✅ (E) Override ตัวแปรสีตอน light-mode (ช่วยให้ปุ่ม/การ์ดไม่เพี้ยนจากธีม dark ใน global.css) */
+    body.light-mode{
+      --bg:#fdfdfd;
+      --text:#222;
+      --card:#f1f1f1;
+      --accent:#111827;
+      --accent-ink:#fff;
+    }
 
     main{flex:1;max-width:900px;margin:0 auto;padding:2rem 1rem 6rem}
 
@@ -43,7 +56,7 @@
       word-break:break-word;
     }
     body.dark-mode .chapter-content{background:var(--card)}
-    body.light-mode .chapter-content{background:#f1f1f1}
+    body.light-mode .chapter-content{background:var(--card)}
 
     /* ทำให้รูป/สื่อไม่ล้นกรอบ */
     .chapter-content :where(img, video, iframe, embed, object, canvas, svg){
@@ -72,23 +85,21 @@
       overflow-wrap:anywhere;
     }
 
-    /* ===== Quill Render Support (สำคัญมาก) =====
-       Quill เก็บ format เป็น class เช่น ql-align-*, ql-indent-* 
-       ถ้าไม่มี CSS ชุดนี้ จะดูเหมือน "ชิดซ้ายหมด" */
+    /* ===== Quill Render Support (สำคัญมาก) ===== */
     .chapter-content .ql-editor.ql-render{
-      padding:0;                 /* ใช้ padding ของ .chapter-content แทน */
+      padding:0;
       margin:0;
       font-family: inherit;
       font-size: inherit;
       line-height: inherit;
       color: inherit;
       background: transparent;
-      text-align: justify;       /* ให้ฟีลนิยาย (ถ้าไม่อยาก justify ลบออกได้) */
+      text-align: justify;
     }
 
     .chapter-content .ql-editor.ql-render p{
       margin:0 0 1.5rem;
-      text-indent: 2em;          /* ให้ย่อหน้าไม่ชิดซ้าย (ถ้าไม่ต้องการ ลบบรรทัดนี้) */
+      text-indent: 2em;
     }
     .chapter-content .ql-editor.ql-render p:last-child{ margin-bottom:0; }
 
@@ -96,13 +107,12 @@
     .chapter-content .ql-align-center{ text-align:center; }
     .chapter-content .ql-align-right{ text-align:right; }
     .chapter-content .ql-align-justify{ text-align:justify; }
-    /* ถ้ากลาง/ขวา ไม่ต้อง indent */
     .chapter-content .ql-align-center,
     .chapter-content .ql-align-right{
       text-indent: 0;
     }
 
-    /* Indent (Quill ใช้ class แทนการใส่ &nbsp;) */
+    /* Indent */
     .chapter-content .ql-indent-1{ padding-left: 3em; }
     .chapter-content .ql-indent-2{ padding-left: 6em; }
     .chapter-content .ql-indent-3{ padding-left: 9em; }
@@ -229,12 +239,6 @@
       {% else %}
         <p style="opacity:.7">ยังไม่มีเนื้อหาสำหรับตอนนี้</p>
       {% endif %}
-
-      {% if like_count and like_count > 0 %}
-        <div style="margin-top: 2rem; text-align: center; opacity: 0.7;">
-          <span>❤️ {{ like_count }} คนชอบ</span>
-        </div>
-      {% endif %}
     </div>
   </main>
 
@@ -264,7 +268,6 @@
     {% endif %}
 
   </div>
-
 
   <!-- progress UI hidden per request -->
   <div class="progress-bar" aria-hidden="true" style="display:none;">
@@ -331,15 +334,70 @@
 
     function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
+    /* ✅ (F) Client-side cleanup (ช่วยลดความเสี่ยง XSS ระดับหนึ่ง)
+       หมายเหตุ: แนะนำ sanitize ที่ backend ก่อนเก็บ/ก่อนส่งมา render อยู่ดี */
+    function sanitizeRenderedHtml(root){
+      if (!root) return;
+
+      // remove outright dangerous nodes
+      root.querySelectorAll("script, style, link, meta").forEach(el => el.remove());
+      root.querySelectorAll("object, embed").forEach(el => el.remove());
+
+      // strip inline event handlers + dangerous URLs
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+      while (walker.nextNode()){
+        const el = walker.currentNode;
+        const attrs = Array.from(el.attributes || []);
+        for (const a of attrs){
+          const name = (a.name || "").toLowerCase();
+          const value = (a.value || "").trim();
+
+          if (name.startsWith("on")) el.removeAttribute(a.name);
+
+          if ((name === "href" || name === "src")) {
+            // block javascript: and data:text/html
+            if (/^javascript:/i.test(value) || /^data:text\/html/i.test(value)) {
+              el.removeAttribute(a.name);
+            }
+          }
+        }
+      }
+
+      // iframe allow only http(s)
+      root.querySelectorAll("iframe").forEach(fr => {
+        const src = (fr.getAttribute("src") || "").trim();
+        if (src && !/^https?:\/\//i.test(src)) fr.removeAttribute("src");
+        fr.setAttribute("loading", "lazy");
+        fr.setAttribute("referrerpolicy", "no-referrer");
+      });
+
+      // make links safer
+      root.querySelectorAll("a").forEach(a => {
+        a.setAttribute("rel", "noopener noreferrer nofollow");
+        if (!a.getAttribute("target")) a.setAttribute("target", "_blank");
+      });
+    }
+
+    (function sanitizeNow(){
+      const quillRoot = document.querySelector(".ql-editor.ql-render");
+      sanitizeRenderedHtml(quillRoot);
+    })();
+
+    /* ✅ (B) คำนวณ progress แบบนิ่งกว่า: ใช้ตำแหน่งบนเอกสาร + ความสูงจริงของ content */
     function getContentProgressPercent() {
       if (!content) return 0;
-      const rect = content.getBoundingClientRect();
+
       const viewportH = window.innerHeight || document.documentElement.clientHeight || 1;
-      const contentTopInDoc = window.scrollY + rect.top;
-      const denom = (content.scrollHeight - viewportH);
-      if (denom <= 0) return 100;
-      const seen = (window.scrollY - contentTopInDoc);
-      const pct = (seen / denom) * 100;
+      const top = content.getBoundingClientRect().top + window.scrollY;
+      const height = content.offsetHeight || 1;
+
+      const end = Math.max(top, top + height - viewportH);
+      const y = window.scrollY;
+
+      if (y <= top) return 0;
+      if (y >= end) return 100;
+
+      const pct = ((y - top) / (end - top)) * 100;
       return clamp(Math.floor(pct), 0, 100);
     }
 
@@ -355,29 +413,50 @@
       });
     }
 
-    function applyInitialProgress(){
-      if (initialApplied) return;
-      if (!content || initialProgress <= 0) return;
+    /* ✅ (D) แตะ/คลิกให้โชว์ แล้วซ่อนกลับเอง */
+    let hideTimer = null;
+    function showControlsTemporarily(){
+      setControlsVisible(true);
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        const pct = getContentProgressPercent();
+        if (hasUserScrolled && pct < 100) setControlsVisible(false);
+      }, 1600);
+    }
+
+    /* ✅ apply initial progress ให้ตรงกับสูตรใหม่ + รองรับ force ตอน resize/load รูป */
+    function applyInitialProgress(force = false){
+      if (!content) return;
+      if (initialProgress <= 0) return;
+      if (initialApplied && !force) return;
+
       const viewportH = window.innerHeight || document.documentElement.clientHeight || 1;
-      const denom = (content.scrollHeight - viewportH);
-      const target = denom <= 0
-        ? content.offsetTop
-        : content.offsetTop + (denom * (initialProgress / 100));
+      const top = content.getBoundingClientRect().top + window.scrollY;
+      const height = content.offsetHeight || 1;
+      const end = Math.max(top, top + height - viewportH);
+
+      const target = top + ((end - top) * (initialProgress / 100));
+      autoScrollPhase = true;
       window.scrollTo({ top: Math.max(target, 0), behavior: "auto" });
       renderProgress(initialProgress);
+
       lastSentPct = initialProgress;
       lastSentAt = Date.now();
       initialApplied = true;
-      // allow initial programmatic scroll to finish before hiding controls
+
+      // allow programmatic scroll to settle
       setTimeout(() => { autoScrollPhase = false; }, 300);
     }
 
-    async function sendProgress(pct){
+    /* ✅ (C) ส่ง progress แบบ force ได้ (ส่ง 100% / ตอนออกหน้า) */
+    async function sendProgress(pct, force = false){
       if (!novelsId || !chaptersId) return;
 
       const now = Date.now();
-      if (pct < lastSentPct + 5) return;
-      if (now - lastSentAt < 5000) return;
+      if (!force){
+        if (pct < lastSentPct + 5) return;
+        if (now - lastSentAt < 5000) return;
+      }
 
       try{
         const resp = await fetch("{{ url_for('reading.save_reading_progress') }}", {
@@ -408,8 +487,16 @@
     function onScrollOrResize(){
       const pct = getContentProgressPercent();
       renderProgress(pct);
-      sendProgress(pct);
+
+      // ✅ ส่ง 100% ให้ชัวร์
+      if (pct === 100) {
+        sendProgress(100, true);
+      } else {
+        sendProgress(pct, false);
+      }
+
       lastPct = pct;
+
       if (pct >= 100){
         setControlsVisible(true);
       } else if (hasUserScrolled) {
@@ -417,38 +504,58 @@
       }
     }
 
+    // init
     renderProgress(initialProgress);
-    applyInitialProgress();
-    setControlsVisible(true); // show controls when entering the page
+    applyInitialProgress(false);
+    setControlsVisible(true);
     onScrollOrResize();
+
     addEventListener("scroll", () => {
       if (autoScrollPhase) return;
       hasUserScrolled = true;
       onScrollOrResize();
     }, { passive: true });
+
     addEventListener("resize", () => {
-      applyInitialProgress();
+      applyInitialProgress(true);
       onScrollOrResize();
     });
 
     if (content){
       content.querySelectorAll("img").forEach(img => {
         if (!img.complete) img.addEventListener("load", () => {
-          applyInitialProgress();
+          applyInitialProgress(true);
           onScrollOrResize();
         }, { once:true });
       });
+
       if (initialProgress > 0) {
         addEventListener("load", () => {
-          applyInitialProgress();
+          applyInitialProgress(true);
           onScrollOrResize();
         }, { once:true });
       }
     }
 
-    // Show controls when user taps/clicks
-    addEventListener("click", () => {
-      setControlsVisible(true);
+    // ✅ (D) คลิก/แตะให้โชว์ แล้วซ่อนเอง
+    addEventListener("click", showControlsTemporarily);
+
+    // ✅ (C) กันเคสผู้ใช้ออกจากหน้าเร็ว: ส่ง progress ตอนกำลังจะออก/สลับแท็บ
+    addEventListener("beforeunload", () => {
+      try {
+        const pct = getContentProgressPercent();
+        // force
+        sendProgress(pct, true);
+      } catch(e) {}
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        try {
+          const pct = getContentProgressPercent();
+          sendProgress(pct, true);
+        } catch(e) {}
+      }
     });
   </script>
 </body>
