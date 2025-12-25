@@ -145,15 +145,14 @@ def profileusers():
         updates.append("email = %s")
         params.append(email)
 
-    # --- Gender (แก้ได้ครั้งเดียว หากเดิมเป็น 'ไม่ระบุ') ---
+    # --- Gender (แก้ไขได้ไม่จำกัด) ---
     db_gender_current = (u.get("gender") or "").strip() or "ไม่ระบุ"
     db_gender_new = GENDER_FORM_TO_DB.get(gender_form, "ไม่ระบุ")
+
     if db_gender_new != db_gender_current:
-        if db_gender_current == "ไม่ระบุ":
-            updates.append("gender = %s")
-            params.append(db_gender_new)
-        else:
-            return ("เพศแก้ไขได้เพียงครั้งเดียวเท่านั้น", 400)
+        updates.append("gender = %s")
+        params.append(db_gender_new)
+
 
     # --- Password change ---
     if pwd_new or pwd_confirm:
