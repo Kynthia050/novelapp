@@ -77,9 +77,11 @@ def bookshelf_index():
     # status filter: all / finished / ongoing
     status_filter = (request.args.get("status", "all") or "all").lower()
 
-    order = (request.args.get("order", "asc") or "asc").lower()
+    order_raw = (request.args.get("order") or "").lower()
+    order_from_query = bool(order_raw)
+    order = order_raw or ("desc" if tab == "recent" else "asc")
     if order not in ("asc", "desc"):
-        order = "asc"
+        order = "desc" if tab == "recent" else "asc"
 
     conn = get_db_connection()
     rows = []
@@ -373,6 +375,7 @@ def bookshelf_index():
         active_tab=tab,
         status_filter=status_filter,
         order=order,
+        order_from_query=order_from_query,
         page=page,
         total=total,
         total_pages=total_pages,
