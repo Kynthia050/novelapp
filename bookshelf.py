@@ -329,9 +329,7 @@ def bookshelf_index():
                 if has_published_chapter and chapter_no_for_read is not None
                 else "#"
             ),
-            "detail_url": url_for("novel.novel_detail", novels_id=row["novels_id"])
-            if "novel" in (getattr(bookshelf_bp, "name", "") or "").lower()  # แค่กันพังแบบหยาบ
-            else url_for("novel_detail", novels_id=row["novels_id"]) if False else None,
+            "detail_url": url_for("novel.detail", novels_id=row["novels_id"]),
         }
 
         # ถ้า detail_url หาชื่อ endpoint ไม่เจอ ให้ fallback = read_url
