@@ -210,7 +210,7 @@
 </div>
 
 <script>
-  const mainEl = document.querySelector('main[data-is-owner]');
+  const mainEl = document.querySelector('[data-is-owner]');
   const isOwner = (mainEl?.dataset.isOwner === '1');
 
   const works = Array.from(document.querySelectorAll('#works > article > div.flex-1'));
