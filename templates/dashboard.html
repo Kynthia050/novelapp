@@ -217,7 +217,7 @@
         </thead>
         <tbody class="divide-y divide-white/5">
           {% for u in users %}
-          {% set can_toggle = (is_superadmin or (u.role != 'superadmin' and u.users_id != current_uid)) %}
+          {% set can_toggle = ((u.users_id != current_uid) and (is_superadmin or u.role != 'superadmin')) %}
           <tr>
             <td class="px-4 py-3 align-top" data-label="ผู้ใช้">
               <div class="font-semibold text-white">{{ u.username }}</div>

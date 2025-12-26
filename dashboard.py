@@ -358,9 +358,12 @@ def toggle_user_active(user_id: int):
             if not target:
                 return jsonify({"ok": False, "error": "User not found"}), 404
 
+            target_uid = _safe_int(target.get("users_id"), -2)
+            if target_uid == acting_id_int:
+                return jsonify({"ok": False, "error": "You cannot change your own account"}), 403
+
             if acting_role == "admin":
-                target_uid = _safe_int(target.get("users_id"), -2)
-                if target.get("role") == "superadmin" or target_uid == acting_id_int:
+                if target.get("role") == "superadmin":
                     return jsonify({"ok": False, "error": "You cannot change this user"}), 403
 
             current_active = _is_active_value(target.get("is_active"), active_marker)
