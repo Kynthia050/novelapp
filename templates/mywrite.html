@@ -58,10 +58,10 @@
 
     /* ✅ สำคัญ: ให้ dropdown ลอยได้ ไม่โดนตัด/ไม่โดนการ์ดอื่นทับ */
     .mw-panel{
-      background: rgba(35,35,38,.88);
-      border: 1px solid var(--line);
-      box-shadow: 0 14px 34px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
+      background: rgba(23,23,23,.70);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.45);
 
       overflow: visible;     /* ✅ กันโดนตัด */
       position: relative;
@@ -69,18 +69,17 @@
     }
 
     .mw-card{
-      background: rgba(42,42,45,.92);
-      border: 1px solid rgba(255,255,255,.12);
-      box-shadow: 0 10px 22px rgba(0,0,0,.4);
+      background: rgba(23,23,23,.70);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: none;
       transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
 
       position: relative; /* ✅ เปิด context ให้ z-index ทำงาน */
       z-index: 0;
     }
     .mw-card:hover{
-      background: rgba(46,46,50,.96);
-      border-color: rgba(255,255,255,.22);
-      box-shadow: 0 14px 30px rgba(0,0,0,.5);
+      border-color: rgba(255,255,255,.20);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.20);
       transform: translateY(-1px);
     }
 
@@ -295,7 +294,7 @@
       </div>
 
       <!-- List -->
-      <section id="list" class="mw-panel p-3 grid gap-3">
+      <section id="list" class="mw-panel p-5 grid gap-4">
         {% if works %}
           {% for w in works %}
             {% set s = (w.status or 'แบบร่าง') %}
