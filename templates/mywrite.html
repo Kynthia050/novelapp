@@ -50,7 +50,10 @@
       background-image:url('{{ url_for("static", filename="img/bg-login.jpg") }}');
       background-size:cover;
       background-position:center;
-      background-attachment:fixed;
+      background-attachment:scroll;
+    }
+    @media (min-width: 640px){
+      .bg-hero{ background-attachment:fixed; }
     }
 
     /* ✅ สำคัญ: ให้ dropdown ลอยได้ ไม่โดนตัด/ไม่โดนการ์ดอื่นทับ */
@@ -182,7 +185,7 @@
     <div class="bg-hero fixed inset-0 -z-10"></div>
     <div class="fixed inset-0 -z-10 bg-black/50 backdrop-blur-sm"></div>
 
-    <main class="mx-auto max-w-6xl px-5 py-6">
+    <section class="mx-auto max-w-6xl px-5 py-6">
       <!-- Page Bar -->
       <div class="flex items-center justify-between gap-3 mb-4 page-bar">
         <h1 class="text-[clamp(22px,3.2vw,34px)] font-semibold">จัดการงานเขียน</h1>
@@ -366,7 +369,7 @@
           <p class="opacity-70">คุณยังไม่มีงานเขียน</p>
         {% endif %}
       </section>
-    </main>
+    </section>
 
     <script>
       // ========= Utilities =========

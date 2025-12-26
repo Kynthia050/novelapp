@@ -28,38 +28,48 @@
   /* พื้นหลังเฉพาะส่วนเนื้อหาโปรไฟล์ ไม่ไปยุ่งกับ header */
   .profile-bg{
     min-height:100vh;
-    background:var(--bg) url('{{ url_for("static", filename="img/bg-login.jpg") }}') center/cover fixed no-repeat;
+    background:var(--bg) url('{{ url_for("static", filename="img/bg-login.jpg") }}') center/cover no-repeat;
+    background-attachment:scroll;
+  }
+  @media (min-width:640px){
+    .profile-bg{ background-attachment:fixed; }
   }
 
   .profile-page{
     max-width:1000px;
     margin:0 auto;
-    padding:24px;
+    padding:var(--space-3);
     color:var(--text);
+  }
+  @media (min-width:640px){
+    .profile-page{ padding:var(--space-4); }
   }
 
   .profile-page .profile-panel{
     background:rgba(35,35,38,.92);
     border:1px solid var(--line);
-    border-radius:16px;
+    border-radius:var(--radius);
     box-shadow:0 10px 24px rgba(0,0,0,.45);
-    padding:22px;
+    padding:var(--space-3);
+  }
+  @media (min-width:640px){
+    .profile-page .profile-panel{ padding:var(--space-4); }
   }
 
   .profile-page .profile-grid{
     display:grid;
-    grid-template-columns:260px 1fr;
-    gap:26px;
+    grid-template-columns:1fr;
+    gap:var(--space-4);
     align-items:start;
   }
-  @media (max-width:900px){
-    .profile-page .profile-grid{grid-template-columns:1fr}
+  @media (min-width:1024px){
+    .profile-page .profile-grid{grid-template-columns:minmax(0, 260px) 1fr}
   }
 
   .profile-page .avatar-wrap{
     display:grid;
     place-items:center;
-    gap:14px;
+    gap:var(--space-2);
   }
   .profile-page .avatar-button{
     border:0;
@@ -74,8 +84,8 @@
     outline-offset:4px;
   }
   .profile-page .avatar{
-    width:220px;
-    height:220px;
+    width:clamp(140px, 42vw, 220px);
+    height:clamp(140px, 42vw, 220px);
     border-radius:50%;
     background:#d9d9dc;
     border:1px solid rgba(255,255,255,.12);
@@ -84,18 +94,18 @@
   }
   .profile-page .avatar-ctls{
     display:flex;
-    gap:10px;
+    gap:var(--space-2);
     flex-wrap:wrap;
     justify-content:center;
   }
 
   .profile-page .form{
     display:grid;
-    gap:14px;
+    gap:var(--space-3);
   }
   .profile-page .field{
     display:grid;
-    gap:8px;
+    gap:var(--space-1);
   }
   .profile-page .label{
     color:#bbb;
@@ -107,18 +117,18 @@
     color:var(--text);
     border:1px solid var(--line);
     border-radius:14px;
-    padding:12px 14px;
+    padding:var(--space-2) var(--space-3);
     font-size:1rem;
   }
 
   .profile-page .pwd-row{
     display:grid;
-    grid-template-columns:1fr auto;
-    gap:8px;
+    grid-template-columns:1fr;
+    gap:var(--space-1);
     align-items:center;
   }
   .profile-page .toggle{
-    padding:10px 12px;
+    padding:var(--space-2) var(--space-3);
     border-radius:12px;
     border:1px solid var(--line);
     background:var(--surface);
@@ -128,25 +138,25 @@
 
   .profile-page .gender-row{
     display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px;
+    grid-template-columns:1fr;
+    gap:var(--space-2);
     align-items:start;
   }
-  @media (max-width:600px){
-    .profile-page .gender-row{grid-template-columns:1fr}
-    .profile-page .pwd-row{grid-template-columns:1fr}
+  @media (min-width:640px){
+    .profile-page .gender-row{grid-template-columns:1fr 1fr}
+    .profile-page .pwd-row{grid-template-columns:1fr auto}
   }
 
   .profile-page .actions{
     display:flex;
-    gap:12px;
+    gap:var(--space-2);
     flex-wrap:wrap;
-    margin-top:8px;
+    margin-top:var(--space-1);
     justify-content:flex-end;
   }
 
   .profile-page .btn{
-    padding:10px 14px;
+    padding:var(--space-2) var(--space-3);
     border-radius:12px;
     border:1px solid var(--line);
     background:var(--surface);
@@ -284,11 +294,6 @@
                 placeholder="อย่างน้อย 8 ตัวอักษร"
                 autocomplete="new-password"
               >
-            </div>
-            <div class="meter" aria-hidden="true">
-              <div class="bar" id="strengthBar"></div>
-            </div>
-          </div>
 
           <div class="field">
             <label class="label" for="pwdConfirm">ยืนยันรหัสผ่านใหม่</label>
@@ -385,22 +390,6 @@
   const matchHint  = profileRoot ? profileRoot.querySelector('#matchHint')   : null;
   const bar        = profileRoot ? profileRoot.querySelector('#strengthBar') : null;
 
-  function strength(s){
-    let score = 0;
-    if (s.length >= 8) score += 25;
-    if (/[A-Z]/.test(s)) score += 25;
-    if (/[0-9]/.test(s)) score += 25;
-    if (/[^A-Za-z0-9]/.test(s)) score += 25;
-    return score;
-  }
-
-  function updateStrength(){
-    if (!bar || !pwdNew) return;
-    const sc = strength(pwdNew.value || '');
-    bar.style.width = sc + '%';
-    bar.style.background = sc > 75 ? '#15c975' : sc > 50 ? '#ffcc00' : '#ff7b7b';
-  }
-
   function checkMatch(){
     if (!pwdNew || !pwdConfirm || !matchHint) return true;
     const ok = pwdNew.value && pwdNew.value === pwdConfirm.value;
@@ -413,7 +402,6 @@
 
   if (pwdNew) {
     pwdNew.addEventListener('input', ()=>{
-      updateStrength();
       checkMatch();
     });
   }

@@ -38,7 +38,12 @@
       --accent-ink:#fff;
     }
 
-    main{flex:1;max-width:900px;margin:0 auto;padding:2rem 1rem 6rem}
+    main{
+      flex:1;
+      max-width:900px;
+      margin:0 auto;
+      padding:calc(var(--space-4) + var(--space-1)) var(--container-pad) calc(var(--space-4) * 4);
+    }
 
     .chapter-header{text-align:center;margin-bottom:2rem}
     .chapter-title{font-size:2rem;font-weight:400;margin-bottom:.8rem}
@@ -47,7 +52,7 @@
 
     .chapter-content{
       border-radius:14px;
-      padding:2rem;
+      padding:calc(var(--space-4) + var(--space-1));
       font-size:1.1rem;
       margin-bottom:2rem;
       transition:background .3s;
@@ -196,7 +201,7 @@
     @media (max-width:768px){
       .chapter-title{font-size:1.6rem}
       .chapter-subtitle{font-size:1rem}
-      .chapter-content{padding:1.5rem;font-size:1rem}
+      .chapter-content{padding:var(--space-4);font-size:1rem}
       .nav-arrow{width:40px;height:40px;font-size:1rem}
       .back-to-cover-btn{padding:.5rem 1.2rem;font-size:.85rem}
     }

@@ -17,14 +17,14 @@
   }
 
   .site{
-    max-width:1200px;
+    max-width:var(--container-max);
     margin-inline:auto;
-    padding-inline:clamp(16px, 4vw, 28px);
+    padding-inline:var(--container-pad);
   }
 
   /* ไม่แตะ header / navbar ของ base.html อีกแล้ว */
 
-  section{padding:28px 0}
+  section{padding:var(--space-4) 0}
   h1{font-size:clamp(24px, 3vw, 36px);letter-spacing:.15em;margin:0 0 16px 0;font-weight:700}
   h2{font-size:clamp(18px, 2vw, 24px);letter-spacing:.15em;margin:0 0 16px 0;font-weight:700}
 
@@ -699,7 +699,7 @@
     justify-content:space-between;
     align-items:center;
     gap:12px;
-    flex-wrap:nowrap;
+    flex-wrap:wrap;
   }
 
   .char-count{
@@ -1124,7 +1124,7 @@
   }
 </style>
 
-<main class="site">
+<div class="site">
   <!-- Back Button -->
   {% include 'back.html' with context %}
   
@@ -1608,7 +1608,7 @@
       </p>
     {% endif %}
   </section>
-</main>
+</div>
 
 <script>
   // carousel + effect ของ comment bubble

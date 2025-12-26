@@ -42,7 +42,7 @@
 
 {% block content %}
 <div id="writerworkPage" class="min-h-screen bg-[var(--bg)] text-zinc-100 selection:text-zinc-100">
-  <main class="max-w-6xl mx-auto px-5 pb-5 pt-8 md:pt-10"
+  <section class="max-w-6xl mx-auto px-5 pb-5 pt-8 md:pt-10"
         data-writer-id="{{ writer_id }}"
         data-current-user-id="{{ current_user_id or '' }}"
         data-is-owner="{{ 1 if is_owner else 0 }}">
@@ -190,7 +190,7 @@
         {% endfor %}
       </div>
     </nav>
-  </main>
+  </section>
 
   <!-- MODAL: Stats -->
   <div id="statsModal" class="fixed inset-0 z-50 hidden">

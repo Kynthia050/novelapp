@@ -269,7 +269,7 @@
       {% set is_info    = category == 'info' %}
 
       <div
-        class="toast pointer-events-auto flex w-[22rem] items-start gap-3 rounded-2xl border p-4 shadow-lg backdrop-blur
+        class="toast pointer-events-auto flex w-[22rem] max-w-[90vw] items-start gap-3 rounded-2xl border p-4 shadow-lg backdrop-blur
                transition-all duration-300 ease-out opacity-0 translate-y-2
                {% if is_success %} bg-emerald-500/10 border-emerald-400/30 text-emerald-100 {% endif %}
                {% if is_error   %} bg-rose-500/10    border-rose-400/30    text-rose-100    {% endif %}

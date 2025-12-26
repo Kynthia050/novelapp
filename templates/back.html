@@ -82,7 +82,7 @@
     left: max(
       12px,
       calc(
-        (100vw - min(1200px, 100vw)) / 2
+        (100vw - min(var(--container-max), 100vw)) / 2
         + clamp(16px, 4vw, 28px)
         - var(--fab-size)
         - var(--back-gap)
@@ -99,7 +99,7 @@
 
   /* ===== Position: Top ===== */
   .fab-top{
-    right: max(12px, calc((100vw - min(1200px, 100vw))/2 + clamp(16px,4vw,28px)));
+    right: max(12px, calc((100vw - min(var(--container-max), 100vw))/2 + clamp(16px,4vw,28px)));
     bottom: 18px;
 
     /* hidden by default */
