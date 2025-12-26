@@ -529,7 +529,22 @@
              tabindex="0" aria-label="Top carousel">
           {% for n in items %}
             {% set raw_cover = (n.cover or '') %}
-            {% set cover_file = (raw_cover.split('/')[-1] if raw_cover else 'default.jpg') %}
+            {% set cover_src = None %}
+            {% set data_cover = '' %}
+            {% if raw_cover.startswith('http://') or raw_cover.startswith('https://') %}
+              {% set cover_src = raw_cover %}
+            {% elif raw_cover.startswith('/static/') %}
+              {% set cover_src = raw_cover %}
+            {% elif raw_cover.startswith('static/') %}
+              {% set cover_src = '/' ~ raw_cover %}
+            {% elif raw_cover.startswith('cover/') %}
+              {% set cover_src = url_for('static', filename=raw_cover) %}
+              {% set data_cover = raw_cover.split('/')[-1] %}
+            {% else %}
+              {% set cover_file = (raw_cover.split('/')[-1] if raw_cover else 'default.jpg') %}
+              {% set cover_src = url_for('static', filename='cover/' ~ cover_file) %}
+              {% set data_cover = cover_file %}
+            {% endif %}
 
             {% set status_text = ('จบแล้ว' if n.status == 'จบแล้ว' else 'ยังไม่จบ') %}
             {% set status_class = 'is-finished' if status_text == 'จบแล้ว' else 'is-ongoing' %}
@@ -543,9 +558,9 @@
 
                 <div class="novel-cover-wrap">
                   <img
-                    src="{{ url_for('static', filename='cover/' ~ cover_file) }}"
+                  src="{{ cover_src }}"
                     alt="{{ n.title }}"
-                    data-cover="{{ cover_file }}"
+                  data-cover="{{ data_cover }}"
                     data-try="0"
                     loading="lazy"
                     onerror="window.__coverFallback && window.__coverFallback(this)"
@@ -711,7 +726,22 @@
         <section class="results-grid">
           {% for n in cat_results %}
             {% set raw_cover2 = (n.cover or n.cover_url or '') %}
-            {% set cover_file2 = (raw_cover2.split('/')[-1] if raw_cover2 else 'default.jpg') %}
+            {% set cover_src2 = None %}
+            {% set data_cover2 = '' %}
+            {% if raw_cover2.startswith('http://') or raw_cover2.startswith('https://') %}
+              {% set cover_src2 = raw_cover2 %}
+            {% elif raw_cover2.startswith('/static/') %}
+              {% set cover_src2 = raw_cover2 %}
+            {% elif raw_cover2.startswith('static/') %}
+              {% set cover_src2 = '/' ~ raw_cover2 %}
+            {% elif raw_cover2.startswith('cover/') %}
+              {% set cover_src2 = url_for('static', filename=raw_cover2) %}
+              {% set data_cover2 = raw_cover2.split('/')[-1] %}
+            {% else %}
+              {% set cover_file2 = (raw_cover2.split('/')[-1] if raw_cover2 else 'default.jpg') %}
+              {% set cover_src2 = url_for('static', filename='cover/' ~ cover_file2) %}
+              {% set data_cover2 = cover_file2 %}
+            {% endif %}
 
             {% set status_text2 = ('จบแล้ว' if n.status == 'จบแล้ว' else 'ยังไม่จบ') %}
             {% set status_class2 = 'is-finished' if status_text2 == 'จบแล้ว' else 'is-ongoing' %}
@@ -724,9 +754,9 @@
 
               <div class="novel-cover-wrap">
                 <img
-                  src="{{ url_for('static', filename='cover/' ~ cover_file2) }}"
+                  src="{{ cover_src2 }}"
                   alt="{{ n.title }}"
-                  data-cover="{{ cover_file2 }}"
+                  data-cover="{{ data_cover2 }}"
                   data-try="0"
                   loading="lazy"
                   onerror="window.__coverFallback && window.__coverFallback(this)"

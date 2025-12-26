@@ -2,11 +2,11 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
-from pathlib import Path
 import html
 import re
 
 from db import mysql, query_one, execute
+from media_storage import upload_svg_text
 
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
 
@@ -32,11 +32,7 @@ def _default_avatar_svg(initial: str) -> str:
 def _save_default_avatar(users_id: int, username: str) -> str:
     initial = _avatar_initial(username)
     svg = _default_avatar_svg(initial)
-    profile_dir = Path(current_app.root_path) / "static" / "profile"
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"u{users_id}_default.svg"
-    (profile_dir / filename).write_text(svg, encoding="utf-8")
-    return f"profile/{filename}"
+    return upload_svg_text(svg, folder="profile")
 
 def is_safe_next(next_url: str) -> bool:
     if not next_url:

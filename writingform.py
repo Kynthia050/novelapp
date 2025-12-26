@@ -4,18 +4,16 @@ from flask import (
     Blueprint, render_template, request, redirect,
     url_for, abort, current_app, jsonify, flash
 )
-from werkzeug.utils import secure_filename
-from datetime import datetime
 from contextlib import closing
 from pathlib import Path
-import os
 import MySQLdb  # สำหรับ conn.ping(True) ถ้าใช้ MySQLdb backend
 
 from db import get_db_connection
 from auth import roles_required
+from media_storage import upload_image_file
 
 # ---------- CONFIG ----------
-CHAPTER_IMAGE_SUBDIR = "chapter_images"  # รูปที่แทรกในเนื้อหาตอนจะเก็บที่ /static/chapter_images
+CHAPTER_IMAGE_SUBDIR = "chapter_images"  # Cloudinary folder for chapter images
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 # Blueprint สำหรับหน้าเขียน/แก้ไขตอน
@@ -74,16 +72,6 @@ def _novel_or_404(conn, novels_id: int):
         abort(404)
     return novel
 
-
-def _image_upload_dir() -> Path:
-    """
-    คืนโฟลเดอร์สำหรับเก็บรูปในเนื้อหา:
-    <app.static_folder>/chapter_images
-    """
-    static_folder = Path(current_app.static_folder)
-    d = static_folder / CHAPTER_IMAGE_SUBDIR
-    d.mkdir(parents=True, exist_ok=True)
-    return d
 
 
 def _allowed_image(filename: str, mimetype: str | None) -> bool:
@@ -339,14 +327,9 @@ def upload_image():
     if not _allowed_image(file.filename, file.mimetype):
         return jsonify({"error": "invalid file type"}), 400
 
-    upload_dir = _image_upload_dir()
-
-    fname = secure_filename(file.filename)
-    stem = Path(fname).stem
-    ext = Path(fname).suffix.lower()
-    filename = f"{stem}_{int(datetime.utcnow().timestamp())}{ext}"
-
-    file.save(upload_dir / filename)
-
-    url = url_for("static", filename=f"{CHAPTER_IMAGE_SUBDIR}/{filename}")
+    try:
+        url = upload_image_file(file, folder=CHAPTER_IMAGE_SUBDIR)
+    except RuntimeError as e:
+        current_app.logger.exception("chapter image upload failed")
+        return jsonify({"error": str(e)}), 500
     return jsonify({"url": url})

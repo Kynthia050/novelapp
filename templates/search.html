@@ -464,11 +464,25 @@
       {% if results %}
         <section class="results-grid">
           {% for novel in results %}
-            {% set cover_name = (novel.cover or 'default.jpg') %}
-            {% if '/' in cover_name %}
-              {% set initial_src = url_for('static', filename=cover_name) %}
+            {% set cover_raw = (novel.cover or '') %}
+            {% set cover_src = None %}
+            {% set data_cover = '' %}
+            {% if cover_raw.startswith('http://') or cover_raw.startswith('https://') %}
+              {% set cover_src = cover_raw %}
+            {% elif cover_raw.startswith('/static/') %}
+              {% set cover_src = cover_raw %}
+            {% elif cover_raw.startswith('static/') %}
+              {% set cover_src = '/' ~ cover_raw %}
+            {% elif cover_raw.startswith('cover/') %}
+              {% set cover_src = url_for('static', filename=cover_raw) %}
+              {% set data_cover = cover_raw.split('/')[-1] %}
+            {% elif cover_raw %}
+              {% set cover_name = cover_raw.split('/')[-1] %}
+              {% set cover_src = url_for('static', filename='cover/' ~ cover_name) %}
+              {% set data_cover = cover_name %}
             {% else %}
-              {% set initial_src = url_for('static', filename='cover/' ~ cover_name) %}
+              {% set cover_src = url_for('static', filename='cover/default.jpg') %}
+              {% set data_cover = 'default.jpg' %}
             {% endif %}
 
             {% set status_text = (novel.status_label or ('จบแล้ว' if novel.status == 'จบแล้ว' else 'ยังไม่จบ')) %}
@@ -482,9 +496,9 @@
 
               <div class="novel-cover-wrap">
                 <img
-                  src="{{ initial_src }}"
+                  src="{{ cover_src }}"
                   alt="{{ novel.title }}"
-                  data-cover="{{ cover_name }}"
+                  data-cover="{{ data_cover }}"
                   data-try="0"
                   onerror="window.__coverFallback && window.__coverFallback(this)"
                 >

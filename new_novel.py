@@ -5,15 +5,13 @@ from flask import (
     Blueprint, render_template, request, jsonify,
     current_app, session, redirect, g
 )
-from werkzeug.utils import secure_filename
 from contextlib import closing
 from pathlib import Path
-from datetime import datetime
 from html import escape
-import uuid
 import json
 
 from db import get_db_connection
+from media_storage import upload_image_file, upload_svg_text
 
 # ---------- CONFIG ----------
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -70,13 +68,6 @@ def dictfetchall(cur):
         return [_normalize_row(r) for r in rows]
     cols = [_k_to_str(d[0]) for d in (cur.description or [])]
     return [dict(zip(cols, r)) for r in rows]
-
-
-def _upload_dir() -> Path:
-    static_folder = Path(current_app.static_folder)
-    d = static_folder / COVER_SUBDIR
-    d.mkdir(parents=True, exist_ok=True)
-    return d
 
 
 def allowed_image(filename: str, mimetype: str | None) -> bool:
@@ -191,18 +182,11 @@ def _read_payload():
     return title, description, cate_raw, tags, cover_file
 
 
-def _save_cover_file(cover_file, novels_id: int) -> tuple[str | None, Path | None]:
+def _save_cover_file(cover_file, novels_id: int) -> str | None:
     if not cover_file or not getattr(cover_file, "filename", ""):
-        return None, None
+        return None
 
-    upload_dir = _upload_dir()
-    fname = secure_filename(cover_file.filename)
-    ext = Path(fname).suffix.lower() or ".jpg"
-    stamp = int(datetime.utcnow().timestamp())
-    cover_filename = f"n{novels_id}_{stamp}_{uuid.uuid4().hex}{ext}"
-    saved_path = upload_dir / cover_filename
-    cover_file.save(saved_path)
-    return cover_filename, saved_path
+    return upload_image_file(cover_file, folder=COVER_SUBDIR)
 
 
 def _default_cover_svg(username: str) -> str:
@@ -227,12 +211,8 @@ def _default_cover_svg(username: str) -> str:
     )
 
 
-def _save_default_cover(username: str, novels_id: int) -> tuple[str, Path]:
-    upload_dir = _upload_dir()
-    cover_filename = f"default_{novels_id}_{uuid.uuid4().hex}.svg"
-    saved_path = upload_dir / cover_filename
-    saved_path.write_text(_default_cover_svg(username), encoding="utf-8")
-    return cover_filename, saved_path
+def _save_default_cover(username: str, novels_id: int) -> str:
+    return upload_svg_text(_default_cover_svg(username), folder=COVER_SUBDIR)
 
 
 def _tag_find_or_create(cur, name: str) -> int:
@@ -338,8 +318,7 @@ def api_create_novel():
     if will_upload_cover and not allowed_image(cover_file.filename, cover_file.mimetype):
         return jsonify(ok=False, error="ชนิดไฟล์ภาพไม่ถูกต้อง (รองรับ .jpg .jpeg .png .webp)"), 400
 
-    saved_cover_path: Path | None = None
-    cover_filename: str | None = None
+    cover_value: str | None = None
     novels_id: int | None = None
 
     with closing(_conn_alive()) as conn:
@@ -357,18 +336,21 @@ def api_create_novel():
 
                     novels_id = _next_id(cur, "novels", "novels_id")
 
-                    if will_upload_cover:
-                        cover_filename, saved_cover_path = _save_cover_file(cover_file, novels_id)
-                    else:
-                        username = _current_username(conn, users_id)
-                        cover_filename, saved_cover_path = _save_default_cover(username, novels_id)
+                    try:
+                        if will_upload_cover:
+                            cover_value = _save_cover_file(cover_file, novels_id)
+                        else:
+                            username = _current_username(conn, users_id)
+                            cover_value = _save_default_cover(username, novels_id)
+                    except RuntimeError as e:
+                        return jsonify(ok=False, error=str(e)), 500
 
                     cur.execute(
                         """
                         INSERT INTO novels (novels_id, title, description, users_id, cate_id, cover)
                         VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (novels_id, title, description or None, users_id, cate_id, cover_filename),
+                        (novels_id, title, description or None, users_id, cate_id, cover_value),
                     )
 
                     # ---- TAGS + MAP ----
@@ -432,11 +414,6 @@ def api_create_novel():
 
         except Exception as e:
             conn.rollback()
-            try:
-                if saved_cover_path and saved_cover_path.exists():
-                    saved_cover_path.unlink()
-            except Exception:
-                pass
 
             current_app.logger.exception("สร้างนิยายใหม่ไม่สำเร็จ: %s", e)
             return jsonify(ok=False, error="บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"), 500

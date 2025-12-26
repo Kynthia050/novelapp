@@ -4,11 +4,9 @@ from flask import (
 )
 from db import mysql
 import MySQLdb.cursors
-from pathlib import Path
-from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
-import uuid, os
 import re
+from media_storage import upload_image_file
 
 profile_bp = Blueprint('profile', __name__, template_folder='templates')
 
@@ -27,9 +25,6 @@ GENDER_DB_TO_FORM = {v: k for k, v in GENDER_FORM_TO_DB.items()}
 def dcur():
     return mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-def get_profile_dir():
-    return Path(current_app.root_path) / "static" / "profile"
-
 def build_avatar_url(pfpic: str | None):
     if not pfpic:
         return url_for("static", filename="profile/default.png")
@@ -43,11 +38,7 @@ def save_avatar(users_id: int, fs):
     ext = fs.filename.rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED:
         raise ValueError("รองรับเฉพาะไฟล์ .jpg .jpeg .png")
-    new_name = f"u{users_id}_{uuid.uuid4().hex}.{ext}"
-    profile_dir = get_profile_dir()
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    fs.save((profile_dir / secure_filename(new_name)).as_posix())
-    return f"profile/{new_name}"
+    return upload_image_file(fs, folder="profile")
 
 def verify_password_hash(stored: str | None, provided: str | None) -> bool:
     if not stored or provided is None:
@@ -115,6 +106,9 @@ def profileusers():
             new_path = save_avatar(users_id, avatar_file)
         except ValueError as e:
             return (str(e), 400)
+        except RuntimeError as e:
+            current_app.logger.exception("avatar upload failed")
+            return (str(e), 500)
         updates += ["pfpic = %s", "pfpic_updated_at = NOW()"]
         params.append(new_path)
 

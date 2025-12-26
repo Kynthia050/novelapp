@@ -17,5 +17,8 @@ python-dotenv>=1.0.0
 # OpenAI client (used in app.py)
 openai>=1.0.0
 
+# Cloudinary SDK (image storage)
+cloudinary>=1.41.0
+
 # Production WSGI server (Railway)
 gunicorn>=21.0.0

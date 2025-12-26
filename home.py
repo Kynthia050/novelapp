@@ -20,7 +20,14 @@ SORT_OPTIONS = {
 def _process_cover_url(cover_path: str | None) -> str:
     """ทำให้ path รูปปกกลายเป็น URL ใต้ static/cover/* และมี placeholder ถ้าไม่มี"""
     if cover_path:
-        filename = os.path.basename(cover_path)
+        s = str(cover_path).strip()
+        if s.startswith(("http://", "https://", "/")):
+            return s
+        if s.startswith("static/"):
+            return "/" + s
+        if s.startswith("cover/"):
+            return url_for('static', filename=s)
+        filename = os.path.basename(s)
         return url_for('static', filename=f"cover/{filename}")
     return url_for('static', filename='cover/placeholder.jpg')
 

@@ -3,17 +3,16 @@ from flask import (
     Blueprint, render_template, request, redirect,
     url_for, jsonify, abort, current_app, flash
 )
-from werkzeug.utils import secure_filename
-from datetime import datetime
 from contextlib import closing
 from pathlib import Path
 import MySQLdb  # สำหรับ conn.ping(True)
 
 from db import get_db_connection
+from media_storage import upload_image_file
 
 # ---------- CONFIG ----------
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
-# จะอัปโหลดไว้ใต้ <project>/static/cover
+# Legacy static folder name / Cloudinary folder
 COVER_SUBDIR = "cover"
 # ---------------------------
 
@@ -78,12 +77,35 @@ def _novel_or_404(conn, novels_id: int):
     return novel
 
 
-def _upload_dir() -> Path:
-    """คืนโฟลเดอร์สำหรับเก็บปก: <app.static_folder>/cover"""
-    static_folder = Path(current_app.static_folder)
-    d = static_folder / COVER_SUBDIR
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+def _cover_url(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    s = str(raw).strip()
+    if s.startswith(("http://", "https://", "/")):
+        return s
+    if s.startswith("static/"):
+        return "/" + s
+    if s.startswith("cover/"):
+        return url_for("static", filename=s)
+    return url_for("static", filename=f"{COVER_SUBDIR}/{s}")
+
+
+def _local_cover_filename(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    s = str(raw).strip()
+    if s.startswith(("http://", "https://")):
+        return None
+    if s.startswith("/"):
+        s = s[1:]
+    if s.startswith("static/"):
+        s = s[len("static/"):]
+    if s.startswith("cover/"):
+        s = s[len("cover/"):]
+    if "/" in s or "\\" in s:
+        return None
+    return s or None
+
 
 
 def _json_error(msg: str, code: int = 400):
@@ -102,9 +124,7 @@ def edit_novel(novels_id):
         novel = _novel_or_404(conn, novels_id)  # novels มี title, description, cate_id, cover, ฯลฯ
 
         # URL ปก (ถ้ามีไฟล์)
-        cover_url = None
-        if novel.get("cover"):
-            cover_url = url_for("static", filename=f"{COVER_SUBDIR}/{novel['cover']}")
+        cover_url = _cover_url(novel.get("cover"))
 
         with conn.cursor() as cur:
             # หมวดหมู่
@@ -185,27 +205,26 @@ def update_novel(novels_id):
                 return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
         # เตรียมชื่อไฟล์ใหม่ (ถ้ามี)
-        cover_filename = None
-        old_cover_filename = novel.get("cover")
+        cover_value = None
+        old_cover_ref = novel.get("cover")
 
         if will_upload_cover:
-            upload_dir = _upload_dir()
-            fname = secure_filename(file.filename)
-            stem = Path(fname).stem
-            ext = Path(fname).suffix.lower()
-            cover_filename = f"{stem}_{int(datetime.utcnow().timestamp())}{ext}"
-            file.save(upload_dir / cover_filename)
+            try:
+                cover_value = upload_image_file(file, folder=COVER_SUBDIR)
+            except RuntimeError as e:
+                flash(str(e), "error")
+                return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
         # อัปเดต DB
         with conn.cursor() as cur:
-            if cover_filename:
+            if cover_value:
                 cur.execute(
                     """
                     UPDATE novels
                        SET title=%s, description=%s, cate_id=%s, cover=%s
                      WHERE novels_id=%s
                     """,
-                    (title, description or None, cate_id, cover_filename, novels_id),
+                    (title, description or None, cate_id, cover_value, novels_id),
                 )
             else:
                 cur.execute(
@@ -219,14 +238,15 @@ def update_novel(novels_id):
         conn.commit()
 
         # ลบไฟล์ปกเก่าหลัง commit สำเร็จ (ถ้ามีและอัปโหลดใหม่จริง)
-        if cover_filename and old_cover_filename:
-            try:
-                (Path(current_app.static_folder) / COVER_SUBDIR / old_cover_filename).unlink(
-                    missing_ok=True
-                )
-            except Exception:
-                # เงียบไว้ ไม่ให้กระทบผู้ใช้
-                pass
+        if cover_value and old_cover_ref:
+            old_local = _local_cover_filename(old_cover_ref)
+            if old_local:
+                try:
+                    (Path(current_app.static_folder) / COVER_SUBDIR / old_local).unlink(
+                        missing_ok=True
+                    )
+                except Exception:
+                    pass
 
     flash("บันทึกสำเร็จ", "success")
     return redirect(url_for("mywrite"))
@@ -303,12 +323,14 @@ def delete_novel_page(novels_id):
 
     # ลบไฟล์ปกถ้ามี
     if cover_filename:
-        try:
-            (Path(current_app.static_folder) / COVER_SUBDIR / cover_filename).unlink(
-                missing_ok=True
-            )
-        except Exception:
-            pass
+        cover_local = _local_cover_filename(cover_filename)
+        if cover_local:
+            try:
+                (Path(current_app.static_folder) / COVER_SUBDIR / cover_local).unlink(
+                    missing_ok=True
+                )
+            except Exception:
+                pass
 
     flash("ลบงานเขียนเรียบร้อยแล้ว", "success")
     # กลับหน้าแรก (ปรับตาม endpoint จริงของโปรเจกต์ได้)
