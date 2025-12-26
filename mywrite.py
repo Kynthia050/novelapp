@@ -9,6 +9,14 @@ mywrite_bp = Blueprint('mywrite', __name__, template_folder='templates')
 ALLOWED_STATUS = {'แบบร่าง', 'เผยแพร่', 'จบแล้ว'}
 
 # ---------- helpers ----------
+def _columns(cur, name: str) -> set[str]:
+    try:
+        cur.execute(f"DESCRIBE `{name}`")
+        return {r["Field"] for r in cur.fetchall()}
+    except Exception:
+        return set()
+
+
 def _cover_url(cover_path: str | None) -> str:
     if cover_path:
         filename = os.path.basename(str(cover_path))
@@ -132,11 +140,46 @@ def mywrite_index():
 
         conn = get_db_connection()
         with conn.cursor(DictCursor) as cur:
+            ncols = _columns(cur, "novels")
+            has_n_updated = "updated_at" in ncols
+            has_n_created = "created_at" in ncols
+            has_n_time = has_n_updated or has_n_created
+
+            if has_n_updated and has_n_created:
+                novel_time_expr = "COALESCE(n.updated_at, n.created_at)"
+            elif has_n_updated:
+                novel_time_expr = "n.updated_at"
+            elif has_n_created:
+                novel_time_expr = "n.created_at"
+            else:
+                novel_time_expr = "NULL"
+
+            edited_at_expr = novel_time_expr
+
+            ccols = _columns(cur, "chapters")
+            if ccols:
+                fk = "novels_id" if "novels_id" in ccols else ("novel_id" if "novel_id" in ccols else None)
+                has_ch_updated = "updated_at" in ccols
+                has_ch_created = "created_at" in ccols
+                if fk and (has_ch_updated or has_ch_created):
+                    if has_ch_updated and has_ch_created:
+                        ch_time_expr = "COALESCE(ch.updated_at, ch.created_at)"
+                    elif has_ch_updated:
+                        ch_time_expr = "ch.updated_at"
+                    else:
+                        ch_time_expr = "ch.created_at"
+
+                    ch_max_expr = f"(SELECT MAX({ch_time_expr}) FROM chapters ch WHERE ch.{fk} = n.novels_id)"
+                    if has_n_time:
+                        edited_at_expr = f"GREATEST({novel_time_expr}, COALESCE({ch_max_expr}, {novel_time_expr}))"
+                    else:
+                        edited_at_expr = ch_max_expr
+
             where_status = "AND n.status = %s" if status_filter else ""
             sql = f"""
                 SELECT
                   n.novels_id, n.title, n.status, n.cover,
-                  COALESCE(n.updated_at, n.created_at) AS edited_at,
+                  {edited_at_expr} AS edited_at,
                   c.name AS category_name,
                   u.username AS author_username,
 
