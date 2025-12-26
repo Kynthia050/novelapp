@@ -291,6 +291,8 @@
                 type="password"
                 id="pwdNew"
                 name="password_new"
+                minlength="8"
+                pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"
                 placeholder="อย่างน้อย 8 ตัวอักษร"
                 autocomplete="new-password"
               >
@@ -305,6 +307,7 @@
                 type="password"
                 id="pwdConfirm"
                 name="password_confirm"
+                minlength="8"
                 placeholder="พิมพ์ซ้ำรหัสผ่านใหม่"
                 autocomplete="new-password"
               >

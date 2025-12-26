@@ -8,6 +8,7 @@ from pathlib import Path
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 import uuid, os
+import re
 
 profile_bp = Blueprint('profile', __name__, template_folder='templates')
 
@@ -156,8 +157,8 @@ def profileusers():
 
     # --- Password change ---
     if pwd_new or pwd_confirm:
-        if len(pwd_new) < 8:
-            return ("รหัสผ่านใหม่ต้องอย่างน้อย 8 ตัวอักษร", 400)
+        if len(pwd_new) < 8 or not re.search(r'[A-Za-z]', pwd_new) or not re.search(r'\d', pwd_new):
+            return ("รหัสผ่านต้องอย่างน้อย 8 ตัวอักษร และมีทั้งตัวอักษรและตัวเลข", 400)
         if pwd_new != pwd_confirm:
             return ("รหัสผ่านใหม่และยืนยันไม่ตรงกัน", 400)
         if not verify_password_hash(u.get("password_hash"), pwd_current):
