@@ -1,6 +1,6 @@
 # search.py
 from flask import Blueprint, request, render_template
-from db import mysql
+from db import mysql, active_user_where
 import MySQLdb.cursors
 
 search_bp = Blueprint('search', __name__)
@@ -181,6 +181,12 @@ def search_novels():
             """)
             params.extend([like, like, like, like, like])
 
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    active_where, active_params = active_user_where(cur, "u")
+    if active_where:
+        where_clauses.append(active_where)
+        params.extend(active_params)
+
     where_sql = " AND ".join(where_clauses) if where_clauses else "1"
 
     # COUNT
@@ -193,7 +199,6 @@ def search_novels():
         LEFT JOIN tags t ON t.tag_id = nt.tag_id
         WHERE {where_sql}
     """
-    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute(count_sql, params)
     total = (cur.fetchone() or {}).get("total") or 0
 

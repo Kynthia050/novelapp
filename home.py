@@ -1,5 +1,5 @@
 from flask import Blueprint, request, render_template, url_for, g
-from db import get_db_connection
+from db import get_db_connection, active_user_where
 from contextlib import closing
 import MySQLdb, MySQLdb.cursors
 import os
@@ -214,6 +214,10 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                         ) + ")"
 
                 sel_author, join_author = _author_sql_parts(cur)
+                active_where = None
+                active_params: list = []
+                if join_author:
+                    active_where, active_params = active_user_where(cur, "u")
 
                 has_views = "views" in cols
                 has_rt_view = _has_relation(cur, "v_novel_rating_stats")
@@ -245,6 +249,13 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                 else:
                     sel_ch = "0 AS chapter_count"
 
+                where_parts = ["n.status IN ('เผยแพร่','จบแล้ว')"]
+                params: list = []
+                if join_author and active_where:
+                    where_parts.append(active_where)
+                    params.extend(active_params)
+                where_sql = " AND ".join(where_parts)
+
                 sql = f"""
                     SELECT
                         n.novels_id, n.title, n.description, n.status, n.cover,
@@ -259,11 +270,12 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                     FROM novels n
                     {join_author}
                     {"LEFT JOIN categories c ON c.cate_id = n.cate_id" if has_cate else ""}
-                    WHERE n.status IN ('เผยแพร่','จบแล้ว')
+                    WHERE {where_sql}
                     ORDER BY updated_sort DESC, n.novels_id DESC
                     LIMIT %s
                 """
-                cur.execute(sql, (int(limit),))
+                params.append(int(limit))
+                cur.execute(sql, params)
                 return cur.fetchall()
     except Exception as e:
         print(f"Latest-updated error: {e}")
@@ -314,16 +326,28 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
         where.append("n.cate_id = %s")
         params.append(int(cate_id))
 
-    where_sql = " AND ".join(where)
-
     results = []
     total = 0
 
     try:
         with closing(get_db_connection()) as conn:
             with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+                sel_author, join_author = _author_sql_parts(cur)
+                active_where = None
+                active_params: list = []
+                if join_author:
+                    active_where, active_params = active_user_where(cur, "u")
+                    if active_where:
+                        where.append(active_where)
+                        params.extend(active_params)
+
+                where_sql = " AND ".join(where)
+
                 # count
-                cur.execute(f"SELECT COUNT(*) AS total FROM novels n WHERE {where_sql}", params)
+                cur.execute(
+                    f"SELECT COUNT(*) AS total FROM novels n {join_author} WHERE {where_sql}",
+                    params,
+                )
                 total = int((cur.fetchone() or {}).get("total") or 0)
 
                 if not total:
@@ -341,8 +365,6 @@ def _get_home_category_page(cate_id: int | None, sort: str, page: int, per_page:
                 if page > total_pages:
                     page = total_pages
                     offset = (page - 1) * per_page
-
-                sel_author, join_author = _author_sql_parts(cur)
 
                 # views availability
                 try:

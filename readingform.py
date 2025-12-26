@@ -6,7 +6,7 @@ from flask import (
 )
 from werkzeug.exceptions import HTTPException
 from MySQLdb.cursors import DictCursor
-from db import get_db_connection
+from db import get_db_connection, active_user_where
 from html import unescape
 
 reading_bp = Blueprint("reading", __name__, template_folder="templates")
@@ -290,6 +290,14 @@ def read_chapter(novels_id: int, chapter_no: int):
             has_status = "status" in ccols
 
             # ---- ดึงข้อมูลตอน + เรื่อง ----
+            active_where, active_params = active_user_where(cur, "u")
+            where_parts = ["c.novels_id=%s", "c.chapter_no=%s"]
+            params = [novels_id, chapter_no]
+            if active_where:
+                where_parts.append(active_where)
+                params.extend(active_params)
+            where_sql = " AND ".join(where_parts)
+
             cur.execute(
                 f"""
                 SELECT c.chapters_id, c.novels_id, c.title AS chapter_title,
@@ -301,10 +309,10 @@ def read_chapter(novels_id: int, chapter_no: int):
                 FROM chapters c
                 JOIN novels n ON n.novels_id = c.novels_id
                 LEFT JOIN users u ON u.users_id = n.users_id
-                WHERE c.novels_id=%s AND c.chapter_no=%s
+                WHERE {where_sql}
                 LIMIT 1
                 """,
-                (novels_id, chapter_no),
+                params,
             )
             row = cur.fetchone()
             if not row:

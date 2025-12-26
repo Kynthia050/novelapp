@@ -1,6 +1,6 @@
 # comment.py
 from flask import Blueprint, render_template, request, jsonify
-from db import get_db_connection  # ใช้ตัวเดียวกับ blueprint อื่นในโปรเจกต์
+from db import get_db_connection, active_user_where  # ใช้ตัวเดียวกับ blueprint อื่นในโปรเจกต์
 
 comment_bp = Blueprint(
     "comment",
@@ -17,21 +17,30 @@ def _fetch_comments(novels_id=None, limit=20):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            active_where, active_params = active_user_where(cur, "u")
             sql = """
                 SELECT
-                    cm_id,
-                    users_id,
-                    novels_id,
-                    content,
-                    created_at
-                FROM comments
+                    c.cm_id,
+                    c.users_id,
+                    c.novels_id,
+                    c.content,
+                    c.created_at
+                FROM comments c
+                JOIN users u ON u.users_id = c.users_id
             """
+            where = []
             params = []
             if novels_id:
-                sql += " WHERE novels_id = %s"
+                where.append("c.novels_id = %s")
                 params.append(novels_id)
+            if active_where:
+                where.append(active_where)
+                params.extend(active_params)
 
-            sql += " ORDER BY created_at DESC LIMIT %s"
+            if where:
+                sql += " WHERE " + " AND ".join(where)
+
+            sql += " ORDER BY c.created_at DESC LIMIT %s"
             params.append(limit)
 
             cur.execute(sql, params)

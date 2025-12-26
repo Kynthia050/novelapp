@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from contextlib import closing
 from urllib.parse import urlparse
 
@@ -301,3 +302,50 @@ def execute(sql: str, params=None):
             last_id = getattr(cur, "lastrowid", None)
         conn.commit()
     return rowcount, last_id
+
+
+def active_user_where(cur, alias: str = "u"):
+    """
+    Return (sql, params) to filter active users via users.is_active.
+    Uses enum marker if available, with fallback markers for bool/tinyint.
+    """
+    try:
+        cur.execute("SHOW COLUMNS FROM users LIKE 'is_active'")
+        row = cur.fetchone() or {}
+    except Exception:
+        return "1=1", []
+
+    if not row:
+        return "1=1", []
+
+    col_type = str(row.get("Type") or "")
+    matches = re.findall(r"'([^']*)'", col_type)
+    active_marker = matches[0] if matches else ""
+
+    markers = [
+        active_marker,
+        "active",
+        "1",
+        "true",
+        "yes",
+        "y",
+        "บัญชีปกติ",
+    ]
+
+    seen = set()
+    normalized = []
+    for m in markers:
+        if m is None:
+            continue
+        s = str(m).strip()
+        if not s:
+            continue
+        s = s.lower()
+        if s in seen:
+            continue
+        seen.add(s)
+        normalized.append(s)
+
+    placeholders = ", ".join(["%s"] * len(normalized))
+    clause = f"LOWER(CAST({alias}.is_active AS CHAR)) IN ({placeholders})"
+    return clause, normalized

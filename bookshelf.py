@@ -5,7 +5,7 @@ from flask import (
     g, request, session, redirect, flash
 )
 from MySQLdb.cursors import DictCursor
-from db import get_db_connection
+from db import get_db_connection, active_user_where
 
 bookshelf_bp = Blueprint("bookshelf", __name__, template_folder="templates")
 
@@ -92,6 +92,7 @@ def bookshelf_index():
     try:
         with conn.cursor(DictCursor) as cur:
             has_rating_view = _has_table(cur, "v_novel_rating_stats")
+            active_where, active_params = active_user_where(cur, "u")
 
             # ---- จำนวนตอน: นับเฉพาะตอนเผยแพร่เท่านั้น (ตาม requirement) ----
             # ส่งทั้ง published_chapters และ total_chapters (ให้เท่ากัน เพื่อไม่พังกับ template เก่า)
@@ -184,9 +185,10 @@ def bookshelf_index():
                 {category_join}
                 {last_chapter_join}
                 {rating_join}
+                WHERE {active_where}
                 ORDER BY rh.last_read_at {order_dir}, n.title;
                 """
-                cur.execute(sql, (user_id,))
+                cur.execute(sql, (user_id, *active_params))
 
             elif tab == "rated":
                 # เรื่องที่ user เคยให้คะแนน (เอา updated_at ล่าสุดต่อเรื่อง)
@@ -217,9 +219,10 @@ def bookshelf_index():
                 LEFT JOIN users u ON u.users_id = n.users_id
                 {category_join}
                 {rating_join}
+                WHERE {active_where}
                 ORDER BY rr.last_rated_at {order_dir}, n.title;
                 """
-                cur.execute(sql, (user_id,))
+                cur.execute(sql, (user_id, *active_params))
 
             else:
                 # favorite: เรื่องที่อยู่ใน bookshelf ของ user นี้
@@ -248,10 +251,10 @@ def bookshelf_index():
                 LEFT JOIN ({last_rh_derived}) AS rh
                        ON rh.novels_id = b.novels_id
                 {last_chapter_join}
-                WHERE b.users_id = %s
+                WHERE b.users_id = %s AND {active_where}
                 ORDER BY b.created_at {order_dir}, n.title;
                 """
-                cur.execute(sql, (user_id, user_id))
+                cur.execute(sql, (user_id, user_id, *active_params))
 
             rows = cur.fetchall()
 

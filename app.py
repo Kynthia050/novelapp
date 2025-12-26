@@ -26,7 +26,10 @@ from comment import comment_bp
 from search import search_bp
 from dashboard import dashboard_bp
 import os
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -34,6 +37,7 @@ cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
     api_key=os.environ.get("CLOUDINARY_API_KEY"),
     api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
+
     secure=True
 )
 # ต้องมี SECRET_KEY เพื่อให้ CSRF และ session ทำงานได้

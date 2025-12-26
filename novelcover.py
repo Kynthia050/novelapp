@@ -6,7 +6,7 @@ from flask import (
     flash, g, jsonify, current_app
 )
 from MySQLdb.cursors import DictCursor
-from db import get_db_connection
+from db import get_db_connection, active_user_where
 from openai import OpenAI
 import os
 
@@ -420,6 +420,14 @@ def detail(novels_id: int):
 
                 if is_ajax_comment:
                     sel_username, sel_avatar, join_users = _user_profile_parts(cur)
+                    where_parts = ["c.cm_id = %s"]
+                    params = [target_cm_id]
+                    if join_users:
+                        active_where, active_params = active_user_where(cur, "u")
+                        if active_where:
+                            where_parts.append(active_where)
+                            params.extend(active_params)
+                    where_sql = " AND ".join(where_parts)
                     cur.execute(
                         f"""
                         SELECT c.cm_id,
@@ -431,10 +439,10 @@ def detail(novels_id: int):
                                {sel_avatar}
                         FROM comments c
                         {join_users}
-                        WHERE c.cm_id = %s
+                        WHERE {where_sql}
                         LIMIT 1
                         """,
-                        (target_cm_id,),
+                        params,
                     )
                     cm = cur.fetchone()
                     if not cm:
@@ -495,6 +503,15 @@ def detail(novels_id: int):
             if has_views_col:
                 novel_cols.append("COALESCE(n.views, 0) AS total_views")
 
+            where_parts = ["n.novels_id = %s"]
+            params = [novels_id]
+            if join_writer:
+                active_where, active_params = active_user_where(cur, "u")
+                if active_where:
+                    where_parts.append(active_where)
+                    params.extend(active_params)
+            where_sql = " AND ".join(where_parts)
+
             cur.execute(
                 f"""
                 SELECT
@@ -502,9 +519,9 @@ def detail(novels_id: int):
                 FROM novels n
                 LEFT JOIN categories c ON c.cate_id = n.cate_id
                 {join_writer}
-                WHERE n.novels_id = %s
+                WHERE {where_sql}
                 """,
-                (novels_id,),
+                params,
             )
 
             novel = cur.fetchone()
@@ -789,6 +806,14 @@ def detail(novels_id: int):
             comments = []
             if _has_table(cur, "comments"):
                 sel_username, sel_avatar, join_users = _user_profile_parts(cur)
+                where_parts = ["c.novels_id = %s"]
+                params = [novels_id]
+                if join_users:
+                    active_where, active_params = active_user_where(cur, "u")
+                    if active_where:
+                        where_parts.append(active_where)
+                        params.extend(active_params)
+                where_sql = " AND ".join(where_parts)
                 cur.execute(
                     f"""
                     SELECT
@@ -801,10 +826,10 @@ def detail(novels_id: int):
                         {sel_avatar}
                     FROM comments c
                     {join_users}
-                    WHERE c.novels_id = %s
+                    WHERE {where_sql}
                     ORDER BY c.created_at DESC
                     """,
-                    (novels_id,),
+                    params,
                 )
                 comments = cur.fetchall()
 
@@ -946,27 +971,33 @@ def comment_summary(novels_id: int):
             if base_summary and dirty == 0:
                 return jsonify({"ok": True, "summary": base_summary, "from_cache": True})
 
+            join_users = ""
+            active_where = None
+            active_params = []
+            if _has_table(cur, "users"):
+                join_users = "JOIN users u ON u.users_id = c.users_id"
+                active_where, active_params = active_user_where(cur, "u")
+
+            where_parts = ["c.novels_id = %s"]
+            params = [novels_id]
             if base_summary and last_cm_id > 0:
-                cur.execute(
-                    """
-                    SELECT cm_id, content
-                    FROM comments
-                    WHERE novels_id = %s
-                      AND cm_id > %s
-                    ORDER BY cm_id ASC
-                    """,
-                    (novels_id, last_cm_id),
-                )
-            else:
-                cur.execute(
-                    """
-                    SELECT cm_id, content
-                    FROM comments
-                    WHERE novels_id = %s
-                    ORDER BY cm_id ASC
-                    """,
-                    (novels_id,),
-                )
+                where_parts.append("c.cm_id > %s")
+                params.append(last_cm_id)
+            if join_users and active_where:
+                where_parts.append(active_where)
+                params.extend(active_params)
+            where_sql = " AND ".join(where_parts)
+
+            cur.execute(
+                f"""
+                SELECT c.cm_id, c.content
+                FROM comments c
+                {join_users}
+                WHERE {where_sql}
+                ORDER BY c.cm_id ASC
+                """,
+                params,
+            )
             new_comments = cur.fetchall()
 
             if not new_comments and base_summary:
