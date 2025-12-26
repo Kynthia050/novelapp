@@ -117,7 +117,7 @@
     flex:1;
   }
   .novel-title{
-    font-size:17px;
+    font-size:clamp(15px, 4vw, 17px);
     font-weight:700;
     line-height:1.35;
     display:-webkit-box;
@@ -127,7 +127,7 @@
     overflow:hidden;
   }
   .novel-meta{
-    font-size:15px;
+    font-size:clamp(13px, 3.6vw, 15px);
     color:var(--muted);
     white-space:nowrap;
     overflow:hidden;
@@ -137,7 +137,7 @@
     display:flex;
     flex-wrap:wrap;
     gap:10px;
-    font-size:14px;
+    font-size:clamp(12px, 3.4vw, 14px);
     color:var(--muted);
     align-items:center;
   }
@@ -153,7 +153,7 @@
     flex:0 0 auto;
   }
   .novel-desc{
-    font-size:14px;
+    font-size:clamp(12px, 3.4vw, 14px);
     color:var(--muted);
     flex:1;
     display:-webkit-box;
@@ -166,13 +166,13 @@
     display:flex;
     align-items:center;
     justify-content:flex-end;
-    font-size:14px;
+    font-size:clamp(12px, 3.4vw, 14px);
     margin-top:6px;
     color:var(--muted);
     gap:8px;
   }
   .rating{ display:flex; align-items:center; gap:4px; }
-  .rating-star{ color:var(--star); font-size:13px; }
+  .rating-star{ color:var(--star); font-size:clamp(11px, 3vw, 13px); }
 
   .status-badge{
     display:inline-flex;
@@ -184,7 +184,7 @@
     background:rgba(255,255,255,.08);
     color:rgba(245,245,245,.92);
     font-weight:700;
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
     white-space:nowrap;
   }
   .status-badge.is-finished{
@@ -214,7 +214,7 @@
     margin-bottom:12px;
   }
   #homeCategorySection .sec-title{
-    font-size:18px;
+    font-size:clamp(16px, 4.5vw, 18px);
     font-weight:800;
     letter-spacing:.12em;
     margin:0;
@@ -236,7 +236,7 @@
     background:rgba(42,42,45,.75);
     color:var(--text);
     text-decoration:none;
-    font-size:13px;
+    font-size:clamp(12px, 3.2vw, 13px);
   }
   #homeCategorySection .chip.is-active{
     background:var(--accent);
@@ -251,7 +251,7 @@
     background:rgba(42,42,45,.35);
     color:var(--text);
     cursor:pointer;
-    font-size:13px;
+    font-size:clamp(12px, 3.2vw, 13px);
   }
 
   /* sort dropdown (เหมือน search) */
@@ -270,7 +270,7 @@
     box-shadow:0 8px 20px rgba(0,0,0,.35);
     cursor:pointer;
     user-select:none;
-    font-size:13px;
+    font-size:clamp(12px, 3.2vw, 13px);
     color:var(--text);
     white-space:nowrap;
   }
@@ -293,7 +293,7 @@
     padding:11px 12px;
     color:var(--text);
     text-decoration:none;
-    font-size:13px;
+    font-size:clamp(12px, 3.2vw, 13px);
   }
   #homeCategorySection .sort-item:hover{ background:rgba(255,255,255,.06); }
   #homeCategorySection .sort-check{
@@ -335,7 +335,7 @@
     background:rgba(42,42,45,.75);
     color:var(--text);
     text-decoration:none;
-    font-size:13px;
+    font-size:clamp(12px, 3.2vw, 13px);
     box-shadow:0 8px 18px rgba(0,0,0,.25);
   }
   #homeCategorySection .page-link.is-active{
@@ -350,13 +350,13 @@
     margin-top:10px;
     text-align:center;
     color:var(--muted);
-    font-size:12px;
+    font-size:clamp(11px, 3vw, 12px);
   }
   #homeCategorySection .empty{
     margin-top:16px;
     text-align:center;
     color:var(--muted);
-    font-size:14px;
+    font-size:clamp(12px, 3.4vw, 14px);
     padding:14px 10px;
   }
 

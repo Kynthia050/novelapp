@@ -52,7 +52,7 @@
     background:var(--chip);
     padding:8px 16px;
     border-radius:999px;
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
   }
   .novel-description{
     color:var(--muted);
@@ -143,7 +143,7 @@
 
   .star-rating label{
     cursor:pointer;
-    font-size:22px;
+    font-size:clamp(18px, 4.5vw, 22px);
     color:rgba(255,255,255,.18);
     transition:color .15s ease, transform .15s ease;
     text-shadow:0 0 8px rgba(0,0,0,.4);
@@ -680,7 +680,7 @@
     color:var(--text);
     padding:10px 12px;
     font-family:inherit;
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
     outline:none;
     resize:none;
     overflow-y:hidden;
@@ -703,7 +703,7 @@
   }
 
   .char-count{
-    font-size:12px;
+    font-size:clamp(11px, 3vw, 13px);
     color:var(--muted);
     white-space:nowrap;
   }
@@ -712,7 +712,7 @@
     border:0;
     border-radius:999px;
     padding:8px 18px;
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
     font-weight:600;
     letter-spacing:.05em;
     text-transform:uppercase;
@@ -745,7 +745,7 @@
   .summary-helper-btn{
     border-radius:999px;
     padding:8px 20px;
-    font-size:15px;
+    font-size:clamp(13px, 3.4vw, 15px);
     font-weight:600;
     letter-spacing:.08em;
     text-transform:uppercase;
@@ -762,7 +762,7 @@
   }
   .summary-helper-btn::before{
     content:"✨";
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
   }
   .summary-helper-btn:hover{
     background:var(--accent);
@@ -796,7 +796,9 @@
   .summary-modal-dialog{
     position:relative;
     max-width:520px;
-    width:calc(100% - 40px);
+    width:min(520px, 100%);
+    max-height:85vh;
+    overflow:auto;
     background:var(--card);
     padding:20px 22px 18px;
     border-radius:20px;
@@ -813,14 +815,14 @@
   }
   .summary-modal-title{
     margin:0;
-    font-size:18px;
+    font-size:clamp(16px, 4vw, 18px);
     letter-spacing:.08em;
   }
   .summary-modal-close{
     border:0;
     background:transparent;
     color:var(--muted);
-    font-size:20px;
+    font-size:clamp(16px, 4vw, 20px);
     cursor:pointer;
     border-radius:999px;
     width:32px;
@@ -835,7 +837,7 @@
     transform:rotate(6deg);
   }
   .summary-modal-body{
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
     color:var(--muted);
     line-height:1.7;
   }
@@ -865,7 +867,7 @@
     display:grid;
     place-items:center;
     cursor:pointer;
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
     transition:background .15s ease, color .15s ease, transform .15s ease;
   }
   .comments-btn:hover{
@@ -929,13 +931,19 @@
     border-bottom:1px solid rgba(255,255,255,.06);
   }
   .comment-quote{
-    font-size:32px;
+    font-size:clamp(22px, 7vw, 32px);
     line-height:1;
     opacity:.6;
     margin-bottom:8px;
   }
+  @media (max-width: 640px){
+    .summary-modal-dialog{
+      padding:var(--space-3);
+      border-radius:16px;
+    }
+  }
   .comment-text{
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
     color:var(--text);
     line-height:1.7;
   }
@@ -956,7 +964,7 @@
     border:1px solid rgba(255,255,255,.16);
     background:transparent;
     color:var(--text);
-    font-size:11px;
+    font-size:clamp(11px, 2.8vw, 12px);
     padding:6px 14px;
     cursor:pointer;
     letter-spacing:.05em;
@@ -976,7 +984,7 @@
     border:1px solid rgba(255,255,255,.16);
     background:transparent;
     color:var(--text);
-    font-size:11px;
+    font-size:clamp(11px, 2.8vw, 12px);
     padding:6px 14px;
     cursor:pointer;
     letter-spacing:.05em;
@@ -1032,18 +1040,18 @@
     height:100%;
     align-items:center;
     justify-content:center;
-    font-size:12px;
+    font-size:clamp(11px, 3vw, 13px);
     font-weight:600;
     color:#111;
   }
   .comment-author{
-    font-size:14px;
+    font-size:clamp(12px, 3.2vw, 14px);
   }
   .comment-author-name{
     font-weight:600;
   }
   .comment-author-sub{
-    font-size:12px;
+    font-size:clamp(11px, 3vw, 13px);
     color:var(--muted);
     margin-top:2px;
   }
@@ -1846,12 +1854,12 @@
       if (!isFallback) {
         if (fromCache) {
           noteHtml =
-            '<p style="font-size:12px;opacity:.75;margin-top:8px;">' +
+            '<p style="font-size:clamp(11px, 3vw, 13px);opacity:.75;margin-top:8px;">' +
             '(ใช้สรุปล่าสุดที่เคยสร้างไว้แล้ว)' +
             "</p>";
         } else {
           noteHtml =
-            '<p style="font-size:12px;opacity:.75;margin-top:8px;">' +
+            '<p style="font-size:clamp(11px, 3vw, 13px);opacity:.75;margin-top:8px;">' +
             '(พึ่งสรุปจากความคิดเห็นล่าสุดในตอนนี้)' +
             "</p>";
         }

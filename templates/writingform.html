@@ -61,7 +61,7 @@
       border: 1px solid var(--line);
       border-radius: var(--radius, 16px);
       box-shadow: var(--shadow);
-      padding: 24px;
+      padding: var(--space-4);
     }
 
     .title-display {
@@ -160,6 +160,9 @@
       .page { padding: calc(var(--space-4) + var(--space-1)) var(--container-pad); }
       .fields { grid-template-columns: 1fr; }
       .label { text-align: left; }
+    }
+    @media (max-width: 640px) {
+      .panel { padding: var(--space-3); }
     }
 
     .prose img { max-width: 100%; height: auto; }
