@@ -134,8 +134,8 @@
   </div>
 
   <!-- แผงต้อนรับ -->
-  <section class="w-full grid place-items-center px-4 pt-10">
-    <div class="max-w-2xl w-full bg-white/5 glass-panel border border-white/10 rounded-3xl shadow-2xl px-6 sm:px-10 py-8 text-center mb-6">
+  <main class="min-h-screen w-full flex flex-col items-center justify-center px-4 py-10 gap-6">
+    <section class="w-full max-w-2xl bg-white/5 glass-panel border border-white/10 rounded-3xl shadow-2xl px-6 sm:px-10 py-8 text-center">
       <img
   src="{{ url_for('static', filename='cover/logo.png') }}"
   alt="myshelf_logo"
@@ -143,11 +143,9 @@
 />
       <h1 class="mt-4 text-3xl sm:text-4xl font-semibold">ยินดีต้อนรับ</h1>
       <p class="mt-2 text-white/70 text-sm sm:text-base">ชั้นวางหนังสือของคุณพร้อมแล้ว หยิบเล่มโปรดแล้วไปอ่านกันเลย!</p>
-    </div>
-  </section>
+    </section>
 
   <!-- การ์ดล็อกอิน -->
-  <main class="w-full grid place-items-center px-4 pb-10">
     <div class="w-full max-w-md bg-card/90 glass-panel border border-white/10 rounded-2xl shadow-2xl p-6 sm:p-8">
       <h2 class="text-center text-sm tracking-[.25em] text-white/70 mb-4">เข้าสู่ระบบ</h2>
 
