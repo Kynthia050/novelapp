@@ -331,8 +331,6 @@
       <div class="grid gap-4 p-5 md:grid-cols-2">
         {% if items and items|length > 0 %}
           {% for b in items %}
-            {# --- URL --- #}
-            {% set title_url = b.detail_url if b.detail_url is defined and b.detail_url else b.read_url %}
 
             {# --- สถานะอ่าน (continue/done) --- #}
             {% set st_raw = (b.read_status if b.read_status is defined else (b.status if b.status is defined else '')) %}
@@ -356,8 +354,14 @@
               (b.chapters if b.chapters is defined and b.chapters is not none else 0)))))))
             %}
 
+            {# --- URL: ถ้าตอน = 0 ไปหน้า novel detail --- #}
+            {% set detail_url = (b.detail_url if b.detail_url is defined and b.detail_url else url_for('novel.detail', novels_id=b.novels_id)) %}
+            {% set has_chapters = published_chapters|int > 0 %}
+            {% set read_url = (b.read_url if b.read_url is defined and b.read_url and b.read_url != '#' else detail_url) %}
+            {% set action_url = (read_url if has_chapters else detail_url) %}
+
             <article class="group relative flex gap-4 rounded-xl border border-white/10 bg-neutral-900/70 p-3 md:p-4 hover:ring-1 hover:ring-white/20 transition cursor-pointer bs-card"
-                     data-detail-url="{{ title_url }}">
+                     data-detail-url="{{ action_url }}">
               <img class="w-[120px] h-[120px] rounded-lg object-cover bg-zinc-300 border border-white/10"
                    src="{{ b.cover }}" alt="cover"/>
 
@@ -370,7 +374,7 @@
 
                   <!-- action -->
                   <div class="ml-auto flex items-center gap-2">
-                    <a href="{{ b.read_url }}"
+                    <a href="{{ action_url }}"
                        data-read-link="1"
                        class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 text-sm font-medium text-white whitespace-nowrap">
                       อ่านต่อ
