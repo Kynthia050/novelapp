@@ -158,6 +158,12 @@
     .menu-item:hover{ background:rgba(255,255,255,.08); }
     .page-bar{ flex-wrap:wrap; }
     .toolbar-row{ gap:10px; }
+    .mw-search{
+      cursor:text;
+    }
+    .mw-search::placeholder{
+      color: rgba(255,255,255,.5);
+    }
     @media (max-width: 720px){
       .page-bar{ align-items:flex-start; }
       .page-bar > div:last-child{
@@ -171,7 +177,8 @@
       .toolbar-row .flex-1{ display:none; }
       .toolbar-row > *{ width:100%; }
       .toolbar-row select,
-      .toolbar-row button{
+      .toolbar-row button,
+      .toolbar-row input{
         width:100%;
         justify-content:center;
       }
@@ -236,7 +243,18 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="relative flex-1 min-w-[220px]">
+            <input
+              id="searchInput"
+              type="search"
+              class="statusSel mw-search select-reset rounded-lg px-3 py-2 text-sm w-full"
+              placeholder="ค้นหานิยายของฉัน"
+              autocomplete="off"
+              aria-label="ค้นหานิยาย"
+            />
+          </div>
+
           <div class="relative">
             <button
               id="filterBtn"
@@ -270,6 +288,7 @@
               class="mw-card relative grid md:grid-cols-[auto,1fr,auto] grid-cols-1 gap-3 items-center rounded-xl p-4 cursor-pointer"
               data-id="{{ w.novels_id }}"
               data-status="{{ s }}"
+              data-search="{{ (w.title or '') ~ ' ' ~ (w.category_name or '') }}"
               data-copy="{{ url_for('novel.detail', novels_id=w.novels_id) }}"
               data-edit-url="{{ url_for('editnovel.edit_novel', novels_id=w.novels_id) }}"
             >
@@ -377,6 +396,12 @@
       const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
 
       let currentFilter = 'ทั้งหมด';
+
+      let currentQuery = '';
+
+      function normalizeText(s){
+        return (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      }
 
       function getCsrfToken(){
         return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
@@ -531,10 +556,18 @@
 
       function applyFilter(){
         const arts = $$('#list article');
+        const q = normalizeText(currentQuery);
         arts.forEach(a=>{
           const st = a.dataset.status || 'แบบร่าง';
           a.classList.toggle('hidden', currentFilter !== 'ทั้งหมด' && st !== currentFilter);
         });
+        if (q){
+          arts.forEach(a=>{
+            if (a.classList.contains('hidden')) return;
+            const hay = normalizeText(a.dataset.search || a.querySelector('a')?.textContent || '');
+            if (!hay.includes(q)) a.classList.add('hidden');
+          });
+        }
         updateFilterLabel();
       }
 
@@ -743,6 +776,15 @@
           window.location.href = editUrl;
         }
       });
+
+      const searchInput = $('#searchInput');
+      if (searchInput){
+        currentQuery = searchInput.value || '';
+        searchInput.addEventListener('input', (e)=>{
+          currentQuery = e.target.value || '';
+          applyFilter();
+        });
+      }
 
       applyFilter();
     </script>
