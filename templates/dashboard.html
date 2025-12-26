@@ -69,6 +69,55 @@
   @media (max-width:768px){
     .dash-top-btn{ right:16px; bottom:16px; width:50px; height:50px; }
   }
+
+  /* Mobile table layout (dashboard) */
+  @media (max-width: 640px){
+    .dash-table{
+      display:block;
+    }
+    .dash-table thead{
+      display:none;
+    }
+    .dash-table tbody{
+      display:block;
+    }
+    .dash-table tbody tr{
+      display:block;
+      padding:12px 12px;
+    }
+    .dash-table tbody tr + tr{
+      border-top:1px solid rgba(255,255,255,.08);
+    }
+    .dash-table td{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:6px 0;
+      border:none;
+    }
+    .dash-table td::before{
+      content:attr(data-label);
+      flex:0 0 38%;
+      max-width:38%;
+      color:rgba(255,255,255,.55);
+      font-size:11px;
+      letter-spacing:.02em;
+    }
+    .dash-table .dash-cell-actions{
+      flex-direction:column;
+      align-items:stretch;
+      gap:0;
+    }
+    .dash-table .dash-cell-actions::before{
+      flex:none;
+      max-width:none;
+      margin-bottom:2px;
+    }
+    .dash-table .dash-cell-actions button,
+    .dash-table .dash-cell-actions form{
+      width:100%;
+    }
+  }
 </style>
 {% endblock %}
 
@@ -140,23 +189,23 @@
         <h2 class="text-xl font-semibold text-white">การจัดการผู้ใช้</h2>
         <p class="text-sm text-zinc-500">ค้นหา ปรับสถานะ active/inactive, และรีเซ็ตรหัสผ่านสำหรับ admin (เฉพาะ super admin)</p>
       </div>
-      <form method="get" class="flex items-center gap-2" data-partial-target="usersSection">
+      <form method="get" class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto" data-partial-target="usersSection">
         <input
           type="text"
           name="user_q"
           value="{{ user_q }}"
           placeholder="ค้นหาด้วยชื่อหรืออีเมล"
-          class="w-56 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
+          class="w-full sm:w-56 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none"
         />
         <input type="hidden" name="novel_q" value="{{ novel_q }}">
         <input type="hidden" name="novel_page" value="{{ novels_page }}">
         <input type="hidden" name="cate_id" value="{{ selected_cate_id or '' }}">
-        <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-sm text-white transition">ค้นหา</button>
+        <button type="submit" class="w-full sm:w-auto rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-sm text-white transition">ค้นหา</button>
       </form>
     </div>
 
     <div class="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
-      <table class="min-w-full text-sm text-left text-white/80">
+      <table class="dash-table min-w-full text-sm text-left text-white/80">
         <thead class="bg-white/5 text-xs uppercase text-zinc-400">
           <tr>
             <th class="px-4 py-3">ผู้ใช้</th>
@@ -170,26 +219,26 @@
           {% for u in users %}
           {% set can_toggle = (is_superadmin or (u.role != 'superadmin' and u.users_id != current_uid)) %}
           <tr>
-            <td class="px-4 py-3 align-top">
+            <td class="px-4 py-3 align-top" data-label="ผู้ใช้">
               <div class="font-semibold text-white">{{ u.username }}</div>
               <div class="text-xs text-zinc-500">{{ u.email }}</div>
             </td>
-            <td class="px-4 py-3 align-top">
+            <td class="px-4 py-3 align-top" data-label="บทบาท">
               <span class="rounded-full border px-2 py-1 text-xs uppercase {{ 'border-emerald-400 text-emerald-300' if u.role == 'superadmin' else ('border-blue-400 text-blue-300' if u.role == 'admin' else 'border-white/20 text-white/80') }}">
                 {{ u.role }}
               </span>
             </td>
-            <td class="px-4 py-3 align-top">
+            <td class="px-4 py-3 align-top" data-label="สถานะ">
               <span class="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium border {{ 'border-emerald-400 text-emerald-300 bg-emerald-400/10' if u.is_active_bool else 'border-orange-400 text-orange-200 bg-orange-400/10' }}" data-role="user-status">
                 <span class="h-2 w-2 rounded-full {{ 'bg-emerald-400' if u.is_active_bool else 'bg-orange-400' }}"></span>
                 {{ 'Active' if u.is_active_bool else 'Inactive' }}
               </span>
             </td>
-            <td class="px-4 py-3 align-top text-xs text-zinc-500">
+            <td class="px-4 py-3 align-top text-xs text-zinc-500" data-label="เข้าใช้งานล่าสุด">
               <div>เข้าใช้งาน: {{ u.last_login_display or '-' }}</div>
               <div>สร้างบัญชี: {{ u.created_at_display or '-' }}</div>
             </td>
-            <td class="px-4 py-3 align-top space-y-2">
+            <td class="px-4 py-3 align-top space-y-2 dash-cell-actions" data-label="จัดการ">
               <button
                 type="button"
                 class="w-full rounded-lg border px-3 py-2 text-xs font-semibold transition {{ 'bg-white/10 border-white/20 text-white hover:bg-white/20' if can_toggle else 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed' }}"
@@ -288,7 +337,7 @@
       </form>
     </div>
     <div class="overflow-x-auto rounded-2xl border border-white/10 bg-zinc-900/60">
-      <table class="min-w-full text-sm text-left text-white/80">
+      <table class="dash-table min-w-full text-sm text-left text-white/80">
         <thead class="bg-white/5 text-xs uppercase text-zinc-400">
           <tr>
             <th class="px-4 py-3">ชื่อเรื่อง</th>
@@ -301,16 +350,16 @@
         <tbody class="divide-y divide-white/5">
           {% for n in novels %}
           <tr>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" data-label="ชื่อเรื่อง">
               <div class="font-semibold text-white">{{ n.title }}</div>
               <div class="text-xs text-zinc-500">สร้างเมื่อ {{ n.created_at_display or '-' }}</div>
             </td>
-            <td class="px-4 py-3 text-sm text-white/80">{{ n.category_name or '-' }}</td>
-            <td class="px-4 py-3 text-sm text-white/80">{{ n.author_name or '-' }}</td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 text-sm text-white/80" data-label="หมวด">{{ n.category_name or '-' }}</td>
+            <td class="px-4 py-3 text-sm text-white/80" data-label="ผู้เขียน">{{ n.author_name or '-' }}</td>
+            <td class="px-4 py-3" data-label="ความคิดเห็น">
               <span class="rounded-full bg-white/10 px-3 py-1 text-xs text-white" data-role="comment-count" data-count="{{ n.comment_count or 0 }}">{{ n.comment_count or 0 }} รายการ</span>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 dash-cell-actions" data-label="จัดการ">
               <button
                 type="button"
                 class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-xs text-white transition"
