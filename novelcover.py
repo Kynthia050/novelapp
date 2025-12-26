@@ -32,6 +32,22 @@ def _has_column(cur, table: str, col: str) -> bool:
         return False
 
 
+def _is_auto_increment(cur, table: str, col: str) -> bool:
+    try:
+        cur.execute(f"SHOW COLUMNS FROM `{table}` LIKE %s", (col,))
+        row = cur.fetchone() or {}
+        extra = str(row.get("Extra") or "").lower()
+        return "auto_increment" in extra
+    except Exception:
+        return False
+
+
+def _next_id(cur, table: str, pk: str) -> int:
+    cur.execute(f"SELECT COALESCE(MAX(`{pk}`), 0) + 1 AS next_id FROM `{table}`")
+    row = cur.fetchone() or {}
+    return int(row.get("next_id") or 1)
+
+
 def _writer_sql_parts(cur):
     """เลือกวิธีดึงข้อมูลผู้เขียนจากตาราง novels / users ให้ได้ทั้ง writer_id และ writer_name"""
     try:
@@ -1073,15 +1089,22 @@ def rate(novels_id: int):
                     (rating, novels_id, users_id),
                 )
             else:
+                insert_cols = ["users_id", "novels_id", "rating"]
+                insert_vals = [users_id, novels_id, rating]
+                if _has_column(cur, "ratings", "ratings_id") and not _is_auto_increment(cur, "ratings", "ratings_id"):
+                    rating_id = _next_id(cur, "ratings", "ratings_id")
+                    insert_cols.insert(0, "ratings_id")
+                    insert_vals.insert(0, rating_id)
+
+                placeholders = ", ".join(["%s"] * len(insert_cols))
+                columns = ", ".join(insert_cols)
                 cur.execute(
-                    """
-                    INSERT INTO ratings (users_id, novels_id, rating)
-                    VALUES (%s, %s, %s)
-                    """,
-                    (users_id, novels_id, rating),
+                    f"INSERT INTO ratings ({columns}) VALUES ({placeholders})",
+                    tuple(insert_vals),
                 )
                 rating_inserted = True
-                rating_id = getattr(cur, "lastrowid", None)
+                if rating_id is None:
+                    rating_id = getattr(cur, "lastrowid", None)
 
             if rating_inserted and rating_id and _has_table(cur, "notifications"):
                 cur.execute("SELECT users_id, title FROM novels WHERE novels_id = %s", (novels_id,))
