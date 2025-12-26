@@ -159,7 +159,7 @@ def register():
     gender_in = (request.form.get('gender') or '').strip()
 
     # ให้ตรงกับฟรอนต์ (ชาย/หญิง/LGBTQ+/ไม่ระบุ)
-    gender_map = {'ชาย': 'ชาย', 'หญิง': 'หญิง', 'LGBTQ+': 'LGBTQ+', 'ไม่ระบุ': 'ไม่ระบุ'}
+    gender_map = {'ชาย': 'ชาย', 'หญิง': 'หญิง', 'LGBTQ+': 'อื่น ๆ', 'ไม่ระบุ': 'ไม่ระบุ'}
     gender = gender_map.get(gender_in, 'ไม่ระบุ')
 
     if not username or not EMAIL_RE.match(email):
