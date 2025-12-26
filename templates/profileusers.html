@@ -243,6 +243,8 @@
               maxlength="80"
               
             >
+            <p class="mt-0.5 text-xs text-[var(--muted)] text-right">
+              <span id="usernameCount">0</span>/80 ตัวอักษร</p>
             <div class="hint">ชื่อผู้ใช้ที่แสดงในระบบ</div>
           </div>
 
@@ -391,6 +393,18 @@
         btn.textContent = input.type === 'password' ? 'แสดง' : 'ซ่อน';
       });
     });
+  }
+
+  const usernameInput = profileRoot ? profileRoot.querySelector('#username') : null;
+  const usernameCount = profileRoot ? profileRoot.querySelector('#usernameCount') : null;
+  const updateUsernameCount = () => {
+    if (!usernameInput || !usernameCount) return;
+    usernameCount.textContent = String(usernameInput.value.length);
+  };
+  if (usernameInput && usernameCount) {
+    updateUsernameCount();
+    usernameInput.addEventListener('input', updateUsernameCount);
+    usernameInput.addEventListener('change', updateUsernameCount);
   }
 
   const pwdNew     = profileRoot ? profileRoot.querySelector('#pwdNew')      : null;

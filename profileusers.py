@@ -120,6 +120,8 @@ def profileusers():
 
     # --- Username (unique) ---
     if username and username != (u.get("username") or ""):
+        if len(username) > 80:
+            return ("ชื่อผู้ใช้ต้องไม่เกิน 80 ตัวอักษร", 400)
         cur = dcur()
         cur.execute(
             "SELECT 1 FROM users WHERE username=%s AND users_id<>%s",
