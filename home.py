@@ -52,6 +52,20 @@ def _author_sql_parts(cur):
     return ("NULL AS author_id, 'Unknown' AS author_name", "")
 
 
+def _chapter_publish_cond(ccols: set[str], alias: str = "ch") -> str | None:
+    if "status" in ccols:
+        return f"{alias}.status IN ('เผยแพร่','published','PUBLISHED')"
+    if "chapter_status" in ccols:
+        return f"{alias}.chapter_status IN ('เผยแพร่','published','PUBLISHED')"
+    if "is_published" in ccols:
+        return f"{alias}.is_published = 1"
+    if "published" in ccols:
+        return f"{alias}.published = 1"
+    if "is_draft" in ccols:
+        return f"{alias}.is_draft = 0"
+    return None
+
+
 def _published_chapters_expr(cur, novels_alias: str = "n") -> str:
     """
     คืน SQL expression สำหรับนับ 'จำนวนตอนที่เผยแพร่' ต่อ 1 นิยาย
@@ -141,7 +155,56 @@ def _get_latest_updated(current_uid: int | None, limit: int = 10):
                     cols = {row['Field'] for row in cur.fetchall()}
                 except Exception:
                     cols = set()
-                order_col = "n.updated_at" if "updated_at" in cols else "n.created_at"
+                has_n_updated = "updated_at" in cols
+                has_n_created = "created_at" in cols
+
+                if has_n_updated and has_n_created:
+                    novel_time_expr = "COALESCE(n.updated_at, n.created_at)"
+                elif has_n_updated:
+                    novel_time_expr = "n.updated_at"
+                elif has_n_created:
+                    novel_time_expr = "n.created_at"
+                else:
+                    novel_time_expr = "n.novels_id"
+
+                order_col = novel_time_expr
+                # Include chapter publish/new timestamps as update signals.
+                if _has_relation(cur, "chapters") and (has_n_updated or has_n_created):
+                    try:
+                        cur.execute("DESCRIBE chapters")
+                        ccols = {row["Field"] for row in cur.fetchall()}
+                    except Exception:
+                        ccols = set()
+
+                    has_ch_created = "created_at" in ccols
+                    has_ch_updated = "updated_at" in ccols
+                    if has_ch_created or has_ch_updated:
+                        fk = "novels_id" if "novels_id" in ccols else ("novel_id" if "novel_id" in ccols else "novels_id")
+
+                        if has_ch_created and has_ch_updated:
+                            new_ch_ts = "COALESCE(ch.created_at, ch.updated_at)"
+                            pub_ch_ts = "COALESCE(ch.updated_at, ch.created_at)"
+                        elif has_ch_created:
+                            new_ch_ts = "ch.created_at"
+                            pub_ch_ts = "ch.created_at"
+                        else:
+                            new_ch_ts = "ch.updated_at"
+                            pub_ch_ts = "ch.updated_at"
+
+                        order_parts = [
+                            novel_time_expr,
+                            f"(SELECT MAX({new_ch_ts}) FROM chapters ch WHERE ch.{fk} = n.novels_id)",
+                        ]
+
+                        pub_cond = _chapter_publish_cond(ccols, alias="ch")
+                        if pub_cond:
+                            order_parts.append(
+                                f"(SELECT MAX({pub_ch_ts}) FROM chapters ch WHERE ch.{fk} = n.novels_id AND {pub_cond})"
+                            )
+
+                        order_col = "GREATEST(" + ", ".join(
+                            [f"COALESCE({p}, '1970-01-01 00:00:00')" for p in order_parts]
+                        ) + ")"
 
                 sel_author, join_author = _author_sql_parts(cur)
 

@@ -246,15 +246,33 @@ def update_chapter_status(novels_id, chapter_id):
 
     with closing(_conn_alive()) as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE chapters
-                   SET status = %s
-                 WHERE chapters_id = %s
-                   AND novels_id = %s
-                """,
-                (new_status, chapter_id, novels_id),
-            )
+            try:
+                cur.execute("DESCRIBE chapters")
+                ccols = {row["Field"] for row in cur.fetchall()}
+            except Exception:
+                ccols = set()
+
+            if "updated_at" in ccols:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET status = %s,
+                           updated_at = NOW()
+                     WHERE chapters_id = %s
+                       AND novels_id = %s
+                    """,
+                    (new_status, chapter_id, novels_id),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET status = %s
+                     WHERE chapters_id = %s
+                       AND novels_id = %s
+                    """,
+                    (new_status, chapter_id, novels_id),
+                )
         conn.commit()
 
     # ✅ ถ้าเป็น AJAX: คืน JSON เพื่อไม่ต้อง refresh
