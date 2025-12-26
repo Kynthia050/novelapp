@@ -28,6 +28,18 @@
   .page-link.is-disabled{ opacity:.45; pointer-events:none; box-shadow:none; transform:none; }
   .page-info{ text-align:center; color:rgba(255,255,255,.65); font-size:clamp(11px, 3vw, 12px); }
 
+  /* Hot tabs (sticky) */
+  .dash-hot-tabs{
+    position: sticky;
+    top: 12px;
+    z-index: 30;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .dash-anchor{
+    scroll-margin-top: 72px;
+  }
+
   /* Dashboard back-to-top (local only) */
   .dash-top-btn{
     position:fixed;
@@ -83,7 +95,7 @@
     </form>
   </div>
 
-  <nav aria-label="ลัดไปยังส่วนต่าง ๆ" class="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+  <nav aria-label="ลัดไปยังส่วนต่าง ๆ" class="dash-hot-tabs flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
     <span class="text-xs uppercase tracking-wide text-white/60">Hot tabs</span>
     <a href="#metricsSection" class="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10 transition">ภาพรวม</a>
     <a href="#usersSection" class="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10 transition">ผู้ใช้งาน</a>
@@ -95,7 +107,7 @@
   <div id="dashMessage" class="hidden rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90"></div>
 
   <!-- Metrics -->
-  <section id="metricsSection" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <section id="metricsSection" class="dash-anchor grid gap-4 md:grid-cols-2 xl:grid-cols-4">
     <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-800 p-4 shadow-lg">
       <p class="text-sm text-zinc-400">นิยายทั้งหมด</p>
       <p class="mt-2 text-3xl font-semibold text-white">{{ "{:,}".format(total_novels|int) }}</p>
@@ -122,7 +134,7 @@
   </section>
 
   <!-- Users -->
-  <section class="space-y-4" id="usersSection">
+  <section class="dash-anchor space-y-4" id="usersSection">
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-semibold text-white">การจัดการผู้ใช้</h2>
@@ -218,7 +230,7 @@
   </section>
 
   <!-- Categories -->
-  <section class="space-y-4" id="categoriesSection">
+  <section class="dash-anchor space-y-4" id="categoriesSection">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-semibold text-white">การจัดการหมวดหมู่</h2>
@@ -254,7 +266,7 @@
   </section>
 
   <!-- Novels & comments -->
-  <section class="space-y-4" id="novelsSection">
+  <section class="dash-anchor space-y-4" id="novelsSection">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
         <h2 class="text-xl font-semibold text-white">นิยายและความคิดเห็น</h2>
@@ -331,7 +343,7 @@
   </section>
 
   <!-- Charts -->
-  <section class="space-y-4" id="chartsSection">
+  <section class="dash-anchor space-y-4" id="chartsSection">
     <div>
       <h2 class="text-xl font-semibold text-white">สถิติเดือน {{ month_label }}</h2>
       <p class="text-sm text-zinc-500">แสดงข้อมูลเดือนปัจจุบันเท่านั้น ไม่สามารถดูย้อนหลังได้</p>
