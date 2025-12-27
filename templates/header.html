@@ -493,13 +493,17 @@
         .split(",")
         .map((x) => x.trim())
         .filter(Boolean);
-      const unreadCount = Number(target.dataset.unreadCount || ids.length || 1);
+      const unreadCount = target.dataset.unreadCount ? Number(target.dataset.unreadCount) : 0;
       if (!url) return;
       e.preventDefault();
       setItemReadState(target.closest("li"), true);
-      markRead(nid, ids, unreadCount).finally(() => {
+      if (unreadCount > 0) {
+        markRead(nid, ids, unreadCount).finally(() => {
+          window.location.href = url;
+        });
+      } else {
         window.location.href = url;
-      });
+      }
     });
 
     unreadToggle && unreadToggle.addEventListener("change", () => {

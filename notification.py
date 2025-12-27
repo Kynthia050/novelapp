@@ -131,11 +131,13 @@ def _hydrate_notification(row: dict) -> dict:
 def _group_notifications(rows):
     grouped = {}
     for r in rows:
+        read_bucket = 1 if r.get("is_read") else 0
         key = (
             (r.get("type") or "").strip().lower(),
             r.get("novel_id"),
             (r.get("message") or "").strip(),
             r.get("chapter_id"),
+            read_bucket,
         )
         g = grouped.setdefault(
             key,
