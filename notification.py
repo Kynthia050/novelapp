@@ -1,6 +1,7 @@
 ﻿from flask import render_template, request, jsonify, Blueprint, session, url_for
 from auth import roles_required
 from db import get_db_connection
+from slug_utils import novel_detail_url
 import math
 from datetime import datetime
 from typing import Optional
@@ -88,7 +89,7 @@ def _build_target_url(row: dict) -> Optional[str]:
             pass
 
     try:
-        detail_url = url_for("novel.detail", novels_id=novel_id)
+        detail_url = novel_detail_url(novel_id, row.get("novel_title"))
     except Exception:
         return None
 

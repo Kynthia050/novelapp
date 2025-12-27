@@ -491,7 +491,7 @@
             <article class="novel-card">
               <!-- ✅ ลิงก์ทับทั้งการ์ด (ไม่ซ้อนกับลิงก์ผู้เขียน) -->
               <a class="card-overlay"
-                 href="{{ url_for('novel.detail', novels_id=novel.novels_id) }}"
+                 href="{{ url_for('novel.detail', slug=slugify(novel.title), novels_id=novel.novels_id) }}"
                  aria-label="อ่าน {{ novel.title }}"></a>
 
               <div class="novel-cover-wrap">

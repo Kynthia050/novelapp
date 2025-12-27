@@ -356,7 +356,7 @@
             %}
 
             {# --- URL: ถ้าตอน = 0 ไปหน้า novel detail --- #}
-            {% set detail_url = (b.detail_url if b.detail_url is defined and b.detail_url else url_for('novel.detail', novels_id=b.novels_id)) %}
+            {% set detail_url = (b.detail_url if b.detail_url is defined and b.detail_url else url_for('novel.detail', slug=slugify(b.title), novels_id=b.novels_id)) %}
             {% set has_chapters = published_chapters|int > 0 %}
             {% set read_url = (b.read_url if b.read_url is defined and b.read_url and b.read_url != '#' else detail_url) %}
             {% set action_url = (read_url if has_chapters else detail_url) %}

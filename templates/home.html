@@ -553,7 +553,7 @@
               <article class="novel-card">
                 <!-- ✅ overlay link ไปหน้า detail (แทนการครอบทั้งการ์ดด้วย <a>) -->
                 <a class="card-overlay"
-                   href="{{ url_for('novel.detail', novels_id=n.novels_id) }}"
+                   href="{{ url_for('novel.detail', slug=slugify(n.title), novels_id=n.novels_id) }}"
                    aria-label="อ่าน {{ n.title }}"></a>
 
                 <div class="novel-cover-wrap">
@@ -750,7 +750,7 @@
             <article class="novel-card">
               <!-- ✅ overlay link ไปหน้า detail -->
               <a class="card-overlay"
-                 href="{{ url_for('novel.detail', novels_id=n.novels_id) }}"
+                 href="{{ url_for('novel.detail', slug=slugify(n.title), novels_id=n.novels_id) }}"
                  aria-label="อ่าน {{ n.title }}"></a>
 
               <div class="novel-cover-wrap">

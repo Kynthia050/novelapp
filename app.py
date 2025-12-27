@@ -25,6 +25,7 @@ from bookshelf import bookshelf_bp
 from comment import comment_bp
 from search import search_bp
 from dashboard import dashboard_bp
+from slug_utils import slugify_title
 import os
 from dotenv import load_dotenv
 
@@ -32,6 +33,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+
+
+@app.template_filter("slugify")
+def _slugify_filter(value):
+    return slugify_title(value)
 
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),

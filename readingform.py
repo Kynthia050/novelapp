@@ -7,6 +7,7 @@ from flask import (
 from werkzeug.exceptions import HTTPException
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection, active_user_where
+from slug_utils import novel_detail_url
 from html import unescape
 
 reading_bp = Blueprint("reading", __name__, template_folder="templates")
@@ -463,7 +464,7 @@ def read_chapter(novels_id: int, chapter_no: int):
                 next_url = f"{next_url}?reset=1"
 
             try:
-                back_url = url_for("novel.detail", novels_id=novels_id)
+                back_url = novel_detail_url(novels_id, row.get("novel_title"))
             except Exception:
                 back_url = "/"
 

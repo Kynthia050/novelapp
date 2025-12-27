@@ -8,6 +8,7 @@ from flask import (
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection, active_user_where
 from openai import OpenAI
+from slug_utils import slugify_title
 import os
 
 novel_bp = Blueprint("novel", __name__, template_folder="./templates")
@@ -311,9 +312,10 @@ def generate_comment_summary(base_summary, comments, novel_title: str = "") -> s
         return base_summary + "\n\n" + fallback if base_summary else fallback
 
 
-# ---------- route main: /novel/<novels_id> ----------
+# ---------- route main: /novel/<slug>-<novels_id> ----------
+@novel_bp.route("/novel/<slug>-<int:novels_id>", methods=["GET", "POST"])
 @novel_bp.route("/novel/<int:novels_id>", methods=["GET", "POST"])
-def detail(novels_id: int):
+def detail(novels_id: int, slug: str | None = None):
     is_ajax_comment = (
         request.method == "POST"
         and request.headers.get("X-Requested-With", "").lower() == "xmlhttprequest"
@@ -527,6 +529,14 @@ def detail(novels_id: int):
             novel = cur.fetchone()
             if not novel:
                 abort(404, description="ไม่พบนิยายที่ระบุ")
+
+            novel_slug = slugify_title(novel.get("title") or "")
+            novel["slug"] = novel_slug
+            if (not slug) or (slug != novel_slug):
+                query_args = request.args.to_dict(flat=True)
+                query_args.pop("slug", None)
+                query_args.pop("novels_id", None)
+                return redirect(url_for("novel.detail", novels_id=novels_id, slug=novel_slug, **query_args))
 
             novel["status"] = _normalize_status(novel.get("status"))
             novel["cover_url"] = _process_cover_url(novel.get("cover"))

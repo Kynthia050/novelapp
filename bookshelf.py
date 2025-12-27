@@ -6,6 +6,7 @@ from flask import (
 )
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection, active_user_where
+from slug_utils import novel_detail_url
 
 bookshelf_bp = Blueprint("bookshelf", __name__, template_folder="templates")
 
@@ -354,7 +355,7 @@ def bookshelf_index():
                 if has_published_chapter and chapter_no_for_read is not None
                 else "#"
             ),
-            "detail_url": url_for("novel.detail", novels_id=row["novels_id"]),
+            "detail_url": novel_detail_url(row["novels_id"], row.get("title")),
         }
 
         # ถ้า detail_url หาชื่อ endpoint ไม่เจอ ให้ fallback = read_url

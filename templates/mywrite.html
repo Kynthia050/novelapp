@@ -303,7 +303,7 @@
               data-id="{{ w.novels_id }}"
               data-status="{{ s }}"
               data-search="{{ (w.title or '') ~ ' ' ~ (w.category_name or '') }}"
-              data-copy="{{ url_for('novel.detail', novels_id=w.novels_id) }}"
+              data-copy="{{ w.detail_url }}"
               data-edit-url="{{ url_for('editnovel.edit_novel', novels_id=w.novels_id) }}"
             >
               <!-- left group -->
@@ -389,7 +389,7 @@
 
                   {# ✅ เพิ่ม data-side เพื่อให้ JS ปรับทิศทางได้ #}
                   <div class="moreMenu mw-menu absolute right-0 top-10 hidden min-w-44 rounded-xl p-2 z-20" data-side="br">
-                    <a class="menu-item" href="{{ url_for('novel.detail', novels_id=w.novels_id) }}" role="button">
+                    <a class="menu-item" href="{{ w.detail_url }}" role="button">
                       ดูผลงาน
                     </a>
                     <button class="menu-item" data-cmd="copy" type="button">คัดลอกลิงก์</button>

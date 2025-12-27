@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, abort, url_for, g, request, jsonif
 from werkzeug.exceptions import HTTPException
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection
+from slug_utils import novel_detail_url
 import os
 
 mywrite_bp = Blueprint('mywrite', __name__, template_folder='templates')
@@ -119,10 +120,10 @@ def inject_writer():
     return {"writer": _writer_ctx()}
 
 
-def _detail_url(novels_id: int) -> str:
+def _detail_url(novels_id: int, title: str | None = None) -> str:
     # ใช้กับ data-detail / data-copy
     try:
-        return url_for('novel.detail', novels_id=novels_id)
+        return novel_detail_url(novels_id, title)
     except Exception:
         return f'/novel/{novels_id}'
 
@@ -228,7 +229,7 @@ def mywrite_index():
                 "favorites": int(r.get("favorites_count") or 0),
                 "rating": float(r.get("rating_avg") or 0.0),
                 "edited_at": r.get("edited_at"),
-                "detail_url": _detail_url(nid),
+                "detail_url": _detail_url(nid, r.get("title")),
             })
 
         return render_template(

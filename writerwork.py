@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, abort, request, jsonify, session, 
 from werkzeug.exceptions import HTTPException
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection
+from slug_utils import novel_detail_url
 import os
 from datetime import datetime, timedelta
 
@@ -162,7 +163,7 @@ def writer_works(writer_id: int):
                 "writer_name": writer_out["username"],
                 "category_name": r.get("category_name"),
                 "owner_id": writer_id,  # เผื่อใช้ใน template
-                "detail_url": url_for("novel.detail", novels_id=r["novels_id"]),
+                "detail_url": novel_detail_url(r["novels_id"], r.get("title")),
             })
 
         return render_template(

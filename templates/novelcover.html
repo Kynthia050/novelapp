@@ -1501,7 +1501,7 @@
   <!-- Comments -->
   <section class="comments-wrap" id="commentsSection">
     <form class="comment-form" method="post"
-          action="{{ url_for('novel.detail', novels_id=novel.novels_id) }}">
+          action="{{ url_for('novel.detail', slug=novel.slug, novels_id=novel.novels_id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="comment_id" id="commentIdInput" value="">
       <textarea
