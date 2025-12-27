@@ -56,7 +56,7 @@
 
         {% set iconBtn = "w-9 h-9 rounded-full border border-white/10 bg-[var(--surface)] text-muted grid place-items-center hover:border-white/20 hover:text-textc transition shrink-0 header-icon" %}
 
-        <a href="{{ url_for('search.search_novels') }}" class="{{ iconBtn }} header-search-icon" aria-label="Search">
+        <a href="{{ url_for('search.search_novels') }}" class="{{ iconBtn }} header-search-icon sm:hidden" aria-label="Search">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               stroke-linecap="round"
