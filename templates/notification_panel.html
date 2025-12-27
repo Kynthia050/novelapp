@@ -6,7 +6,7 @@
      data-mark-read-url-template="{{ url_for('noti.mark_read', nid=0) }}"
      data-unread-url="{{ url_for('noti.unread_count') }}"
      data-max-items="100"
-     class="absolute right-0 top-full mt-2 w-[90vw] sm:w-[380px] hidden z-[60]
+     class="absolute right-0 top-full mt-2 w-[90vw] max-w-[calc(100vw-100px)] sm:w-[380px] hidden z-[60]
             rounded-2xl border border-white/10 bg-[var(--panel)] shadow-2xl">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
