@@ -244,8 +244,8 @@ def generate_comment_summary(base_summary, comments, novel_title: str = "") -> s
         text = str(c.get("content") or "").strip()
         if not text:
             continue
-        if len(text) > 400:
-            text = text[:400] + "..."
+        if len(text) > 500:
+            text = text[:500] + "..."
         comment_items.append(f"- {text}")
 
     if not comment_items and base_summary:
@@ -995,8 +995,9 @@ def comment_summary(novels_id: int):
                     last_cm_id = int(summary_row.get("last_cm_id") or 0)
                 except (TypeError, ValueError):
                     last_cm_id = 0
+                raw_dirty = summary_row.get("dirty")
                 try:
-                    dirty = int(summary_row.get("dirty") or 1)
+                    dirty = int(raw_dirty) if raw_dirty is not None else 1
                 except (TypeError, ValueError):
                     dirty = 1
 
