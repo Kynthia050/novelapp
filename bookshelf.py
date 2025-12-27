@@ -191,8 +191,28 @@ def bookshelf_index():
                 cur.execute(sql, (user_id, *active_params))
 
             elif tab == "rated":
-                # เรื่องที่ user เคยให้คะแนน (เอา updated_at ล่าสุดต่อเรื่อง)
+                # rated: novels the user has rated (use latest rating timestamp/id per novel)
                 # ✅ rated ไม่มี reading_history => จะอ่านต่อไปตอนเผยแพร่ตอนแรก
+                rating_cols = set()
+                try:
+                    cur.execute("DESCRIBE `ratings`")
+                    rating_cols = {r["Field"] for r in cur.fetchall()}
+                except Exception:
+                    rating_cols = set()
+
+                rating_time_col = None
+                for col in ("updated_at", "created_at", "ratings_id", "rating_id", "id"):
+                    if col in rating_cols:
+                        rating_time_col = col
+                        break
+
+                if rating_time_col:
+                    last_rated_select = f"MAX(`{rating_time_col}`) AS last_rated_at"
+                    rated_order_by = f"rr.last_rated_at {order_dir}, n.title"
+                else:
+                    last_rated_select = "NULL AS last_rated_at"
+                    rated_order_by = f"n.title {order_dir}"
+
                 sql = f"""
                 SELECT
                     rr.novels_id,
@@ -210,7 +230,7 @@ def bookshelf_index():
                     rr.last_rated_at AS last_read_at,
                     NULL AS last_chapter_no
                 FROM (
-                    SELECT novels_id, MAX(updated_at) AS last_rated_at
+                    SELECT novels_id, {last_rated_select}
                     FROM ratings
                     WHERE users_id = %s
                     GROUP BY novels_id
@@ -220,7 +240,7 @@ def bookshelf_index():
                 {category_join}
                 {rating_join}
                 WHERE {active_where}
-                ORDER BY rr.last_rated_at {order_dir}, n.title;
+                ORDER BY {rated_order_by};
                 """
                 cur.execute(sql, (user_id, *active_params))
 

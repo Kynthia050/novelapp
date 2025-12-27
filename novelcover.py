@@ -636,11 +636,24 @@ def detail(novels_id: int):
                     novel["rating_count"] = 0
 
                 if uid:
+                    rating_order_col = None
+                    try:
+                        cur.execute("DESCRIBE `ratings`")
+                        rating_cols = {r["Field"] for r in cur.fetchall()}
+                    except Exception:
+                        rating_cols = set()
+
+                    for col in ("updated_at", "created_at", "ratings_id", "rating_id", "id"):
+                        if col in rating_cols:
+                            rating_order_col = col
+                            break
+
+                    order_sql = f" ORDER BY `{rating_order_col}` DESC" if rating_order_col else ""
                     cur.execute(
-                        """
+                        f"""
                         SELECT rating
                         FROM ratings
-                        WHERE novels_id = %s AND users_id = %s
+                        WHERE novels_id = %s AND users_id = %s{order_sql}
                         LIMIT 1
                         """,
                         (novels_id, uid),
@@ -1096,46 +1109,23 @@ def rate(novels_id: int):
                 flash(msg, "error")
                 return redirect(url_for("novel.detail", novels_id=novels_id))
 
-            cur.execute(
-                """
-                SELECT rating
-                FROM ratings
-                WHERE novels_id = %s AND users_id = %s
-                LIMIT 1
-                """,
-                (novels_id, users_id),
-            )
-            row = cur.fetchone()
-
-            rating_inserted = False
             rating_id = None
+            insert_cols = ["users_id", "novels_id", "rating"]
+            insert_vals = [users_id, novels_id, rating]
+            if _has_column(cur, "ratings", "ratings_id") and not _is_auto_increment(cur, "ratings", "ratings_id"):
+                rating_id = _next_id(cur, "ratings", "ratings_id")
+                insert_cols.insert(0, "ratings_id")
+                insert_vals.insert(0, rating_id)
 
-            if row:
-                cur.execute(
-                    """
-                    UPDATE ratings
-                    SET rating = %s
-                    WHERE novels_id = %s AND users_id = %s
-                    """,
-                    (rating, novels_id, users_id),
-                )
-            else:
-                insert_cols = ["users_id", "novels_id", "rating"]
-                insert_vals = [users_id, novels_id, rating]
-                if _has_column(cur, "ratings", "ratings_id") and not _is_auto_increment(cur, "ratings", "ratings_id"):
-                    rating_id = _next_id(cur, "ratings", "ratings_id")
-                    insert_cols.insert(0, "ratings_id")
-                    insert_vals.insert(0, rating_id)
-
-                placeholders = ", ".join(["%s"] * len(insert_cols))
-                columns = ", ".join(insert_cols)
-                cur.execute(
-                    f"INSERT INTO ratings ({columns}) VALUES ({placeholders})",
-                    tuple(insert_vals),
-                )
-                rating_inserted = True
-                if rating_id is None:
-                    rating_id = getattr(cur, "lastrowid", None)
+            placeholders = ", ".join(["%s"] * len(insert_cols))
+            columns = ", ".join(insert_cols)
+            cur.execute(
+                f"INSERT INTO ratings ({columns}) VALUES ({placeholders})",
+                tuple(insert_vals),
+            )
+            rating_inserted = True
+            if rating_id is None:
+                rating_id = getattr(cur, "lastrowid", None)
 
             if rating_inserted and rating_id and _has_table(cur, "notifications"):
                 cur.execute("SELECT users_id, title FROM novels WHERE novels_id = %s", (novels_id,))
