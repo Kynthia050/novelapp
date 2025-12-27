@@ -209,11 +209,6 @@ def notifications_page():
 
     conn = get_db_connection()
     with conn.cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) AS cnt {base_select}", params)
-        total = cur.fetchone()["cnt"]
-        total_pages = max(math.ceil(total / page_size), 1)
-        offset = (page - 1) * page_size
-
         cur.execute(
             "SELECT COUNT(*) AS cnt FROM notifications WHERE users_id=%s AND is_read=0",
             (user_id,)
@@ -228,14 +223,19 @@ def notifications_page():
               au.username AS actor_username
             {base_select}
             ORDER BY n.created_at DESC
-            LIMIT %s OFFSET %s
-        """, params + [page_size, offset])
+        """, params)
         rows = cur.fetchall()
 
     for r in rows:
         r["type_label"] = TYPE_LABELS.get(r["type"], r["type"])
         r["type_icon"]  = TYPE_EMOJI.get(r["type"], "🔔")
-    rows = _group_notifications(rows)
+    grouped = _group_notifications(rows)
+    total = len(grouped)
+    total_pages = max(math.ceil(total / page_size), 1)
+    if page > total_pages:
+        page = total_pages
+    offset = (page - 1) * page_size
+    rows = grouped[offset: offset + page_size]
 
     context = dict(
         notifications=rows,
@@ -285,12 +285,6 @@ def notifications_list():
             where_sql += " AND n.is_read = 0"
 
         cur.execute(
-            f"SELECT COUNT(*) AS cnt FROM notifications n {where_sql}",
-            params
-        )
-        total = cur.fetchone()["cnt"]
-
-        cur.execute(
             "SELECT COUNT(*) AS cnt FROM notifications WHERE users_id=%s AND is_read=0",
             (uid,)
         )
@@ -309,9 +303,9 @@ def notifications_list():
             LEFT JOIN users au ON au.users_id = n.actor_user_id
             {where_sql}
             ORDER BY n.created_at DESC
-            LIMIT %s OFFSET %s
+            LIMIT %s
             """,
-            params + [limit, offset],
+            params + [MAX_PANEL_ITEMS],
         )
         rows_raw = cur.fetchall()
 
@@ -319,16 +313,16 @@ def notifications_list():
         r["type_label"] = TYPE_LABELS.get(r["type"], r["type"])
         r["type_icon"]  = TYPE_EMOJI.get(r["type"], "🔔")
 
-    rows = _group_notifications(rows_raw)
-
-    total_recent = min(int(total or 0), MAX_PANEL_ITEMS)
-    has_more = (offset + len(rows_raw)) < total_recent
+    grouped = _group_notifications(rows_raw)
+    rows = grouped[offset: offset + limit]
+    total_recent = len(grouped)
+    has_more = (offset + len(rows)) < total_recent
 
     return jsonify({
         "ok": True,
         "notifications": rows,
         "unread_count": unread_count,
-        "next_offset": offset + len(rows_raw),
+        "next_offset": offset + len(rows),
         "has_more": has_more,
         "max_items": MAX_PANEL_ITEMS
     })
