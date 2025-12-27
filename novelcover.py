@@ -275,7 +275,7 @@ def generate_comment_summary(base_summary, comments, novel_title: str = "") -> s
             "และนี่คือความคิดเห็นใหม่ที่เพิ่งเพิ่มเข้ามา:\n"
             f"{comments_block}\n\n"
             "โปรดสร้างสรุปฉบับอัปเดตที่รวมทั้งสรุปเดิมและความคิดเห็นใหม่ "
-            "ให้ตอบเป็นภาษาไทยเท่านั้น แบ่งบรรทัดให้อ่านง่าย"
+            "ให้ตอบเป็นภาษาไทยเท่านั้น"
         )
     else:
         user_prompt = (
@@ -283,7 +283,7 @@ def generate_comment_summary(base_summary, comments, novel_title: str = "") -> s
             "นี่คือความคิดเห็นจากผู้อ่านนิยายเรื่องนี้:\n"
             f"{comments_block}\n\n"
             "โปรดสรุปความคิดเห็นของผู้อ่านจากข้อความทั้งหมดด้านบน "
-            "ให้เป็นภาษาไทยสั้น ๆ แบ่งเป็นหลายบรรทัดอ่านง่าย"
+            "ให้เป็นข้อความภาษาไทยสั้น ๆ "
         )
 
     try:
@@ -991,7 +991,10 @@ def comment_summary(novels_id: int):
                 if base_summary and str(base_summary).strip().startswith(fallback_prefix):
                     base_summary = None
 
-            if base_summary and dirty == 0:
+            force_full = dirty == 1
+            summary_base = None if force_full else base_summary
+
+            if summary_base and dirty == 0:
                 return jsonify({"ok": True, "summary": base_summary, "from_cache": True})
 
             join_users = ""
@@ -1003,7 +1006,7 @@ def comment_summary(novels_id: int):
 
             where_parts = ["c.novels_id = %s"]
             params = [novels_id]
-            if base_summary and last_cm_id > 0:
+            if summary_base and last_cm_id > 0 and not force_full:
                 where_parts.append("c.cm_id > %s")
                 params.append(last_cm_id)
             if join_users and active_where:
@@ -1023,15 +1026,15 @@ def comment_summary(novels_id: int):
             )
             new_comments = cur.fetchall()
 
-            if not new_comments and base_summary:
+            if not new_comments and summary_base:
                 if has_summary_table:
                     cur.execute("UPDATE comment_summaries SET dirty = 0 WHERE novels_id = %s", (novels_id,))
                     conn.commit()
                 return jsonify({"ok": True, "summary": base_summary, "from_cache": True})
 
-            new_summary = generate_comment_summary(base_summary, new_comments, novel_title=novel_title)
+            new_summary = generate_comment_summary(summary_base, new_comments, novel_title=novel_title)
 
-            new_last_cm_id = last_cm_id
+            new_last_cm_id = 0 if force_full else last_cm_id
             for row in new_comments:
                 try:
                     cid = int(row.get("cm_id") or 0)
