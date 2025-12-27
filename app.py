@@ -39,6 +39,9 @@ app = Flask(__name__)
 def _slugify_filter(value):
     return slugify_title(value)
 
+
+app.jinja_env.globals["slugify"] = slugify_title
+
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
     api_key=os.environ.get("CLOUDINARY_API_KEY"),
