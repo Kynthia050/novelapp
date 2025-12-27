@@ -253,6 +253,12 @@
     cursor:pointer;
     font-size:clamp(12px, 3.2vw, 13px);
   }
+  #homeCategorySection .more-btn.is-active{
+    background:var(--accent);
+    border-color:transparent;
+    color:var(--accent-ink);
+    font-weight:800;
+  }
 
   /* sort dropdown (เหมือน search) */
   #homeCategorySection .sort-wrap{ margin-left:auto; }
@@ -691,7 +697,11 @@
       {% endfor %}
 
       {% if more_cates and more_cates|length > 0 %}
-        <button class="more-btn" type="button" data-open-modal="1">หมวดหมู่อื่น ๆ</button>
+        {% set selected_more_obj = none %}
+        {% if cate_id is not none and cate_id != 0 %}
+          {% set selected_more_obj = (more_cates | selectattr('cate_id', 'equalto', cate_id) | list | first) %}
+        {% endif %}
+        <button class="more-btn{% if selected_more_obj %} is-active{% endif %}" type="button" data-open-modal="1">{{ selected_more_obj.name if selected_more_obj else 'หมวดหมู่อื่น ๆ' }}</button>
       {% endif %}
     </div>
 
