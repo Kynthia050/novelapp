@@ -319,6 +319,14 @@ svg{
 @media (max-width: 640px){
   #flash-toast-stack{ left: 12px; right: 12px; max-width: none; width: auto; }
   .flash-toast{ width: 100%; min-width: 0; }
+  .header-bar{ flex-wrap: nowrap; }
+  .header-actions{ flex-wrap: nowrap; gap: var(--space-1); }
+  .header-search{
+    order: 0;
+    flex: 1 1 120px;
+    min-width: 0;
+    width: auto;
+  }
 }
 
 .header-logo{ height: 48px; }
