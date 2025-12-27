@@ -38,7 +38,7 @@
   .ww-card img{
     width:100%;
     height:auto;
-    max-height:220px;
+    max-height:800px;
   }
   @media(max-width:640px){
     .ww-page{
@@ -145,7 +145,7 @@
         {% for w in works %}
         <article class="group relative flex gap-4 rounded-xl border border-white/10 bg-neutral-900/70 p-3 md:p-4 hover:ring-1 hover:ring-white/20 transition cursor-pointer ww-card"
                  data-detail-url="{{ w.detail_url or url_for('novel.detail', novels_id=w.novels_id) }}">
-          <img class="w-[120px] h-[120px] rounded-lg object-cover bg-zinc-300" src="{{ w.cover }}" alt="cover"/>
+          <img class="cover-square w-[120px] h-[120px] rounded-lg object-cover bg-zinc-300" src="{{ w.cover }}" alt="cover"/>
           <div class="flex-1 min-w-0 text-base"
                data-novel-id="{{ w.novels_id }}"
                data-chapters="{{ w.chapters }}"

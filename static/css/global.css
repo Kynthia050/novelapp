@@ -255,6 +255,14 @@ svg{
   height: auto;
 }
 
+/* Cover images: keep 1:1 and cap at 800x800 when size is unconstrained. */
+.cover-square{
+  aspect-ratio: 1 / 1;
+  max-width: 800px;
+  max-height: 800px;
+  object-fit: cover;
+}
+
 .responsive-shell{
   width: 100%;
   max-width: var(--container-max);

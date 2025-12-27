@@ -558,9 +558,10 @@
 
                 <div class="novel-cover-wrap">
                   <img
-                  src="{{ cover_src }}"
+                    class="cover-square"
+                    src="{{ cover_src }}"
                     alt="{{ n.title }}"
-                  data-cover="{{ data_cover }}"
+                    data-cover="{{ data_cover }}"
                     data-try="0"
                     loading="lazy"
                     onerror="window.__coverFallback && window.__coverFallback(this)"
@@ -754,6 +755,7 @@
 
               <div class="novel-cover-wrap">
                 <img
+                  class="cover-square"
                   src="{{ cover_src2 }}"
                   alt="{{ n.title }}"
                   data-cover="{{ data_cover2 }}"

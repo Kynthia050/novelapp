@@ -30,13 +30,18 @@
 
   .novel-header{
     display:grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: minmax(0, 800px) minmax(0, 1fr);
     gap:32px;
     margin-bottom:16px;
   }
+  .cover-card{
+    width:min(800px, 100%);
+    aspect-ratio:1 / 1;
+  }
   .cover-image{
     width:100%;
-    aspect-ratio:6/6;
+    height:100%;
+    aspect-ratio:1 / 1;
     object-fit:cover;
     border-radius:var(--radius);
     box-shadow:var(--shadow);
@@ -69,7 +74,7 @@
   /* กริดหลัก: ปก + รายละเอียด */
   .novel-header{
     display:grid;
-    grid-template-columns:minmax(260px, 320px) minmax(0, 1fr);
+    grid-template-columns:minmax(0, 800px) minmax(0, 1fr);
     gap:32px;
     margin-bottom:32px;
     align-items:flex-start;
@@ -402,7 +407,7 @@
       gap:20px;
     }
     .cover-card{
-      max-width:320px;
+      width:min(800px, 100%);
       margin:0 auto;
     }
   }
@@ -1077,11 +1082,10 @@
       gap:20px;
     }
     .cover-card{
-      max-width:380px;
+      width:min(800px, 100%);
       margin-inline:auto;
-      width:100%;
     }
-    .cover-image{ aspect-ratio:3/4; }
+    .cover-image{ aspect-ratio:1 / 1; }
   }
   @media (max-width: 768px){
     .novel-actions{
