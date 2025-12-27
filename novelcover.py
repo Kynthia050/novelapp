@@ -994,9 +994,6 @@ def comment_summary(novels_id: int):
             force_full = dirty == 1
             summary_base = None if force_full else base_summary
 
-            if summary_base and dirty == 0:
-                return jsonify({"ok": True, "summary": base_summary, "from_cache": True})
-
             join_users = ""
             active_where = None
             active_params = []
