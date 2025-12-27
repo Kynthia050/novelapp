@@ -1846,7 +1846,7 @@
       if (!contentEl) return;
       contentEl.innerHTML = `
         <p>
-          กำลังสรุปความคิดเห็นจากผู้อ่าน กรุณารอสักครู่... ✨<br>
+          กำลังสรุปความคิดเห็นจากนักอ่าน กรุณารอสักครู่... ✨<br>
           (อาจใช้เวลาสักครู่ ขึ้นอยู่กับจำนวนความคิดเห็น)
         </p>
       `;
@@ -1874,23 +1874,8 @@
 
       const isFallback = raw.startsWith("ไม่สามารถติดต่อบริการสรุปด้วย AI ได้ในขณะนี้");
 
-      let noteHtml = "";
-      if (!isFallback) {
-        if (fromCache) {
-          noteHtml =
-            '<p style="font-size:clamp(11px, 3vw, 13px);opacity:.75;margin-top:8px;">' +
-            '(ใช้สรุปล่าสุดที่เคยสร้างไว้แล้ว)' +
-            "</p>";
-        } else {
-          noteHtml =
-            '<p style="font-size:clamp(11px, 3vw, 13px);opacity:.75;margin-top:8px;">' +
-            '(พึ่งสรุปจากความคิดเห็นล่าสุดในตอนนี้)' +
-            "</p>";
-        }
-      }
-
       contentEl.innerHTML =
-        "<p>" + safeSummary.replace(/\n/g, "<br>") + "</p>" + noteHtml;
+        "<p>" + safeSummary.replace(/\n/g, "<br>") + "</p>";
     }
 
     async function fetchSummary() {
