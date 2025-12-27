@@ -283,19 +283,19 @@ def generate_comment_summary(base_summary, comments, novel_title: str = "") -> s
     if base_summary:
         user_prompt = (
             f"{title_part}"
-            "????????????:\n"
-            "???????? (????????????):\n"
+            "ข้อมูลนำเข้า:\n"
+            "สรุปเดิม (ใช้เป็นบริบท):\n"
             f"{base_summary}\n\n"
-            "????????????:\n"
+            "คอมเมนต์ใหม่:\n"
             f"{comments_block}\n\n"
-            "?????????????????????????????? ?????????????????????????????????????????????"
+            "โปรดสรุปใหม่ให้เป็นภาพรวมเดียว โดยยึดกติกาห้ามสปอยล์และรูปแบบผลลัพธ์ที่กำหนด"
         )
     else:
         user_prompt = (
             f"{title_part}"
-            "???????????? (????????):\n"
+            "ข้อมูลนำเข้า (คอมเมนต์):\n"
             f"{comments_block}\n\n"
-            "??????????????????????????????????????????????????"
+            "โปรดสรุปตามกติกาห้ามสปอยล์และรูปแบบผลลัพธ์ที่กำหนด"
         )
 
     try:
@@ -1003,6 +1003,7 @@ def comment_summary(novels_id: int):
                 if base_summary and str(base_summary).strip().startswith(fallback_prefix):
                     base_summary = None
 
+            has_summary = bool(base_summary)
             force_full = dirty == 1
             summary_base = None if force_full else base_summary
 
@@ -1012,6 +1013,32 @@ def comment_summary(novels_id: int):
             if _has_table(cur, "users"):
                 join_users = "JOIN users u ON u.users_id = c.users_id"
                 active_where, active_params = active_user_where(cur, "u")
+
+            if has_summary and (not force_full) and last_cm_id <= 0:
+                where_parts = ["c.novels_id = %s"]
+                params = [novels_id]
+                if join_users and active_where:
+                    where_parts.append(active_where)
+                    params.extend(active_params)
+                where_sql = " AND ".join(where_parts)
+                cur.execute(
+                    f"""
+                    SELECT COALESCE(MAX(c.cm_id), 0) AS max_id
+                    FROM comments c
+                    {join_users}
+                    WHERE {where_sql}
+                    """,
+                    params,
+                )
+                max_row = cur.fetchone() or {}
+                latest_cm_id = int(max_row.get("max_id") or 0)
+                if has_summary_table and latest_cm_id > 0:
+                    cur.execute(
+                        "UPDATE comment_summaries SET last_cm_id = %s, dirty = 0 WHERE novels_id = %s",
+                        (latest_cm_id, novels_id),
+                    )
+                    conn.commit()
+                return jsonify({"ok": True, "summary": base_summary, "from_cache": True})
 
             where_parts = ["c.novels_id = %s"]
             params = [novels_id]
