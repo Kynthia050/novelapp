@@ -1271,13 +1271,30 @@ def rate(novels_id: int):
                         if novel_title:
                             message = f"นิยายของคุณได้รับการให้คะแนนใหม่: {novel_title}"
 
+                        notification_pk_col = "notification_id" if _has_column(cur, "notifications", "notification_id") else None
+                        notification_id = None
+                        if notification_pk_col and not _is_auto_increment(cur, "notifications", notification_pk_col):
+                            notification_id = _next_id(cur, "notifications", notification_pk_col)
+
+                        insert_cols = []
+                        insert_vals = []
+                        if notification_pk_col and notification_id is not None:
+                            insert_cols.append(notification_pk_col)
+                            insert_vals.append(notification_id)
+
+                        insert_cols.extend(
+                            ["users_id", "actor_user_id", "type", "novel_id", "reference_id", "message", "is_read"]
+                        )
+                        insert_vals.extend([author_id, users_id, "rating", novels_id, rating_id, message, 0])
+
+                        columns = ", ".join(insert_cols + ["created_at"])
+                        placeholders = ", ".join(["%s"] * len(insert_vals))
                         cur.execute(
-                            """
-                            INSERT INTO notifications (
-                              users_id, actor_user_id, type, novel_id, reference_id, message, is_read, created_at
-                            ) VALUES (%s, %s, 'rating', %s, %s, %s, 0, NOW())
+                            f"""
+                            INSERT INTO notifications ({columns})
+                            VALUES ({placeholders}, NOW())
                             """,
-                            (author_id, users_id, novels_id, rating_id, message),
+                            tuple(insert_vals),
                         )
 
             cur.execute(
