@@ -10,6 +10,9 @@
     border-radius: 16px;
     padding: 14px;
   }
+  .dash-action-btn{
+    font-size:12px;
+  }
   .review-chapter{
     border:1px solid rgba(255,255,255,.10);
     background:rgba(255,255,255,.04);
@@ -425,7 +428,7 @@
             <td class="px-4 py-3 dash-cell-actions" data-label="จัดการ">
               <button
                 type="button"
-                class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-xs text-white transition"
+                class="dash-action-btn rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-xs text-white transition"
                 data-action="open-comments"
                 data-url="{{ url_for('dashboard.novel_comments', novel_id=n.novels_id) }}"
                 data-title="{{ n.title }}"
@@ -434,7 +437,7 @@
               </button>
               <button
                 type="button"
-                class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-xs text-white transition"
+                class="dash-action-btn rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-xs text-white transition"
                 data-action="open-review"
                 data-url="{{ url_for('dashboard.novel_review', novel_id=n.novels_id) }}"
                 data-title="{{ n.title }}"
