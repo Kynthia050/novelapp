@@ -1074,22 +1074,22 @@
         const canClose = String(ch.status || "").toLowerCase() === "published";
         const timeText = ch.updated_at || ch.created_at || "";
         const flagHtml = isPending
-          ? '<div class="review-flag is-pending">???????????????????</div>'
-          : (isClosed ? '<div class="review-flag">??????????????????????? ???????????????????</div>' : "");
+          ? '<div class="review-flag is-pending">รอตรวจสอบการเผยแพร่</div>'
+          : (isClosed ? '<div class="review-flag">ถูกปิดการเผยแพร่จากระบบ กรุณาตรวจสอบเนื้อหา</div>' : "");
         const actionHtml = isPending
-          ? `<button type="button" class="review-action-btn is-primary" data-action="publish-chapter" data-url="${ch.publish_url}">???????</button>`
-          : `<button type="button" class="review-action-btn" data-action="close-chapter" data-url="${ch.close_url}" ${canClose ? "" : "disabled"}>${canClose ? "?????????????" : "???????"}</button>`;
+          ? `<button type="button" class="review-action-btn is-primary" data-action="publish-chapter" data-url="${ch.publish_url}">เผยแพร่</button>`
+          : `<button type="button" class="review-action-btn" data-action="close-chapter" data-url="${ch.close_url}" ${canClose ? "" : "disabled"}>${canClose ? "ปิดการเผยแพร่" : "ปิดแล้ว"}</button>`;
         card.innerHTML = `
           <div class="review-chapter-head">
             <div>
-              <div class="review-chapter-title">?????? ${ch.chapter_no || "-"}${ch.title ? `: ${ch.title}` : ""}</div>
-              <div class="review-meta">?????: ${statusText}${timeText ? ` ? ??????: ${timeText}` : ""}</div>
+              <div class="review-chapter-title">ตอนที่ ${ch.chapter_no || "-"}${ch.title ? `: ${ch.title}` : ""}</div>
+              <div class="review-meta">สถานะ: ${statusText}${timeText ? ` · อัปเดต: ${timeText}` : ""}</div>
               ${flagHtml}
             </div>
             ${actionHtml}
           </div>
           <details class="review-content">
-            <summary>?????????</summary>
+            <summary>ดูเนื้อหา</summary>
             <div class="review-content-body"></div>
           </details>
         `;
@@ -1107,11 +1107,11 @@
       try {
         const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
         const data = await res.json();
-        if (!data.ok) throw new Error(data.error || "โหลดข้อมูลไม่สำเร็จ");
+        if (!data.ok) throw new Error(data.error || "โหลดรายละเอียดไม่สำเร็จ");
         renderReview(data);
       } catch (err) {
         console.error(err);
-        list.innerHTML = `<div class="text-sm text-red-200">${err.message || "โหลดข้อมูลไม่สำเร็จ"}</div>`;
+        list.innerHTML = `<div class="text-sm text-red-200">${err.message || "โหลดรายละเอียดไม่สำเร็จ"}</div>`;
       }
     }
 
@@ -1143,12 +1143,12 @@
             body,
           });
           const data = await res.json();
-          if (!data.ok) throw new Error(data.error || "????????????????");
+          if (!data.ok) throw new Error(data.error || "เผยแพร่ไม่สำเร็จ");
           if (currentReviewUrl) loadReview(currentReviewUrl);
-          showMessage("????????????????????", "success");
+          showMessage("เผยแพร่เรียบร้อยแล้ว", "success");
         } catch (err) {
           console.error(err);
-          showMessage(err.message || "????????????????", "error");
+          showMessage(err.message || "เผยแพร่ไม่สำเร็จ", "error");
         }
         return;
       }
@@ -1166,12 +1166,12 @@
             body,
           });
           const data = await res.json();
-          if (!data.ok) throw new Error(data.error || "??????????????????????");
+          if (!data.ok) throw new Error(data.error || "ปิดการเผยแพร่ไม่สำเร็จ");
           if (currentReviewUrl) loadReview(currentReviewUrl);
-          showMessage("?????????????????", "success");
+          showMessage("ปิดการเผยแพร่แล้ว", "success");
         } catch (err) {
           console.error(err);
-          showMessage(err.message || "??????????????????????", "error");
+          showMessage(err.message || "ปิดการเผยแพร่ไม่สำเร็จ", "error");
         }
       }
     });

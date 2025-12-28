@@ -419,14 +419,14 @@ def update_chapter_status(novels_id, chapter_id):
         if wants_json:
             return jsonify({"ok": False, "error": "invalid status"}), 400
 
-        flash("???????????????", "error")
+        flash("สถานะไม่ถูกต้อง", "error")
         return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
     with closing(_conn_alive()) as conn:
         if new_status == "published" and not is_admin:
             reason = get_chapter_moderation_reason(conn, chapter_id)
             if reason in ("closed_by_admin", "pending_review"):
-                msg = "?????????????????????????????????? ??????????????????????"
+                msg = "ตอนนี้อยู่ระหว่างการตรวจสอบจากระบบ ยังไม่สามารถเผยแพร่ได้"
                 if wants_json:
                     return jsonify({"ok": False, "error": msg}), 403
                 flash(msg, "error")
@@ -472,7 +472,7 @@ def update_chapter_status(novels_id, chapter_id):
         return jsonify({"ok": True, "chapter_id": chapter_id, "status": new_status}), 200
 
     # ?o. fallback ?1??,s?,s?1??,"?,'?,? (?,??,??,"?,? JS ?,>?,'?,"): refresh + flash
-    flash("???????????????????????????", "success")
+    flash("อัปเดตสถานะตอนเรียบร้อยแล้ว", "success")
     return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
 
