@@ -396,8 +396,8 @@
   <!-- Charts -->
   <section class="dash-anchor space-y-4" id="chartsSection">
     <div>
-      <h2 class="text-xl font-semibold text-white">สถิติเดือน {{ month_label }}</h2>
-      <p class="text-sm text-zinc-500">แสดงข้อมูลเดือนปัจจุบันเท่านั้น ไม่สามารถดูย้อนหลังได้</p>
+      <h2 class="text-xl font-semibold text-white">สถิติเดือน <span data-role="chart-month-label">{{ month_label }}</span></h2>
+      <p class="text-sm text-zinc-500">เลือกเดือนเพื่อดูสถิติย้อนหลังได้</p>
     </div>
     <form method="get" class="flex flex-wrap items-center gap-2">
       <input type="hidden" name="user_q" value="{{ user_q }}">
@@ -407,17 +407,17 @@
       <input type="hidden" name="cate_id" value="{{ selected_cate_id or '' }}">
       <input
         type="month"
+        id="chartMonthInput"
         name="month"
         value="{{ month_label }}"
         class="rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
       />
-      <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">ดูเดือน</button>
     </form>
     <div class="grid gap-6 lg:grid-cols-2">
       <div class="chart-wrap">
         <div class="flex items-center justify-between text-sm text-zinc-300">
           <span>ผู้ใช้งานต่อวัน (Active Readers)</span>
-          <span class="text-xs text-zinc-400">{{ month_label }}</span>
+          <span class="text-xs text-zinc-400" data-role="chart-month-label">{{ month_label }}</span>
         </div>
         <div class="mt-3">
           <canvas id="activeChart" style="width:100%; height:220px;"></canvas>
@@ -426,7 +426,7 @@
       <div class="chart-wrap">
         <div class="flex items-center justify-between text-sm text-zinc-300">
           <span>นิยายเพิ่มต่อวัน</span>
-          <span class="text-xs text-zinc-400">{{ month_label }}</span>
+          <span class="text-xs text-zinc-400" data-role="chart-month-label">{{ month_label }}</span>
         </div>
         <div class="mt-3">
           <canvas id="novelChart" style="width:100%; height:220px;"></canvas>
@@ -475,9 +475,10 @@
 <script>
   const csrfToken = "{{ csrf_token() }}";
   const categoryCounts = JSON.parse('{{ category_counts_map|tojson }}');
-  const activeSeries = JSON.parse('{{ active_daily|tojson }}');
-  const novelSeries = JSON.parse('{{ novel_daily|tojson }}');
-  const monthMeta = JSON.parse('{{ month_meta|tojson }}');
+  let activeSeries = JSON.parse('{{ active_daily|tojson }}');
+  let novelSeries = JSON.parse('{{ novel_daily|tojson }}');
+  let monthMeta = JSON.parse('{{ month_meta|tojson }}');
+  let monthLabel = "{{ month_label }}";
 
   // Back to top button (dashboard only)
   (function () {
@@ -960,103 +961,172 @@
   })();
 
   // Charts - custom canvas (match writerwork style)
-  (function () {
-    const { year, month, days } = monthMeta || { year: new Date().getFullYear(), month: new Date().getMonth() + 1, days: 30 };
-    const pad = (n) => String(n).padStart(2, "0");
-    const labels = Array.from({ length: days }, (_, i) => `${year}-${pad(month)}-${pad(i + 1)}`);
-    const toSeries = (raw) => Object.fromEntries((raw || []).map((d) => [d.day, Number(d.count || 0)]));
+  const chartPad = (n) => String(n).padStart(2, "0");
+  const toSeries = (raw) => Object.fromEntries((raw || []).map((d) => [d.day, Number(d.count || 0)]));
 
+  function drawLine(canvas, labels, values, color) {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || 640;
+    const cssH = canvas.clientHeight || 220;
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const padding = { l: 34, r: 10, t: 14, b: 36 };
+    const W = cssW - padding.l - padding.r;
+    const H = cssH - padding.t - padding.b;
+
+    const maxV = Math.max(1, ...values);
+    const grid = "rgba(255,255,255,.08)";
+    const axis = "rgba(255,255,255,.18)";
+    const line = color || "rgba(255,255,255,.65)";
+    const dot = "#f0f0f0";
+    const text = "rgba(255,255,255,.70)";
+
+    ctx.strokeStyle = grid;
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 3; i++) {
+      const y = padding.t + (H * i) / 3;
+      ctx.beginPath();
+      ctx.moveTo(padding.l, y);
+      ctx.lineTo(padding.l + W, y);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = axis;
+    ctx.beginPath();
+    ctx.moveTo(padding.l, padding.t);
+    ctx.lineTo(padding.l, padding.t + H);
+    ctx.lineTo(padding.l + W, padding.t + H);
+    ctx.stroke();
+
+    ctx.fillStyle = text;
+    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    const yLabels = [maxV, Math.round(maxV / 2), 0];
+    yLabels.forEach((v, idx) => {
+      const y = padding.t + (H * idx) / 2;
+      ctx.fillText(new Intl.NumberFormat("th-TH").format(v), 6, y + 4);
+    });
+
+    const count = values.length || 1;
+    const gap = count > 1 ? W / (count - 1) : 0;
+
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const h = (v / maxV) * H;
+      const x = padding.l + i * gap;
+      const y = padding.t + (H - h);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    const step = Math.max(1, Math.ceil(count / 8));
+    values.forEach((v, i) => {
+      const h = (v / maxV) * H;
+      const x = padding.l + i * gap;
+      const y = padding.t + (H - h);
+
+      ctx.fillStyle = dot;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (i % step === 0 || i === count - 1) {
+        const label = labels[i]?.slice(-2) || "";
+        ctx.fillStyle = text;
+        ctx.textAlign = "center";
+        ctx.fillText(label, x, padding.t + H + 18);
+        ctx.textAlign = "start";
+      }
+    });
+  }
+
+  function renderCharts() {
+    const { year, month, days } = monthMeta || { year: new Date().getFullYear(), month: new Date().getMonth() + 1, days: 30 };
+    const labels = Array.from({ length: days }, (_, i) => `${year}-${chartPad(month)}-${chartPad(i + 1)}`);
     const activeMap = toSeries(activeSeries);
     const novelMap = toSeries(novelSeries);
-
     const activeData = labels.map((d) => activeMap[d] || 0);
     const novelData = labels.map((d) => novelMap[d] || 0);
 
-    function drawLine(canvas, labels, values, color) {
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      const dpr = window.devicePixelRatio || 1;
-      const cssW = canvas.clientWidth || 640;
-      const cssH = canvas.clientHeight || 220;
-      canvas.width = Math.floor(cssW * dpr);
-      canvas.height = Math.floor(cssH * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, cssW, cssH);
-
-      const padding = { l: 34, r: 10, t: 14, b: 36 };
-      const W = cssW - padding.l - padding.r;
-      const H = cssH - padding.t - padding.b;
-
-      const maxV = Math.max(1, ...values);
-      const grid = "rgba(255,255,255,.08)";
-      const axis = "rgba(255,255,255,.18)";
-      const line = color || "rgba(255,255,255,.65)";
-      const dot = "#f0f0f0";
-      const text = "rgba(255,255,255,.70)";
-
-      ctx.strokeStyle = grid;
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= 3; i++) {
-        const y = padding.t + (H * i) / 3;
-        ctx.beginPath();
-        ctx.moveTo(padding.l, y);
-        ctx.lineTo(padding.l + W, y);
-        ctx.stroke();
-      }
-
-      ctx.strokeStyle = axis;
-      ctx.beginPath();
-      ctx.moveTo(padding.l, padding.t);
-      ctx.lineTo(padding.l, padding.t + H);
-      ctx.lineTo(padding.l + W, padding.t + H);
-      ctx.stroke();
-
-      ctx.fillStyle = text;
-      ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      const yLabels = [maxV, Math.round(maxV / 2), 0];
-      yLabels.forEach((v, idx) => {
-        const y = padding.t + (H * idx) / 2;
-        ctx.fillText(new Intl.NumberFormat("th-TH").format(v), 6, y + 4);
-      });
-
-      const count = values.length || 1;
-      const gap = count > 1 ? W / (count - 1) : 0;
-
-      ctx.strokeStyle = line;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      values.forEach((v, i) => {
-        const h = (v / maxV) * H;
-        const x = padding.l + i * gap;
-        const y = padding.t + (H - h);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-
-      const step = Math.max(1, Math.ceil(count / 8));
-      values.forEach((v, i) => {
-        const h = (v / maxV) * H;
-        const x = padding.l + i * gap;
-        const y = padding.t + (H - h);
-
-        ctx.fillStyle = dot;
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (i % step === 0 || i === count - 1) {
-          const label = labels[i]?.slice(-2) || "";
-          ctx.fillStyle = text;
-          ctx.textAlign = "center";
-          ctx.fillText(label, x, padding.t + H + 18);
-          ctx.textAlign = "start";
-        }
-      });
-    }
-
     drawLine(document.getElementById("activeChart"), labels, activeData, "rgba(52,211,153,.8)");
     drawLine(document.getElementById("novelChart"), labels, novelData, "rgba(56,189,248,.8)");
+  }
+
+  renderCharts();
+
+  // Chart month picker (no full reload)
+  (function () {
+    const monthInput = document.getElementById("chartMonthInput");
+    if (!monthInput) return;
+    const chartSection = document.getElementById("chartsSection");
+    const form = monthInput.closest("form");
+
+    const setLoading = (state) => {
+      if (chartSection) chartSection.classList.toggle("opacity-60", state);
+      monthInput.disabled = state;
+    };
+
+    const syncMonthLabels = (label) => {
+      document.querySelectorAll("[data-role='chart-month-label']").forEach((el) => {
+        el.textContent = label;
+      });
+    };
+
+    const syncMonthInputs = (label) => {
+      document.querySelectorAll("input[name='month']").forEach((input) => {
+        input.value = label;
+      });
+    };
+
+    const updateUrl = (label) => {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("month", label);
+      history.replaceState({}, "", nextUrl);
+    };
+
+    const loadCharts = async (selected) => {
+      if (!selected) return;
+      setLoading(true);
+      try {
+        const url = new URL("{{ url_for('dashboard.charts_data') }}", window.location.origin);
+        url.searchParams.set("month", selected);
+        const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "โหลดข้อมูลกราฟไม่สำเร็จ");
+        activeSeries = data.active_daily || [];
+        novelSeries = data.novel_daily || [];
+        monthMeta = data.month_meta || monthMeta;
+        monthLabel = data.month_label || selected;
+        syncMonthLabels(monthLabel);
+        syncMonthInputs(monthLabel);
+        renderCharts();
+        updateUrl(monthLabel);
+      } catch (err) {
+        console.error(err);
+        showMessage(err.message || "โหลดข้อมูลกราฟไม่สำเร็จ", "error");
+        if (monthLabel) monthInput.value = monthLabel;
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    monthInput.addEventListener("change", () => {
+      const selected = (monthInput.value || "").trim();
+      loadCharts(selected);
+    });
+
+    form?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const selected = (monthInput.value || "").trim();
+      loadCharts(selected);
+    });
   })();
 </script>
 {% endblock %}

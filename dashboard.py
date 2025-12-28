@@ -350,6 +350,67 @@ def dashboard_index():
     )
 
 
+@dashboard_bp.route("/charts-data", methods=["GET"])
+@roles_required("admin", "superadmin")
+def charts_data():
+    month_str = (request.args.get("month") or "").strip()
+    month_start, month_end = _month_range(month_str=month_str)
+    days_in_month = calendar.monthrange(month_start.year, month_start.month)[1]
+    active_daily = []
+    novel_daily = []
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            try:
+                cur.execute(
+                    """
+                    SELECT DATE(last_read_at) AS day, COUNT(DISTINCT users_id) AS active_users
+                    FROM reading_history
+                    WHERE last_read_at >= %s AND last_read_at < %s
+                    GROUP BY DATE(last_read_at)
+                    ORDER BY day
+                    """,
+                    (month_start, month_end),
+                )
+                active_daily = [
+                    {"day": (row["day"].strftime("%Y-%m-%d") if row.get("day") else ""), "count": _safe_int(row.get("active_users"), 0)}
+                    for row in (cur.fetchall() or [])
+                ]
+            except Exception:
+                active_daily = []
+
+            try:
+                cur.execute(
+                    """
+                    SELECT DATE(created_at) AS day, COUNT(*) AS novels_added
+                    FROM novels
+                    WHERE created_at >= %s AND created_at < %s
+                    GROUP BY DATE(created_at)
+                    ORDER BY day
+                    """,
+                    (month_start, month_end),
+                )
+                novel_daily = [
+                    {"day": (row["day"].strftime("%Y-%m-%d") if row.get("day") else ""), "count": _safe_int(row.get("novels_added"), 0)}
+                    for row in (cur.fetchall() or [])
+                ]
+            except Exception:
+                novel_daily = []
+    finally:
+        conn.close()
+
+    return jsonify(
+        {
+            "ok": True,
+            "month_label": month_start.strftime("%Y-%m"),
+            "month_meta": {"year": month_start.year, "month": month_start.month, "days": days_in_month},
+            "active_daily": active_daily,
+            "novel_daily": novel_daily,
+        }
+    )
+
+
 # ---------------- actions ----------------
 @dashboard_bp.route("/users/<int:user_id>/toggle-active", methods=["POST"])
 @roles_required("admin", "superadmin")
