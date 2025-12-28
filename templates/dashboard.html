@@ -13,6 +13,9 @@
   #chartMonthInput{
     color-scheme: dark;
     padding-right: 44px;
+    width: 220px;
+    max-width: 100%;
+    flex: 0 0 auto;
     background-image: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27white%27%20stroke-width=%271.8%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Crect%20x=%273%27%20y=%274%27%20width=%2718%27%20height=%2718%27%20rx=%273%27/%3E%3Cline%20x1=%278%27%20y1=%272.5%27%20x2=%278%27%20y2=%276%27/%3E%3Cline%20x1=%2716%27%20y1=%272.5%27%20x2=%2716%27%20y2=%276%27/%3E%3Cline%20x1=%273%27%20y1=%2710%27%20x2=%2721%27%20y2=%2710%27/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 14px center;
@@ -1078,6 +1081,13 @@
     if (!monthInput) return;
     const chartSection = document.getElementById("chartsSection");
     const form = monthInput.closest("form");
+    const tryOpenPicker = () => {
+      try {
+        if (typeof monthInput.showPicker === "function") monthInput.showPicker();
+      } catch (err) {
+        console.warn(err);
+      }
+    };
 
     const setLoading = (state) => {
       if (chartSection) chartSection.classList.toggle("opacity-60", state);
@@ -1132,6 +1142,7 @@
       const selected = (monthInput.value || "").trim();
       loadCharts(selected);
     });
+    monthInput.addEventListener("click", tryOpenPicker);
 
     form?.addEventListener("submit", (e) => {
       e.preventDefault();
