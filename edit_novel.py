@@ -5,6 +5,7 @@ from flask import (
 )
 from contextlib import closing
 from pathlib import Path
+import json
 import MySQLdb  # สำหรับ conn.ping(True)
 
 from db import get_db_connection
@@ -107,6 +108,92 @@ def _local_cover_filename(raw: str | None) -> str | None:
     return s or None
 
 
+def _slugify(s: str) -> str:
+    s = (s or "").strip().lower()
+    s = " ".join(s.split())
+    s = s.replace("/", "-").replace("\\", "-")
+    s = s.replace(",", " ")
+    s = "-".join([p for p in s.split(" ") if p])
+    return (s[:100] or "tag")
+
+
+def _next_id(cur, table: str, pk: str) -> int:
+    cur.execute(f"SELECT COALESCE(MAX({pk}),0)+1 AS next_id FROM {table}")
+    row = dictfetchone(cur) or {}
+    return int(row.get("next_id") or 1)
+
+
+def _tag_find_or_create(cur, name: str) -> int:
+    name50 = (name or "").strip()[:50]
+    if not name50:
+        raise ValueError("empty tag")
+
+    cur.execute("SELECT tag_id FROM tags WHERE name=%s ORDER BY tag_id ASC LIMIT 1", (name50,))
+    row = dictfetchone(cur)
+    if row and row.get("tag_id") is not None:
+        return int(row["tag_id"])
+
+    slug = _slugify(name50)
+    try:
+        cur.execute("SELECT tag_id FROM tags WHERE slug=%s ORDER BY tag_id ASC LIMIT 1", (slug,))
+        row = dictfetchone(cur)
+        if row and row.get("tag_id") is not None:
+            return int(row["tag_id"])
+    except Exception:
+        pass
+
+    tag_id = _next_id(cur, "tags", "tag_id")
+    try:
+        cur.execute(
+            "INSERT INTO tags (tag_id, name, slug) VALUES (%s, %s, %s)",
+            (tag_id, name50, slug),
+        )
+    except Exception:
+        cur.execute(
+            "INSERT INTO tags (tag_id, name) VALUES (%s, %s)",
+            (tag_id, name50),
+        )
+
+    return int(tag_id)
+
+
+def _read_tags_from_request():
+    tags = None
+    content_type = (request.content_type or "").lower()
+    if content_type.startswith("application/json"):
+        data = request.get_json(silent=True) or {}
+        if "tags" in data:
+            tags = data.get("tags")
+    else:
+        if "tags" in request.form:
+            tags = request.form.get("tags")
+
+    if tags is None:
+        return None
+    if isinstance(tags, str):
+        try:
+            tags = json.loads(tags)
+        except Exception:
+            tags = []
+    if not isinstance(tags, list):
+        tags = []
+    return tags
+
+
+def _clean_tags(tags):
+    clean_tags = []
+    seen = set()
+    for t in (tags or []):
+        s = (t or "").strip()
+        if not s:
+            continue
+        key = s.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        clean_tags.append(s)
+    return clean_tags[:20]
+
 
 def _json_error(msg: str, code: int = 400):
     return jsonify({"error": msg}), code
@@ -180,6 +267,7 @@ def update_novel(novels_id):
     title = (request.form.get("title") or "").strip()
     description = (request.form.get("description") or "").strip()
     cate_id = request.form.get("cate_id")
+    tags = _read_tags_from_request()
 
     if not title or not cate_id:
         flash("กรุณากรอกชื่อเรื่องและหมวดหมู่", "error")
@@ -235,6 +323,58 @@ def update_novel(novels_id):
                     """,
                     (title, description or None, cate_id, novels_id),
                 )
+        if tags is not None:
+            clean_tags = _clean_tags(tags)
+            with conn.cursor() as cur:
+                tag_ids = []
+                for name in clean_tags:
+                    tag_id = _tag_find_or_create(cur, name)
+                    tag_ids.append(tag_id)
+
+                if tag_ids:
+                    placeholders = ", ".join(["%s"] * len(tag_ids))
+                    cur.execute(
+                        f"DELETE FROM novels_tags WHERE novels_id=%s AND tag_id NOT IN ({placeholders})",
+                        (novels_id, *tag_ids),
+                    )
+                else:
+                    cur.execute("DELETE FROM novels_tags WHERE novels_id=%s", (novels_id,))
+
+                use_nt_id = True
+                next_nt_id = None
+                try:
+                    next_nt_id = _next_id(cur, "novels_tags", "nt_id")
+                except Exception:
+                    use_nt_id = False
+
+                for tag_id in tag_ids:
+                    cur.execute(
+                        "SELECT 1 FROM novels_tags WHERE novels_id=%s AND tag_id=%s LIMIT 1",
+                        (novels_id, tag_id),
+                    )
+                    if dictfetchone(cur):
+                        continue
+
+                    if use_nt_id:
+                        nt_id = int(next_nt_id)
+                        next_nt_id += 1
+                        try:
+                            cur.execute(
+                                "INSERT INTO novels_tags (nt_id, novels_id, tag_id) VALUES (%s, %s, %s)",
+                                (nt_id, novels_id, tag_id),
+                            )
+                        except Exception:
+                            use_nt_id = False
+                            cur.execute(
+                                "INSERT INTO novels_tags (novels_id, tag_id) VALUES (%s, %s)",
+                                (novels_id, tag_id),
+                            )
+                    else:
+                        cur.execute(
+                            "INSERT INTO novels_tags (novels_id, tag_id) VALUES (%s, %s)",
+                            (novels_id, tag_id),
+                        )
+
         conn.commit()
 
         # ลบไฟล์ปกเก่าหลัง commit สำเร็จ (ถ้ามีและอัปโหลดใหม่จริง)

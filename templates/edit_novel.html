@@ -373,6 +373,9 @@
       enctype="multipart/form-data">
 
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="tags" id="tagsField"
+             value="{{ (tags or [])|map(attribute='name')|list|tojson|e }}"
+             data-initial-tags="{{ (tags or [])|map(attribute='name')|list|tojson|e }}">
 
       <!-- COVER + META -->
       <div class="grid md:grid-cols-[320px_1fr] gap-5 items-start">
@@ -705,9 +708,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const novelsId  = Number('{{ novel.novels_id }}');
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
     /* ==== DESCRIPTION: limit 1000 chars + counter ==== */
     const descField   = document.getElementById('descriptionField');
     const descCountEl = document.getElementById('descriptionCount');
@@ -729,21 +729,10 @@
       });
     }
 
-    /* ==== API routes (แท็ก/ตอน) ==== */
+    /* ==== TAGS (init) ==== */
     const tagList   = $('#tagList');
     const tagInput  = $('#tagInput');
     const addTagBtn = $('#addTagBtn');
-
-    const apiBaseNovel   = `/api/novels/${novelsId}`;
-    const apiBaseChapter = `/api/chapters`;
-
-    const routes = {
-      addTag:        `${apiBaseNovel}/tags`,
-      removeTag:     (tagId) => `${apiBaseNovel}/tags/${tagId}`,
-      createChapter: `${apiBaseNovel}/chapters`,
-      getChapter:    (id) => `${apiBaseChapter}/${id}`,
-      updateChapter: (id) => `${apiBaseChapter}/${id}`
-    };
 
     /* ==== COVER: เปิดไฟล์ + พรีวิว ==== */
     const coverUpload = document.getElementById('coverUpload');
@@ -776,64 +765,91 @@
     }
 
     /* ==== TAGS ==== */
-    addTagBtn?.addEventListener('click', async () => {
-      const name = (tagInput.value || '').trim();
-      if (!name) return;
-      try {
-        const res = await fetch(routes.addTag, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-          },
-          body: JSON.stringify({ name })
-        });
-        if (!res.ok) throw new Error();
-        const tag = await res.json(); // {tag_id, name}
-        tagInput.value = '';
-        appendTagChip(tag.tag_id, tag.name);
-      } catch {
-        alert('เพิ่มแท็กล้มเหลว');
-      }
-    });
-
-    tagList?.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-action="remove-tag"]');
-      if (!btn) return;
-      const chip = btn.closest('.chip');
-      const tagId = chip?.dataset.tagId;
-      if (!tagId) return;
-      try {
-        const res = await fetch(routes.removeTag(tagId), {
-          method: 'DELETE',
-          credentials: 'same-origin',
-          headers: {
-            'X-CSRFToken': csrfToken
-          }
-        });
-        if (!res.ok) throw new Error();
-        chip.remove();
-      } catch {
-        alert('ลบแท็กล้มเหลว');
-      }
-    });
-
-    function appendTagChip(tagId, name){
-      if (!tagList) return;
-      const span = document.createElement('span');
-      span.className = 'chip';
-      span.dataset.tagId = tagId;
-      span.dataset.tagName = name;
-      span.innerHTML =
-        `<svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60">
-           <path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/>
-         </svg>`+
-        `<span>${name}</span>`+
-        `<button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">×</button>`;
-      tagList.appendChild(span);
+    const tagsField = document.getElementById('tagsField');
+    const initialTagsRaw = tagsField?.dataset?.initialTags || '[]';
+    let initialTags = [];
+    let tags = [];
+    try {
+      initialTags = JSON.parse(initialTagsRaw);
+    } catch {
+      initialTags = [];
     }
 
+    function normalizeTag(t){
+      return (t || '').trim().replace(/\s+/g, ' ');
+    }
+    function hasTag(t){
+      const key = normalizeTag(t).toLowerCase();
+      return tags.some(x => x.toLowerCase() === key);
+    }
+    function chipHTML(name){
+      return `
+        <span class="chip" data-tag-name="${name.replace(/"/g,'&quot;')}">
+          <svg width="14" height="14" viewBox="0 0 24 24" class="opacity-60">
+            <path fill="#9ca3af" d="M12 2a10 10 0 1 0 10 10A10.012 10.012 0 0 0 12 2m3.707 12.293l-1.414 1.414L12 13.414l-2.293 2.293l-1.414-1.414L10.586 12L8.293 9.707l1.414-1.414L12 10.586l2.293-2.293l1.414 1.414L13.414 12z"/>
+          </svg>
+          <span>${name}</span>
+          <button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">&times;</button>
+        </span>
+      `;
+    }
+    function syncTagsField(){
+      if (!tagsField) return;
+      tagsField.value = JSON.stringify(tags.slice());
+    }
+    function renderTags(){
+      if (tagList) {
+        tagList.innerHTML = tags.map(t => chipHTML(t)).join('');
+      }
+      syncTagsField();
+    }
+    function addTag(raw){
+      const t = normalizeTag(raw);
+      if (!t) return;
+      if (tags.length >= 20) { alert('คุณใส่แท็กครบ 20 แล้ว'); return; }
+      if (hasTag(t)) return;
+      tags.push(t);
+      renderTags();
+    }
+    function commitTag(){
+      addTag(tagInput?.value);
+      if (tagInput) {
+        tagInput.value = '';
+        tagInput.focus();
+      }
+    }
+
+    addTagBtn?.addEventListener('click', commitTag);
+    tagInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitTag();
+      }
+    });
+    tagList?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action="remove-tag"]');
+      if (!btn) return;
+      const chip = btn.closest('.chip');
+      const name = chip?.dataset?.tagName || chip?.getAttribute('data-tag-name') || '';
+      const key  = String(name).toLowerCase();
+      tags = tags.filter(t => t.toLowerCase() !== key);
+      renderTags();
+    });
+
+    (function initTags(){
+      const list = Array.isArray(initialTags) ? initialTags : [];
+      const seen = new Set();
+      for (const t of list) {
+        const v = normalizeTag(t);
+        if (!v) continue;
+        const key = v.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        tags.push(v);
+        if (tags.length >= 20) break;
+      }
+      renderTags();
+    })();
     /* ==== CHAPTERS: Accordion + Sort ==== */
     const accordionEl = document.getElementById('chaptersAccordion');
     const sortToggle  = document.getElementById('chapterSortToggle');
