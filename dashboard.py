@@ -542,6 +542,31 @@ def close_chapter_admin(chapter_id: int):
     return jsonify({"ok": True, "chapter_id": chapter_id, "status": "draft"}), 200
 
 
+@dashboard_bp.route("/pending-counts", methods=["GET"])
+@roles_required("admin", "superadmin")
+def pending_review_counts():
+    ids_raw = (request.args.get("ids") or "").strip()
+    if not ids_raw:
+        return jsonify({"ok": True, "counts": {}})
+
+    ids = []
+    for part in ids_raw.split(","):
+        val = _safe_int(part.strip(), 0)
+        if val > 0:
+            ids.append(val)
+    if not ids:
+        return jsonify({"ok": True, "counts": {}})
+
+    ids = sorted(set(ids))
+    conn = get_db_connection()
+    try:
+        counts = fetch_pending_chapter_counts(conn, ids)
+    finally:
+        conn.close()
+
+    return jsonify({"ok": True, "counts": counts})
+
+
 @dashboard_bp.route("/chapters/<int:chapter_id>/publish", methods=["POST"])
 @roles_required("admin", "superadmin")
 def publish_chapter_admin(chapter_id: int):

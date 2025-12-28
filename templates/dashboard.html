@@ -467,10 +467,11 @@
                 data-action="open-review"
                 data-url="{{ url_for('dashboard.novel_review', novel_id=n.novels_id) }}"
                 data-title="{{ n.title }}"
+                data-novel-id="{{ n.novels_id }}"
               >
                 ตรวจสอบเนื้อหา
                 {% if n.pending_review_count %}
-                  <span class="pending-badge">รอตรวจสอบ {{ n.pending_review_count }}</span>
+                  <span class="pending-badge" data-role="pending-badge" data-count="{{ n.pending_review_count }}">รอตรวจสอบ {{ n.pending_review_count }}</span>
                 {% endif %}
               </button>
             </td>
@@ -1037,6 +1038,8 @@
     const titleEl = document.getElementById("reviewModalTitle");
     const metaEl = document.getElementById("reviewModalMeta");
     let currentReviewUrl = "";
+    let reviewTimer = null;
+    let isLoadingReview = false;
 
     const statusLabel = (status) => {
       const s = String(status || "").trim().toLowerCase();
@@ -1044,12 +1047,21 @@
       if (s === "draft") return "แบบร่าง";
       return status || "-";
     };
-
     function open() {
       if (modal) modal.classList.remove("hidden");
+      if (!reviewTimer) {
+        reviewTimer = setInterval(() => {
+          if (currentReviewUrl) loadReview(currentReviewUrl, { silent: true });
+        }, 7000);
+      }
     }
     function close() {
       if (modal) modal.classList.add("hidden");
+      if (reviewTimer) {
+        clearInterval(reviewTimer);
+        reviewTimer = null;
+      }
+      currentReviewUrl = "";
     }
     function renderReview(data) {
       if (!list) return;
@@ -1101,21 +1113,33 @@
       });
     }
 
-    async function loadReview(url) {
-      if (!list || !url) return;
-      list.innerHTML = '<div class="text-sm text-zinc-400">กำลังโหลด...</div>';
+    
+    
+    async function loadReview(url, opts = {}) {
+      if (!list || !url || isLoadingReview) return;
+      const silent = Boolean(opts && opts.silent);
+      const prevScroll = list ? list.scrollTop : 0;
+      isLoadingReview = true;
+      if (!silent) {
+        list.innerHTML = '<div class="text-sm text-zinc-400">กำลังโหลด...</div>';
+      }
       try {
         const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "โหลดรายละเอียดไม่สำเร็จ");
         renderReview(data);
+        if (silent && list) list.scrollTop = prevScroll;
       } catch (err) {
         console.error(err);
-        list.innerHTML = `<div class="text-sm text-red-200">${err.message || "โหลดรายละเอียดไม่สำเร็จ"}</div>`;
+        if (!silent) {
+          list.innerHTML = `<div class="text-sm text-red-200">${err.message || "โหลดรายละเอียดไม่สำเร็จ"}</div>`;
+        }
+      } finally {
+        isLoadingReview = false;
       }
     }
 
-    document.addEventListener("click", async (event) => {
+document.addEventListener("click", async (event) => {
       const closeBtn = event.target.closest("[data-action='close-review']");
       if (closeBtn) {
         close();
@@ -1146,6 +1170,7 @@
           if (!data.ok) throw new Error(data.error || "เผยแพร่ไม่สำเร็จ");
           if (currentReviewUrl) loadReview(currentReviewUrl);
           showMessage("เผยแพร่เรียบร้อยแล้ว", "success");
+          if (window.refreshPendingBadges) window.refreshPendingBadges();
         } catch (err) {
           console.error(err);
           showMessage(err.message || "เผยแพร่ไม่สำเร็จ", "error");
@@ -1169,6 +1194,7 @@
           if (!data.ok) throw new Error(data.error || "ปิดการเผยแพร่ไม่สำเร็จ");
           if (currentReviewUrl) loadReview(currentReviewUrl);
           showMessage("ปิดการเผยแพร่แล้ว", "success");
+          if (window.refreshPendingBadges) window.refreshPendingBadges();
         } catch (err) {
           console.error(err);
           showMessage(err.message || "ปิดการเผยแพร่ไม่สำเร็จ", "error");
@@ -1177,7 +1203,71 @@
     });
   })();
 
-  // Partial refresh for list sections (avoid full page reload on search/pagination)
+  
+  // Pending review counts (polling)
+  (function () {
+    const endpoint = "{{ url_for('dashboard.pending_review_counts') }}";
+    const intervalMs = 15000;
+    const label = "\u0e23\u0e2d\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a";
+    let isLoading = false;
+
+    const collectIds = () => {
+      const ids = [];
+      document.querySelectorAll("[data-action='open-review'][data-novel-id]").forEach((btn) => {
+        const id = btn.dataset.novelId;
+        if (id) ids.push(id);
+      });
+      return Array.from(new Set(ids));
+    };
+
+    const updateBadges = (counts) => {
+      document.querySelectorAll("[data-action='open-review'][data-novel-id]").forEach((btn) => {
+        const id = btn.dataset.novelId;
+        const count = Number((counts || {})[id] || 0);
+        let badge = btn.querySelector("[data-role='pending-badge']");
+        if (count > 0) {
+          if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "pending-badge";
+            badge.dataset.role = "pending-badge";
+            btn.appendChild(badge);
+          }
+          badge.dataset.count = String(count);
+          badge.textContent = `${label} ${count}`;
+        } else if (badge) {
+          badge.remove();
+        }
+      });
+    };
+
+    async function refreshPending() {
+      if (isLoading || document.hidden) return;
+      const ids = collectIds();
+      if (!ids.length) return;
+      isLoading = true;
+      try {
+        const url = new URL(endpoint, window.location.origin);
+        url.searchParams.set("ids", ids.join(","));
+        const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
+        const data = await res.json();
+        if (!data.ok) return;
+        updateBadges(data.counts || {});
+      } catch (err) {
+        console.error(err);
+      } finally {
+        isLoading = false;
+      }
+    }
+
+    window.refreshPendingBadges = refreshPending;
+    refreshPending();
+    setInterval(refreshPending, intervalMs);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) refreshPending();
+    });
+  })();
+
+// Partial refresh for list sections (avoid full page reload on search/pagination)
   (function () {
     const parser = new DOMParser();
 
