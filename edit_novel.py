@@ -1,7 +1,7 @@
 from __future__ import annotations
 from flask import (
     Blueprint, render_template, request, redirect,
-    url_for, jsonify, abort, current_app, flash
+    url_for, jsonify, abort, current_app, flash, session
 )
 from contextlib import closing
 from pathlib import Path
@@ -10,7 +10,13 @@ import MySQLdb  # สำหรับ conn.ping(True)
 
 from db import get_db_connection
 from media_storage import upload_image_file
-from moderation_utils import clear_chapter_closed, clear_novel_closed, fetch_closed_chapter_ids
+from moderation_utils import (
+    clear_chapter_closed,
+    clear_novel_closed,
+    fetch_chapter_moderation_map,
+    get_chapter_moderation_reason,
+    mark_chapter_pending_review,
+)
 
 # ---------- CONFIG ----------
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -248,12 +254,14 @@ def edit_novel(novels_id):
             )
             chapters = dictfetchall(cur)
 
-            closed_ids = fetch_closed_chapter_ids(conn, novels_id)
-            if closed_ids:
-                closed_set = set(closed_ids)
+            moderation_map = fetch_chapter_moderation_map(conn, novels_id)
+            if moderation_map:
                 for ch in chapters:
-                    ch["admin_closed"] = ch.get("chapters_id") in closed_set
+                    reason = moderation_map.get(ch.get("chapters_id")) or ""
+                    ch["admin_closed"] = reason == "closed_by_admin"
+                    ch["admin_pending"] = reason == "pending_review"
 
+    is_admin = session.get("role") in ("admin", "superadmin")
     return render_template(
         "edit_novel.html",
         novel={**novel, "cover_url": cover_url},
@@ -261,6 +269,7 @@ def edit_novel(novels_id):
         tags=tags,
         all_tags=all_tags,
         chapters=chapters,
+        is_admin=is_admin,
     )
 
 
@@ -401,17 +410,28 @@ def update_novel(novels_id):
 
 @editnovel_bp.post("/<int:novels_id>/chapters/<int:chapter_id>/status")
 def update_chapter_status(novels_id, chapter_id):
-    """อัปเดต status ของตอน (draft / published) จากหน้า edit_novel"""
+    """Update chapter status."""
     new_status = (request.form.get("status") or "").strip()
+    wants_json = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    is_admin = session.get("role") in ("admin", "superadmin")
     if new_status not in ("draft", "published"):
-        # ถ้าเป็น AJAX ให้คืน JSON
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        # ?,-?1%?,??1??,>?1??,T AJAX ?1??,??1%?,,?,??,T JSON
+        if wants_json:
             return jsonify({"ok": False, "error": "invalid status"}), 400
 
-        flash("สถานะไม่ถูกต้อง", "error")
+        flash("???????????????", "error")
         return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
     with closing(_conn_alive()) as conn:
+        if new_status == "published" and not is_admin:
+            reason = get_chapter_moderation_reason(conn, chapter_id)
+            if reason in ("closed_by_admin", "pending_review"):
+                msg = "?????????????????????????????????? ??????????????????????"
+                if wants_json:
+                    return jsonify({"ok": False, "error": msg}), 403
+                flash(msg, "error")
+                return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
+
         with conn.cursor() as cur:
             try:
                 cur.execute("DESCRIBE chapters")
@@ -440,20 +460,19 @@ def update_chapter_status(novels_id, chapter_id):
                     """,
                     (new_status, chapter_id, novels_id),
                 )
+        if new_status == "published":
+            try:
+                clear_chapter_closed(conn, chapter_id)
+            except Exception:
+                pass
         conn.commit()
 
-    if new_status == "published":
-        try:
-            clear_chapter_closed(conn, chapter_id)
-        except Exception:
-            pass
-
-    # ✅ ถ้าเป็น AJAX: คืน JSON เพื่อไม่ต้อง refresh
-    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+    # ?o. ?,-?1%?,??1??,>?1??,T AJAX: ?,,?,??,T JSON ?1??,z?,??1^?,-?1,?,??1^?,?1%?,-?,? refresh
+    if wants_json:
         return jsonify({"ok": True, "chapter_id": chapter_id, "status": new_status}), 200
 
-    # ✅ fallback แบบเดิม (กรณี JS ปิด): refresh + flash
-    flash("อัปเดตสถานะตอนเรียบร้อยแล้ว", "success")
+    # ?o. fallback ?1??,s?,s?1??,"?,'?,? (?,??,??,"?,? JS ?,>?,'?,"): refresh + flash
+    flash("???????????????????????????", "success")
     return redirect(url_for("editnovel.edit_novel", novels_id=novels_id))
 
 
@@ -680,10 +699,11 @@ def update_chapter(chapter_id):
     with closing(_conn_alive()) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT chapters_id FROM chapters WHERE chapters_id=%s",
+                "SELECT chapters_id, novels_id FROM chapters WHERE chapters_id=%s",
                 (chapter_id,),
             )
-            if not dictfetchone(cur):
+            row = dictfetchone(cur)
+            if not row:
                 return _json_error("not found", 404)
 
             # แก้ไข title / content พร้อมบังคับกลับเป็น draft
@@ -697,6 +717,10 @@ def update_chapter(chapter_id):
                 """,
                 (title, content_html, chapter_id),
             )
+            try:
+                mark_chapter_pending_review(conn, chapter_id, row.get("novels_id"))
+            except Exception:
+                pass
         conn.commit()
 
     return jsonify({"ok": True}), 200

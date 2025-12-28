@@ -11,6 +11,7 @@ import MySQLdb  # สำหรับ conn.ping(True) ถ้าใช้ MySQLdb 
 from db import get_db_connection
 from auth import roles_required
 from media_storage import upload_image_file
+from moderation_utils import mark_chapter_pending_review
 
 # ---------- CONFIG ----------
 CHAPTER_IMAGE_SUBDIR = "chapter_images"  # Cloudinary folder for chapter images
@@ -276,6 +277,10 @@ def save_chapter():
                     """,
                     (chapter_no, title or None, content_html or None, chapter_id),
                 )
+                try:
+                    mark_chapter_pending_review(conn, chapter_id, novels_id)
+                except Exception:
+                    pass
 
             else:
                 if chapter_no < 1:

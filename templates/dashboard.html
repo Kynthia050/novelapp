@@ -34,6 +34,11 @@
     color:#fecaca;
     font-size:12px;
   }
+  .review-flag.is-pending{
+    border-color:rgba(251,191,36,.5);
+    background:rgba(251,191,36,.16);
+    color:#fef3c7;
+  }
   .review-content{
     margin-top:10px;
     border:1px solid rgba(255,255,255,.08);
@@ -58,8 +63,29 @@
     font-size:12px;
     transition:background .15s ease, border-color .15s ease;
   }
+  .review-action-btn.is-primary{
+    border-color:rgba(34,197,94,.4);
+    background:rgba(34,197,94,.2);
+    color:#dcfce7;
+  }
+  .review-action-btn.is-primary:hover{
+    background:rgba(34,197,94,.28);
+    border-color:rgba(34,197,94,.55);
+  }
   .review-action-btn:hover{ background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.24); }
   .review-action-btn[disabled]{ opacity:.45; cursor:not-allowed; box-shadow:none; }
+  .pending-badge{
+    margin-left:6px;
+    display:inline-flex;
+    align-items:center;
+    padding:2px 8px;
+    border-radius:999px;
+    border:1px solid rgba(251,191,36,.45);
+    background:rgba(251,191,36,.12);
+    color:#fef3c7;
+    font-size:11px;
+    line-height:1;
+  }
   #chartMonthInput{
     color-scheme: dark;
     padding-right: 44px;
@@ -443,6 +469,9 @@
                 data-title="{{ n.title }}"
               >
                 ตรวจสอบเนื้อหา
+                {% if n.pending_review_count %}
+                  <span class="pending-badge">รอตรวจสอบ {{ n.pending_review_count }}</span>
+                {% endif %}
               </button>
             </td>
           </tr>
@@ -1041,27 +1070,26 @@
         card.className = "review-chapter";
         const statusText = statusLabel(ch.status);
         const isClosed = Boolean(ch.is_closed);
+        const isPending = Boolean(ch.is_pending);
         const canClose = String(ch.status || "").toLowerCase() === "published";
         const timeText = ch.updated_at || ch.created_at || "";
+        const flagHtml = isPending
+          ? '<div class="review-flag is-pending">???????????????????</div>'
+          : (isClosed ? '<div class="review-flag">??????????????????????? ???????????????????</div>' : "");
+        const actionHtml = isPending
+          ? `<button type="button" class="review-action-btn is-primary" data-action="publish-chapter" data-url="${ch.publish_url}">???????</button>`
+          : `<button type="button" class="review-action-btn" data-action="close-chapter" data-url="${ch.close_url}" ${canClose ? "" : "disabled"}>${canClose ? "?????????????" : "???????"}</button>`;
         card.innerHTML = `
           <div class="review-chapter-head">
             <div>
-              <div class="review-chapter-title">ตอนที่ ${ch.chapter_no || "-"}${ch.title ? `: ${ch.title}` : ""}</div>
-              <div class="review-meta">สถานะ: ${statusText}${timeText ? ` · อัปเดต: ${timeText}` : ""}</div>
-              ${isClosed ? '<div class="review-flag">ถูกปิดการเผยแพร่จากระบบ กรุณาตรวจสอบเนื้อหา</div>' : ""}
+              <div class="review-chapter-title">?????? ${ch.chapter_no || "-"}${ch.title ? `: ${ch.title}` : ""}</div>
+              <div class="review-meta">?????: ${statusText}${timeText ? ` ? ??????: ${timeText}` : ""}</div>
+              ${flagHtml}
             </div>
-            <button
-              type="button"
-              class="review-action-btn"
-              data-action="close-chapter"
-              data-url="${ch.close_url}"
-              ${canClose ? "" : "disabled"}
-            >
-              ${canClose ? "ปิดการเผยแพร่" : "แบบร่าง"}
-            </button>
+            ${actionHtml}
           </div>
           <details class="review-content">
-            <summary>ดูเนื้อหา</summary>
+            <summary>?????????</summary>
             <div class="review-content-body"></div>
           </details>
         `;
@@ -1102,6 +1130,28 @@
         loadReview(currentReviewUrl);
         return;
       }
+      const publishChapterBtn = event.target.closest("[data-action='publish-chapter']");
+      if (publishChapterBtn) {
+        event.preventDefault();
+        const url = publishChapterBtn.dataset.url;
+        if (!url) return;
+        try {
+          const body = new URLSearchParams({ csrf_token: csrfToken });
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+            body,
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || "????????????????");
+          if (currentReviewUrl) loadReview(currentReviewUrl);
+          showMessage("????????????????????", "success");
+        } catch (err) {
+          console.error(err);
+          showMessage(err.message || "????????????????", "error");
+        }
+        return;
+      }
 
       const closeChapterBtn = event.target.closest("[data-action='close-chapter']");
       if (closeChapterBtn) {
@@ -1116,12 +1166,12 @@
             body,
           });
           const data = await res.json();
-          if (!data.ok) throw new Error(data.error || "ปิดการเผยแพร่ไม่สำเร็จ");
+          if (!data.ok) throw new Error(data.error || "??????????????????????");
           if (currentReviewUrl) loadReview(currentReviewUrl);
-          showMessage("ปิดการเผยแพร่เรียบร้อย", "success");
+          showMessage("?????????????????", "success");
         } catch (err) {
           console.error(err);
-          showMessage(err.message || "ปิดการเผยแพร่ไม่สำเร็จ", "error");
+          showMessage(err.message || "??????????????????????", "error");
         }
       }
     });

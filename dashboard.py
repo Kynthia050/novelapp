@@ -12,7 +12,13 @@ from werkzeug.security import generate_password_hash
 
 from auth import roles_required
 from db import get_db_connection
-from moderation_utils import ensure_chapter_moderation_table, fetch_closed_chapter_ids, mark_chapter_closed
+from moderation_utils import (
+    clear_chapter_closed,
+    ensure_chapter_moderation_table,
+    fetch_chapter_moderation_map,
+    fetch_pending_chapter_counts,
+    mark_chapter_closed,
+)
 
 
 dashboard_bp = Blueprint("dashboard", __name__, template_folder="templates")
@@ -274,6 +280,14 @@ def dashboard_index():
 
             for n in novels:
                 n["created_at_display"] = _fmt_dt(n.get("created_at"))
+            try:
+                pending_counts = fetch_pending_chapter_counts(
+                    conn, [n.get("novels_id") for n in novels]
+                )
+            except Exception:
+                pending_counts = {}
+            for n in novels:
+                n["pending_review_count"] = _safe_int(pending_counts.get(n.get("novels_id")), 0)
 
             # --- charts ---
             try:
@@ -443,14 +457,16 @@ def novel_review(novel_id: int):
             )
             chapters = cur.fetchall() or []
 
-        closed_ids = fetch_closed_chapter_ids(conn, novel_id)
+        moderation_map = fetch_chapter_moderation_map(conn, novel_id)
     finally:
         conn.close()
 
-    closed_set = set(closed_ids)
     payload = []
     for ch in chapters:
         ch_id = ch.get("chapters_id")
+        reason = (moderation_map or {}).get(ch_id) or ""
+        is_closed = reason == "closed_by_admin"
+        is_pending = reason == "pending_review"
         payload.append(
             {
                 "chapters_id": ch_id,
@@ -460,8 +476,10 @@ def novel_review(novel_id: int):
                 "content_html": ch.get("content_html") or "",
                 "created_at": _fmt_dt(ch.get("created_at")),
                 "updated_at": _fmt_dt(ch.get("updated_at")),
-                "is_closed": bool(ch_id in closed_set),
+                "is_closed": is_closed,
+                "is_pending": is_pending,
                 "close_url": url_for("dashboard.close_chapter_admin", chapter_id=ch_id),
+                "publish_url": url_for("dashboard.publish_chapter_admin", chapter_id=ch_id),
             }
         )
 
@@ -522,6 +540,46 @@ def close_chapter_admin(chapter_id: int):
         conn.close()
 
     return jsonify({"ok": True, "chapter_id": chapter_id, "status": "draft"}), 200
+
+
+@dashboard_bp.route("/chapters/<int:chapter_id>/publish", methods=["POST"])
+@roles_required("admin", "superadmin")
+def publish_chapter_admin(chapter_id: int):
+    conn = get_db_connection()
+    try:
+        ensure_chapter_moderation_table(conn)
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("SHOW COLUMNS FROM chapters LIKE 'updated_at'")
+            has_updated = bool(cur.fetchone())
+
+            cur.execute("SELECT chapters_id FROM chapters WHERE chapters_id = %s", (chapter_id,))
+            if not cur.fetchone():
+                return jsonify({"ok": False, "error": "not_found"}), 404
+
+            if has_updated:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET status = 'published',
+                           updated_at = NOW()
+                     WHERE chapters_id = %s
+                    """,
+                    (chapter_id,),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET status = 'published'
+                     WHERE chapters_id = %s
+                    """,
+                    (chapter_id,),
+                )
+            clear_chapter_closed(conn, chapter_id)
+    finally:
+        conn.close()
+
+    return jsonify({"ok": True, "chapter_id": chapter_id, "status": "published"}), 200
 
 
 # ---------------- actions ----------------

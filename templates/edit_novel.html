@@ -572,6 +572,7 @@
                               </span>
 
                               <div class="chapter-actions">
+                                {% set lock_publish = (not is_admin) and (ch.admin_closed or ch.admin_pending) %}
                                 <!-- ปุ่มเลือกสถานะ -->
                                 <div class="status-select-wrapper">
                                   <select
@@ -583,7 +584,8 @@
                                       แบบร่าง
                                     </option>
                                     <option value="published"
-                                            {% if ch.status == 'published' %}selected{% endif %}>
+                                            {% if ch.status == 'published' %}selected{% endif %}
+                                            {% if lock_publish %}disabled{% endif %}>
                                       เผยแพร่
                                     </option>
                                   </select>
