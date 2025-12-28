@@ -465,7 +465,6 @@
       <section class="panel p-4 md:p-5 mt-5">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-semibold tracking-wide">แท็กของเรื่องนี้</h2>
-          <div class="text-sm text-[var(--muted)]">เพิ่ม/ลบได้อิสระ</div>
         </div>
 
         <div id="tagList" class="flex flex-wrap gap-2 mb-4">
@@ -766,7 +765,7 @@
 
     /* ==== TAGS ==== */
     const tagsField = document.getElementById('tagsField');
-    const initialTagsRaw = tagsField?.dataset?.initialTags || '[]';
+    const initialTagsRaw = tagsField?.dataset?.initialTags || tagsField?.value || '[]';
     let initialTags = [];
     let tags = [];
     try {
@@ -792,6 +791,12 @@
           <button type="button" class="ml-1" aria-label="remove" data-action="remove-tag">&times;</button>
         </span>
       `;
+    }
+    function collectTagsFromDom(){
+      if (!tagList) return [];
+      return Array.from(tagList.querySelectorAll('.chip'))
+        .map((chip) => chip?.dataset?.tagName || chip?.getAttribute('data-tag-name') || '')
+        .filter(Boolean);
     }
     function syncTagsField(){
       if (!tagsField) return;
@@ -837,7 +842,10 @@
     });
 
     (function initTags(){
-      const list = Array.isArray(initialTags) ? initialTags : [];
+      let list = Array.isArray(initialTags) ? initialTags : [];
+      if (!list.length) {
+        list = collectTagsFromDom();
+      }
       const seen = new Set();
       for (const t of list) {
         const v = normalizeTag(t);
