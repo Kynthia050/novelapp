@@ -200,6 +200,7 @@
         <input type="hidden" name="novel_q" value="{{ novel_q }}">
         <input type="hidden" name="novel_page" value="{{ novels_page }}">
         <input type="hidden" name="cate_id" value="{{ selected_cate_id or '' }}">
+        <input type="hidden" name="month" value="{{ month_label }}">
         <button type="submit" class="w-full sm:w-auto rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-3 py-2 text-sm text-white transition">ค้นหา</button>
       </form>
     </div>
@@ -268,11 +269,11 @@
           {% set next_user_page = users_page+1 %}
           <a class="page-link{% if users_page <= 1 %} is-disabled{% endif %}"
              data-partial-target="usersSection"
-             href="{{ url_for('dashboard.dashboard_index', user_page=prev_user_page, novel_page=novels_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
+             href="{{ url_for('dashboard.dashboard_index', user_page=prev_user_page, novel_page=novels_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id, month=month_label) }}">ก่อนหน้า</a>
           <span class="text-sm text-white">{{ 'หน้า ' ~ users_page ~ ' / ' ~ (users_total_pages or 1) }}</span>
           <a class="page-link{% if users_total_pages == 0 or users_page >= users_total_pages %} is-disabled{% endif %}"
              data-partial-target="usersSection"
-             href="{{ url_for('dashboard.dashboard_index', user_page=next_user_page, novel_page=novels_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ถัดไป</a>
+             href="{{ url_for('dashboard.dashboard_index', user_page=next_user_page, novel_page=novels_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id, month=month_label) }}">ถัดไป</a>
         </nav>
       </div>
     </div>
@@ -333,6 +334,7 @@
         <input type="hidden" name="user_page" value="{{ users_page }}">
         <input type="hidden" name="novel_page" value="1">
         <input type="hidden" name="cate_id" value="{{ selected_cate_id or '' }}">
+        <input type="hidden" name="month" value="{{ month_label }}">
         <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">ค้นหา</button>
       </form>
     </div>
@@ -381,11 +383,11 @@
           {% set next_novel_page = novels_page+1 %}
           <a class="page-link{% if novels_page <= 1 %} is-disabled{% endif %}"
              data-partial-target="novelsSection"
-             href="{{ url_for('dashboard.dashboard_index', novel_page=prev_novel_page, user_page=users_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ก่อนหน้า</a>
+             href="{{ url_for('dashboard.dashboard_index', novel_page=prev_novel_page, user_page=users_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id, month=month_label) }}">ก่อนหน้า</a>
           <span class="text-sm text-white">{{ 'หน้า ' ~ novels_page ~ ' / ' ~ (novels_total_pages or 1) }}</span>
           <a class="page-link{% if novels_total_pages == 0 or novels_page >= novels_total_pages %} is-disabled{% endif %}"
              data-partial-target="novelsSection"
-             href="{{ url_for('dashboard.dashboard_index', novel_page=next_novel_page, user_page=users_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id) }}">ถัดไป</a>
+             href="{{ url_for('dashboard.dashboard_index', novel_page=next_novel_page, user_page=users_page, user_q=user_q, novel_q=novel_q, cate_id=selected_cate_id, month=month_label) }}">ถัดไป</a>
         </nav>
       </div>
     </div>
@@ -397,6 +399,20 @@
       <h2 class="text-xl font-semibold text-white">สถิติเดือน {{ month_label }}</h2>
       <p class="text-sm text-zinc-500">แสดงข้อมูลเดือนปัจจุบันเท่านั้น ไม่สามารถดูย้อนหลังได้</p>
     </div>
+    <form method="get" class="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="user_q" value="{{ user_q }}">
+      <input type="hidden" name="novel_q" value="{{ novel_q }}">
+      <input type="hidden" name="user_page" value="{{ users_page }}">
+      <input type="hidden" name="novel_page" value="{{ novels_page }}">
+      <input type="hidden" name="cate_id" value="{{ selected_cate_id or '' }}">
+      <input
+        type="month"
+        name="month"
+        value="{{ month_label }}"
+        class="rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+      />
+      <button type="submit" class="rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2 text-sm text-white transition">ดูเดือน</button>
+    </form>
     <div class="grid gap-6 lg:grid-cols-2">
       <div class="chart-wrap">
         <div class="flex items-center justify-between text-sm text-zinc-300">

@@ -18,7 +18,19 @@ dashboard_bp = Blueprint("dashboard", __name__, template_folder="templates")
 
 
 # ---------------- helpers ----------------
-def _month_range(now: datetime | None = None) -> Tuple[datetime, datetime]:
+def _month_range(month_str: str | None = None, now: datetime | None = None) -> Tuple[datetime, datetime]:
+    if month_str:
+        match = re.match(r"^(\d{4})-(\d{2})$", month_str.strip())
+        if match:
+            year = _safe_int(match.group(1), 0)
+            month = _safe_int(match.group(2), 0)
+            if 1 <= month <= 12 and year > 0:
+                start = datetime(year, month, 1)
+                if month == 12:
+                    end = datetime(year + 1, 1, 1)
+                else:
+                    end = datetime(year, month + 1, 1)
+                return start, end
     now = now or datetime.now()
     start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if start.month == 12:
@@ -85,7 +97,8 @@ def dashboard_index():
     users_per_page = 15
     novels_per_page = 15
 
-    month_start, month_end = _month_range()
+    month_str = (request.args.get("month") or "").strip()
+    month_start, month_end = _month_range(month_str=month_str)
     month_label = month_start.strftime("%Y-%m")
     days_in_month = calendar.monthrange(month_start.year, month_start.month)[1]
 
