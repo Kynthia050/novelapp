@@ -129,6 +129,7 @@ def dashboard_index():
 
     conn = get_db_connection()
     try:
+        moderation_ready = ensure_chapter_moderation_table(conn)
         active_marker, inactive_marker = _get_active_enum_values(conn)
         with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
             # --- headline metrics ---
@@ -260,6 +261,10 @@ def dashboard_index():
                         c.name AS category_name,
                         u.username AS author_name,
                         COALESCE(cm.cm_count, 0) AS comment_count
+                """
+                if moderation_ready:
+                    novel_sql += ", COALESCE(pm.pending_count, 0) AS pending_review_count"
+                novel_sql += """
                     FROM novels n
                     LEFT JOIN categories c ON c.cate_id = n.cate_id
                     LEFT JOIN users u ON u.users_id = n.users_id
@@ -269,8 +274,28 @@ def dashboard_index():
                         GROUP BY novels_id
                     ) cm ON cm.novels_id = n.novels_id
                 """
+                if moderation_ready:
+                    novel_sql += """
+                    LEFT JOIN (
+                        SELECT
+                            novels_id,
+                            SUM(CASE WHEN reason = 'pending_review' THEN 1 ELSE 0 END) AS pending_count,
+                            MAX(CASE WHEN reason = 'pending_review' THEN closed_at ELSE NULL END) AS pending_at
+                        FROM chapter_moderation
+                        GROUP BY novels_id
+                    ) pm ON pm.novels_id = n.novels_id
+                    """
                 novel_sql += novel_where_sql
-                novel_sql += " ORDER BY n.created_at DESC LIMIT %s OFFSET %s"
+                if moderation_ready:
+                    novel_sql += """
+                    ORDER BY
+                        CASE WHEN COALESCE(pm.pending_count, 0) > 0 THEN 0 ELSE 1 END,
+                        COALESCE(pm.pending_at, n.created_at) DESC,
+                        n.created_at DESC
+                    """
+                else:
+                    novel_sql += " ORDER BY n.created_at DESC"
+                novel_sql += " LIMIT %s OFFSET %s"
                 novel_params_with_page = list(novel_params)
                 novel_params_with_page.extend([novels_per_page, novels_offset])
                 cur.execute(novel_sql, novel_params_with_page)
@@ -280,14 +305,8 @@ def dashboard_index():
 
             for n in novels:
                 n["created_at_display"] = _fmt_dt(n.get("created_at"))
-            try:
-                pending_counts = fetch_pending_chapter_counts(
-                    conn, [n.get("novels_id") for n in novels]
-                )
-            except Exception:
-                pending_counts = {}
             for n in novels:
-                n["pending_review_count"] = _safe_int(pending_counts.get(n.get("novels_id")), 0)
+                n["pending_review_count"] = _safe_int(n.get("pending_review_count"), 0)
 
             # --- charts ---
             try:
