@@ -118,6 +118,17 @@
       align-items:center;
       gap:.5rem;
     }
+    .chapter-flag{
+      display:inline-flex;
+      align-items:center;
+      margin-top:4px;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(248,113,113,.4);
+      background:rgba(248,113,113,.12);
+      color:#fecaca;
+      font-size:12px;
+    }
 
     /* ซ่อนสามเหลี่ยม dropdown ของ datalist ในช่องแท็ก */
     #tagInput::-webkit-calendar-picker-indicator{
@@ -551,6 +562,9 @@
                               <span class="chapter-label">ตอนที่ {{ ch.chapter_no }}</span>
                               <span class="chapter-title">{{ ch.title }}</span>
                             </a>
+                            {% if ch.admin_closed %}
+                              <div class="chapter-flag">ถูกปิดการเผยแพร่จากระบบ กรุณาตรวจสอบเนื้อหา</div>
+                            {% endif %}
 
                             <div class="chapter-meta">
                               <span class="hidden sm:inline">

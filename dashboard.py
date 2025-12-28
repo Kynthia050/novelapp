@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash
 
 from auth import roles_required
 from db import get_db_connection
+from moderation_utils import ensure_chapter_moderation_table, fetch_closed_chapter_ids, mark_chapter_closed
 
 
 dashboard_bp = Blueprint("dashboard", __name__, template_folder="templates")
@@ -409,6 +410,118 @@ def charts_data():
             "novel_daily": novel_daily,
         }
     )
+
+
+@dashboard_bp.route("/novels/<int:novel_id>/review", methods=["GET"])
+@roles_required("admin", "superadmin")
+def novel_review(novel_id: int):
+    conn = get_db_connection()
+    try:
+        ensure_chapter_moderation_table(conn)
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT n.novels_id, n.title, u.username AS author_name
+                  FROM novels n
+                  LEFT JOIN users u ON u.users_id = n.users_id
+                 WHERE n.novels_id = %s
+                """,
+                (novel_id,),
+            )
+            novel = cur.fetchone()
+            if not novel:
+                return jsonify({"ok": False, "error": "not_found"}), 404
+
+            cur.execute(
+                """
+                SELECT chapters_id, chapter_no, title, status, content_html, created_at, updated_at
+                  FROM chapters
+                 WHERE novels_id = %s
+                 ORDER BY chapter_no ASC
+                """,
+                (novel_id,),
+            )
+            chapters = cur.fetchall() or []
+
+        closed_ids = fetch_closed_chapter_ids(conn, novel_id)
+    finally:
+        conn.close()
+
+    closed_set = set(closed_ids)
+    payload = []
+    for ch in chapters:
+        ch_id = ch.get("chapters_id")
+        payload.append(
+            {
+                "chapters_id": ch_id,
+                "chapter_no": ch.get("chapter_no"),
+                "title": ch.get("title") or "",
+                "status": ch.get("status") or "",
+                "content_html": ch.get("content_html") or "",
+                "created_at": _fmt_dt(ch.get("created_at")),
+                "updated_at": _fmt_dt(ch.get("updated_at")),
+                "is_closed": bool(ch_id in closed_set),
+                "close_url": url_for("dashboard.close_chapter_admin", chapter_id=ch_id),
+            }
+        )
+
+    return jsonify(
+        {
+            "ok": True,
+            "novel": {
+                "novels_id": novel.get("novels_id"),
+                "title": novel.get("title") or "",
+                "author_name": novel.get("author_name") or "",
+            },
+            "chapters": payload,
+        }
+    )
+
+
+@dashboard_bp.route("/chapters/<int:chapter_id>/close", methods=["POST"])
+@roles_required("admin", "superadmin")
+def close_chapter_admin(chapter_id: int):
+    acting_id = _safe_int(session.get("user_id") or session.get("users_id") or session.get("uid"), None)
+    conn = get_db_connection()
+    try:
+        ensure_chapter_moderation_table(conn)
+        with conn.cursor(MySQLdb.cursors.DictCursor) as cur:
+            cur.execute("SHOW COLUMNS FROM chapters LIKE 'updated_at'")
+            has_updated = bool(cur.fetchone())
+
+            cur.execute(
+                "SELECT chapters_id, novels_id, status FROM chapters WHERE chapters_id = %s",
+                (chapter_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return jsonify({"ok": False, "error": "not_found"}), 404
+
+            if has_updated:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET status = 'draft',
+                           updated_at = NOW()
+                     WHERE chapters_id = %s
+                    """,
+                    (chapter_id,),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE chapters
+                       SET status = 'draft'
+                     WHERE chapters_id = %s
+                    """,
+                    (chapter_id,),
+                )
+
+            mark_chapter_closed(conn, chapter_id, row.get("novels_id"), acting_id, reason="closed_by_admin")
+    finally:
+        conn.close()
+
+    return jsonify({"ok": True, "chapter_id": chapter_id, "status": "draft"}), 200
 
 
 # ---------------- actions ----------------

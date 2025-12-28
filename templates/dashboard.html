@@ -10,6 +10,53 @@
     border-radius: 16px;
     padding: 14px;
   }
+  .review-chapter{
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.04);
+    border-radius:12px;
+    padding:12px;
+  }
+  .review-chapter + .review-chapter{ margin-top:10px; }
+  .review-chapter-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .review-chapter-title{ font-weight:600; color:#fff; }
+  .review-meta{ font-size:12px; color:rgba(255,255,255,.6); }
+  .review-flag{
+    margin-top:6px;
+    display:inline-flex;
+    align-items:center;
+    padding:2px 8px;
+    border-radius:999px;
+    border:1px solid rgba(248,113,113,.4);
+    background:rgba(248,113,113,.12);
+    color:#fecaca;
+    font-size:12px;
+  }
+  .review-content{
+    margin-top:10px;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:10px;
+    background:rgba(0,0,0,.2);
+    padding:10px;
+  }
+  .review-content summary{
+    cursor:pointer;
+    font-size:12px;
+    color:rgba(255,255,255,.7);
+    list-style:none;
+  }
+  .review-content summary::-webkit-details-marker{ display:none; }
+  .review-content-body{ margin-top:8px; font-size:13px; color:rgba(255,255,255,.85); line-height:1.6; }
+  .review-action-btn{
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.08);
+    color:#fff;
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:12px;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .review-action-btn:hover{ background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.24); }
+  .review-action-btn[disabled]{ opacity:.45; cursor:not-allowed; box-shadow:none; }
   #chartMonthInput{
     color-scheme: dark;
     padding-right: 44px;
@@ -385,6 +432,15 @@
               >
                 ดู / จัดการความคิดเห็น
               </button>
+              <button
+                type="button"
+                class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition"
+                data-action="open-review"
+                data-url="{{ url_for('dashboard.novel_review', novel_id=n.novels_id) }}"
+                data-title="{{ n.title }}"
+              >
+                ตรวจสอบเนื้อหา
+              </button>
             </td>
           </tr>
           {% endfor %}
@@ -483,6 +539,24 @@
     <div class="border-t border-white/10 px-4 py-3">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-white/80" id="commentPagination"></div>
     </div>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div id="reviewModal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/70" data-action="close-review"></div>
+  <div class="popup-card relative mx-auto mt-10 w-[95%] max-w-4xl rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl">
+    <div class="flex flex-col gap-3 border-b border-white/10 px-4 py-3">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm text-zinc-400">ตรวจสอบเนื้อหา</p>
+          <h3 class="text-lg font-semibold text-white" id="reviewModalTitle">รายละเอียดนิยาย</h3>
+          <div class="text-xs text-zinc-500" id="reviewModalMeta"></div>
+        </div>
+        <button type="button" class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white hover:bg-white/10" data-action="close-review">ปิด</button>
+      </div>
+    </div>
+    <div class="popup-body max-h-[60vh] overflow-y-auto p-4 space-y-3" id="reviewChapterList"></div>
   </div>
 </div>
 
@@ -919,6 +993,132 @@
         } catch (err) {
           console.error(err);
           showMessage(err.message || "เกิดข้อผิดพลาด", "error");
+        }
+      }
+    });
+  })();
+
+  // Review modal (admin)
+  (function () {
+    const modal = document.getElementById("reviewModal");
+    const list = document.getElementById("reviewChapterList");
+    const titleEl = document.getElementById("reviewModalTitle");
+    const metaEl = document.getElementById("reviewModalMeta");
+    let currentReviewUrl = "";
+
+    const statusLabel = (status) => {
+      const s = String(status || "").trim().toLowerCase();
+      if (s === "published") return "เผยแพร่";
+      if (s === "draft") return "แบบร่าง";
+      return status || "-";
+    };
+
+    function open() {
+      if (modal) modal.classList.remove("hidden");
+    }
+    function close() {
+      if (modal) modal.classList.add("hidden");
+    }
+    function renderReview(data) {
+      if (!list) return;
+      const novel = data.novel || {};
+      const chapters = data.chapters || [];
+      if (titleEl) titleEl.textContent = novel.title || "รายละเอียดนิยาย";
+      if (metaEl) {
+        const author = novel.author_name ? `ผู้เขียน: ${novel.author_name}` : "";
+        metaEl.textContent = author;
+      }
+      list.innerHTML = "";
+      if (!chapters.length) {
+        list.innerHTML = '<div class="text-sm text-zinc-400">ยังไม่มีตอน</div>';
+        return;
+      }
+      chapters.forEach((ch) => {
+        const card = document.createElement("div");
+        card.className = "review-chapter";
+        const statusText = statusLabel(ch.status);
+        const isClosed = Boolean(ch.is_closed);
+        const canClose = String(ch.status || "").toLowerCase() === "published";
+        const timeText = ch.updated_at || ch.created_at || "";
+        card.innerHTML = `
+          <div class="review-chapter-head">
+            <div>
+              <div class="review-chapter-title">ตอนที่ ${ch.chapter_no || "-"}${ch.title ? `: ${ch.title}` : ""}</div>
+              <div class="review-meta">สถานะ: ${statusText}${timeText ? ` · อัปเดต: ${timeText}` : ""}</div>
+              ${isClosed ? '<div class="review-flag">ถูกปิดการเผยแพร่จากระบบ กรุณาตรวจสอบเนื้อหา</div>' : ""}
+            </div>
+            <button
+              type="button"
+              class="review-action-btn"
+              data-action="close-chapter"
+              data-url="${ch.close_url}"
+              ${canClose ? "" : "disabled"}
+            >
+              ${canClose ? "ปิดการเผยแพร่" : "แบบร่าง"}
+            </button>
+          </div>
+          <details class="review-content">
+            <summary>ดูเนื้อหา</summary>
+            <div class="review-content-body"></div>
+          </details>
+        `;
+        const body = card.querySelector(".review-content-body");
+        if (body) {
+          body.innerHTML = ch.content_html ? ch.content_html : "<div class='text-xs text-zinc-400'>ไม่มีเนื้อหา</div>";
+        }
+        list.appendChild(card);
+      });
+    }
+
+    async function loadReview(url) {
+      if (!list || !url) return;
+      list.innerHTML = '<div class="text-sm text-zinc-400">กำลังโหลด...</div>';
+      try {
+        const res = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "โหลดข้อมูลไม่สำเร็จ");
+        renderReview(data);
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = `<div class="text-sm text-red-200">${err.message || "โหลดข้อมูลไม่สำเร็จ"}</div>`;
+      }
+    }
+
+    document.addEventListener("click", async (event) => {
+      const closeBtn = event.target.closest("[data-action='close-review']");
+      if (closeBtn) {
+        close();
+        return;
+      }
+
+      const openBtn = event.target.closest("[data-action='open-review']");
+      if (openBtn) {
+        const url = openBtn.dataset.url;
+        currentReviewUrl = url || "";
+        open();
+        loadReview(currentReviewUrl);
+        return;
+      }
+
+      const closeChapterBtn = event.target.closest("[data-action='close-chapter']");
+      if (closeChapterBtn) {
+        event.preventDefault();
+        const url = closeChapterBtn.dataset.url;
+        if (!url) return;
+        try {
+          const body = new URLSearchParams({ csrf_token: csrfToken });
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+            body,
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || "ปิดการเผยแพร่ไม่สำเร็จ");
+          if (currentReviewUrl) loadReview(currentReviewUrl);
+          showMessage("ปิดการเผยแพร่เรียบร้อย", "success");
+        } catch (err) {
+          console.error(err);
+          showMessage(err.message || "ปิดการเผยแพร่ไม่สำเร็จ", "error");
         }
       }
     });

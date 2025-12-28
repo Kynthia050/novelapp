@@ -10,6 +10,7 @@ import MySQLdb  # สำหรับ conn.ping(True)
 
 from db import get_db_connection
 from media_storage import upload_image_file
+from moderation_utils import clear_chapter_closed, clear_novel_closed, fetch_closed_chapter_ids
 
 # ---------- CONFIG ----------
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -247,6 +248,12 @@ def edit_novel(novels_id):
             )
             chapters = dictfetchall(cur)
 
+            closed_ids = fetch_closed_chapter_ids(conn, novels_id)
+            if closed_ids:
+                closed_set = set(closed_ids)
+                for ch in chapters:
+                    ch["admin_closed"] = ch.get("chapters_id") in closed_set
+
     return render_template(
         "edit_novel.html",
         novel={**novel, "cover_url": cover_url},
@@ -435,6 +442,12 @@ def update_chapter_status(novels_id, chapter_id):
                 )
         conn.commit()
 
+    if new_status == "published":
+        try:
+            clear_chapter_closed(conn, chapter_id)
+        except Exception:
+            pass
+
     # ✅ ถ้าเป็น AJAX: คืน JSON เพื่อไม่ต้อง refresh
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True, "chapter_id": chapter_id, "status": new_status}), 200
@@ -459,6 +472,14 @@ def delete_novel_page(novels_id):
 
             # ถ้า schema ตั้ง FK ON DELETE CASCADE ตารางลูกจะถูกลบให้อัตโนมัติ
             cur.execute("DELETE FROM novels WHERE novels_id=%s", (novels_id,))
+            try:
+                clear_novel_closed(conn, novels_id)
+            except Exception:
+                pass
+            try:
+                clear_novel_closed(conn, novels_id)
+            except Exception:
+                pass
         conn.commit()
 
     # ลบไฟล์ปกถ้ามี
@@ -504,6 +525,10 @@ def delete_chapter_page(novels_id, chapter_id):
                 "DELETE FROM chapters WHERE chapters_id=%s AND novels_id=%s",
                 (chapter_id, novels_id),
             )
+            try:
+                clear_chapter_closed(conn, chapter_id)
+            except Exception:
+                pass
 
             # เลื่อนเลขตอนถัดไปขึ้นมาแทน
             if deleted_no is not None:
@@ -702,6 +727,10 @@ def delete_chapter(chapter_id):
 
             # ลบตอน
             cur.execute("DELETE FROM chapters WHERE chapters_id=%s", (chapter_id,))
+            try:
+                clear_chapter_closed(conn, chapter_id)
+            except Exception:
+                pass
 
             # เลื่อนเลขตอนถัดไปขึ้นมาแทน (เฉพาะในนิยายเรื่องเดียวกัน)
             if novels_id is not None and deleted_no is not None:

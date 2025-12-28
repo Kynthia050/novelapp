@@ -3,6 +3,7 @@ from werkzeug.exceptions import HTTPException
 from MySQLdb.cursors import DictCursor
 from db import get_db_connection
 from slug_utils import novel_detail_url
+from moderation_utils import fetch_closed_chapter_counts
 import os
 
 mywrite_bp = Blueprint('mywrite', __name__, template_folder='templates')
@@ -208,6 +209,8 @@ def mywrite_index():
             cur.execute(sql, params)
             rows = cur.fetchall()
 
+        closed_counts = fetch_closed_chapter_counts(conn, [r.get("novels_id") for r in rows]) if rows else {}
+
         works = []
         for r in rows:
             nid = r["novels_id"]
@@ -230,6 +233,7 @@ def mywrite_index():
                 "rating": float(r.get("rating_avg") or 0.0),
                 "edited_at": r.get("edited_at"),
                 "detail_url": _detail_url(nid, r.get("title")),
+                "admin_closed_count": int(closed_counts.get(nid) or 0),
             })
 
         return render_template(
